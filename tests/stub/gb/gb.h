@@ -22,6 +22,10 @@ void waitpad(UINT8); void waitpadup(void);
 void move_sprite(UINT8,UINT8,UINT8); void set_sprite_tile(UINT8,UINT8); void set_sprite_data(UINT8,UINT8,const UINT8*);
 void set_bkg_data(UINT8,UINT8,const UINT8*); void set_bkg_tiles(UINT8,UINT8,UINT8,UINT8,const UINT8*);
 void fill_bkg_rect(UINT8,UINT8,UINT8,UINT8,UINT8);
+void set_win_tiles(UINT8,UINT8,UINT8,UINT8,const UINT8*); void fill_win_rect(UINT8,UINT8,UINT8,UINT8,UINT8); void move_win(UINT8,UINT8);
+extern UINT8 stub_win;
+#define SHOW_WIN (stub_win=1)
+#define HIDE_WIN (stub_win=0)
 #define DISPLAY_ON
 #define DISPLAY_OFF
 #define SHOW_BKG

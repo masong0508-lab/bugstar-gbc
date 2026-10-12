@@ -15,6 +15,13 @@ char *u16s(char *d, UINT16 v){
     while(n) *d++ = t[--n];
     *d = 0; return d;
 }
+char *u32s(char *d, UINT32 v){
+    char t[10]; UINT8 n = 0;
+    if(!v) t[n++] = '0';
+    while(v){ t[n++] = '0' + (UINT8)(v % 10); v /= 10; }
+    while(n) *d++ = t[--n];
+    *d = 0; return d;
+}
 static char *two(char *d, UINT8 v){ *d++ = '0' + v / 10; *d++ = '0' + v % 10; *d = 0; return d; }
 char *fmt_time(char *d, UINT32 secs){
     UINT16 h = (UINT16)(secs / 3600UL);

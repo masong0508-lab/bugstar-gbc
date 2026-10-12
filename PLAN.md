@@ -10,7 +10,7 @@ Each step ends with a ROM that boots in an emulator.
 3. Options + SRAM save: 3 slots (one SRAM bank each, FNV checksum), 15 options, 32-bit world seed, title menu CONTINUE/NEW/LOAD/OPTIONS. DONE (host-tested; `make test`).
 4. Text/menu engine, in parts:
    4a. Own font (tools/make_font.py -> src/font.c/h, tile number == ASCII), text engine core (src/text.c: put/line/box/bar/colour), menus moved onto it. DONE (host-tested).
-   4b. Window-layer HUD (HP/MP bars, gold, level) that scrolls independently of the map.
+   4b. Window-layer HUD (src/hud.c: HP/MP bars, gold, level; low-HP red) that stays put while the map scrolls. DONE (host-tested).
    4c. Typewriter dialogue box with word wrap, speaker name, A to speed up, "more" arrow.
    4d. SYSTEM menu (options, save, quit) as an overlay usable from the game.
 5. Bug creator, tile-built sprite from parts (OAM 8x16, 10 sprites/line budget).

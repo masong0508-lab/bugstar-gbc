@@ -1,4 +1,4 @@
-/* BUGSTAR GBC - step 4a: title, options, 3-slot save, own font + text engine. The game itself comes in later steps. See PLAN.md */
+/* BUGSTAR GBC - step 4b: title, options, 3-slot save, own font + text engine, window HUD. The game itself comes in later steps. See PLAN.md */
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <stdio.h>
@@ -7,6 +7,7 @@
 #include "save.h"
 #include "menus.h"
 #include "text.h"
+#include "hud.h"
 
 static UINT32 make_seed(void){
     UINT32 s = ((UINT32)title_frames << 16) ^ (frames32() << 3) ^ ((UINT32)DIV_REG << 20) ^ DIV_REG;
@@ -19,6 +20,7 @@ static void game_screen(void){
     char b[24], *d; UINT8 dirty = 1, shown = 255, msg = 0; UINT32 secs;
     play_reset(sv.secs);
     txt_cls();
+    hud_init();
     for(;;){
         secs = play_secs();
         if(dirty){
@@ -28,16 +30,25 @@ static void game_screen(void){
             d = scat(b, "LEVEL "); u16s(d, sv.level); put_line(1, 4, b, 18);
             d = scat(b, "SEED "); fmt_hex32(d, sv.seed); put_line(1, 6, b, 18);
             d = scat(b, "SAVED "); d = u16s(d, sv.saves); scat(d, " TIMES"); put_line(1, 7, b, 18);
-            put_line(1, 12, "UP: LEVEL +1 (TEST)", 18);
+            put_line(1, 10, "UP/DOWN: LEVEL +-1", 18);
+            put_line(1, 11, "LEFT/RIGHT: HP -+3", 18);
+            put_line(1, 12, "SELECT: GOLD+12345", 18);
             put_line(1, 13, "A: SAVE", 18);
             put_line(1, 14, "B: TITLE", 18);
         }
         if((UINT8)(secs & 0xFF) != shown){ shown = (UINT8)(secs & 0xFF); d = scat(b, "TIME "); fmt_time(d, secs); put_line(1, 9, b, 18); }
+        hud_update();
         wait_vbl_done(); input_poll();
         if(HIT(J_UP) && sv.level < 99){ sv.level++; dirty = 1; }
-        if(msg && !--msg) put_line(1, 16, "", 18);
-        if(HIT(J_A)){ slot_write(cur_slot); put_line(1, 16, "SAVED!", 18); msg = 90; dirty = 1; }
-        if(HIT(J_B)){ if(opt.autosave) slot_write(cur_slot); txt_cls(); return; }
+        if(HIT(J_DOWN) && sv.level > 1){ sv.level--; dirty = 1; }
+        if(HIT(J_LEFT))  sv.hp = sv.hp > 3 ? sv.hp - 3 : 0;
+        if(HIT(J_RIGHT)) sv.hp += 3;
+        if(HIT(J_SELECT)) sv.gold += 12345UL;
+        if(sv.hp > hud_hpmax(sv.level)) sv.hp = hud_hpmax(sv.level);   /* level down must not leave hp above max */
+        if(sv.mp > hud_mpmax(sv.level)) sv.mp = hud_mpmax(sv.level);
+        if(msg && !--msg) put_line(1, 15, "", 18);
+        if(HIT(J_A)){ slot_write(cur_slot); put_line(1, 15, "SAVED!", 18); msg = 90; dirty = 1; }
+        if(HIT(J_B)){ if(opt.autosave) slot_write(cur_slot); hud_hide(); txt_cls(); return; }
     }
 }
 

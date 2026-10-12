@@ -11,6 +11,7 @@
 #define TXT_RED   2
 #define TXT_GREY  3
 
+void txt_win(UINT8 on);                               /* 1: every txt_* call below draws into the window layer, 0: background */
 void txt_init(void);                                  /* LCD must be off: loads font + text palettes, clears screen */
 void txt_cls(void);                                   /* blank the whole BG map and reset every tile to palette 0 */
 void txt_put(UINT8 x, UINT8 y, const char *s);        /* write s as tiles at x,y (up to 32 chars) */

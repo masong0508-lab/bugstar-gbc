@@ -9,11 +9,18 @@
 #include "menus.h"
 #include "input.h"
 #include "text.h"
-UINT8 stub_div, stub_vbk, _cpu; int stub_bank;
+#include "hud.h"
+UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy; int stub_bank;
 unsigned char sram_buf[4*8192];
 /* ---- stubs */
 /* fake BG map (bank 0) and attribute map (bank 1): the real text engine draws into these */
 static UINT8 tmap[32][32], amap[32][32]; UINT8 pal_loaded; int font_loaded_n;
+static UINT8 wmap[32][32], wamap[32][32];
+static void wst_set(UINT8 x, UINT8 y, UINT8 t){ if(stub_vbk) wamap[y & 31][x & 31] = t; else wmap[y & 31][x & 31] = t; }
+void set_win_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) wst_set(x + i, y + j, t[j * w + i]); }
+void fill_win_rect(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) wst_set(x + i, y + j, t); }
+void move_win(UINT8 x, UINT8 y){ (void)x; stub_wy = y; }
+static int wrow_is(int y, int x, const char *want){ for(int i=0; want[i]; i++) if(wmap[y][x+i] != (UINT8)want[i]) return 0; return 1; }
 static void st_set(UINT8 x, UINT8 y, UINT8 t){ if(stub_vbk) amap[y & 31][x & 31] = t; else tmap[y & 31][x & 31] = t; }
 void set_bkg_data(UINT8 f, UINT8 n, const UINT8 *d){ (void)f; (void)d; font_loaded_n = n; }
 void set_bkg_palette(UINT8 f, UINT8 n, const palette_color_t *p){ (void)f; (void)p; pal_loaded = n; }
@@ -107,6 +114,38 @@ int main(void){
     txt_bar(0, 17, 4, 32768, 65535); CHECK(tmap[17][1] == T_BAR8 && tmap[17][2] == T_BAR0);
     txt_color(0, 3, 3, 1, TXT_GOLD); CHECK(amap[3][0] == 1 && amap[3][2] == 1 && amap[3][3] == 0 && stub_vbk == 0);
     txt_cls(); CHECK(tmap[3][2] == T_BLANK && amap[3][0] == 0);
+    /* ---- u32s */
+    u32s(b, 0); CHECK(!strcmp(b, "0")); u32s(b, 4294967295UL); CHECK(!strcmp(b, "4294967295")); u32s(b, 1000000UL); CHECK(!strcmp(b, "1000000"));
+    /* ---- window HUD */
+    txt_cls(); txt_put(0, 16, "BG ROW");
+    memset(&sv, 0, sizeof sv); sv.level = 1; sv.hp = 10; sv.mp = 5; sv.gold = 0;
+    hud_init();
+    CHECK(stub_win == 1 && stub_wy == HUD_Y && HUD_Y == 128);
+    CHECK(wmap[0][0] == T_HEART && wmap[0][1] == T_BAR_L && wmap[0][2] == T_BAR8 && wmap[0][5] == T_BAR8 && wmap[0][6] == T_BAR_R);
+    CHECK(wrow_is(0, 7, "10") && wmap[0][9] == T_BLANK && wrow_is(0, 11, "LV 1") && wmap[0][15] == T_BLANK);
+    CHECK(wmap[1][0] == T_COIN && wrow_is(1, 1, "0") && wmap[1][2] == T_BLANK && wmap[1][10] == T_STAR && wamap[1][10] == TXT_GOLD);
+    CHECK(wmap[1][11] == T_BAR_L && wmap[1][12] == T_BAR8 && wmap[1][16] == T_BAR_R && wrow_is(1, 17, "5"));
+    CHECK(wamap[0][3] == TXT_WHITE);
+    CHECK(row_is(16, 0, "BG ROW"));                              /* HUD never touches the background map */
+    txt_put(0, 17, "AFTER"); CHECK(row_is(17, 0, "AFTER") && wmap[17][0] == 0);   /* target went back to BG */
+    /* low HP turns the left half red, healing turns it back */
+    sv.hp = 2; hud_update(); CHECK(wamap[0][0] == TXT_RED && wamap[0][9] == TXT_RED && wamap[0][10] == 0 && wrow_is(0, 7, "2") && wmap[0][7 + 1] == T_BLANK);
+    sv.hp = 3; hud_update(); CHECK(wamap[0][0] == TXT_WHITE);    /* 3*4 = 12 >= 10: exactly past the 25% line */
+    sv.hp = 2; hud_update(); CHECK(wamap[0][0] == TXT_RED);
+    sv.hp = 10; hud_update(); CHECK(wamap[0][0] == TXT_WHITE && wrow_is(0, 7, "10"));
+    /* level 99: max hp 500; 250 hp is half a bar = 2 full tiles of the 4 middle ones */
+    sv.level = 99; sv.hp = 250; sv.mp = 299; hud_update();
+    CHECK(wrow_is(0, 11, "LV 99") && hud_hpmax(99) == 500 && hud_mpmax(99) == 299 && hud_hpmax(1) == 10 && hud_mpmax(1) == 5);
+    CHECK(wmap[0][2] == T_BAR8 && wmap[0][3] == T_BAR8 && wmap[0][4] == T_BAR0 && wmap[0][5] == T_BAR0 && wrow_is(0, 7, "250"));
+    CHECK(wmap[1][12] == T_BAR8 && wmap[1][15] == T_BAR8 && wrow_is(1, 17, "299"));
+    /* gold: 9 digits max, clamps above that */
+    sv.gold = 123456789UL; hud_update(); CHECK(wrow_is(1, 1, "123456789"));
+    sv.gold = 4000000000UL; hud_update(); CHECK(wrow_is(1, 1, "999999999"));
+    sv.gold = 7; hud_update(); CHECK(wrow_is(1, 1, "7") && wmap[1][2] == T_BLANK && wmap[1][9] == T_BLANK);
+    /* unchanged stats redraw nothing: poke a tile, update, it stays poked */
+    wmap[0][4] = 99; hud_update(); CHECK(wmap[0][4] == 99);
+    sv.hp = 251; hud_update(); CHECK(wmap[0][4] != 99);
+    hud_pos(144); CHECK(stub_wy == 144); hud_hide(); CHECK(stub_win == 0); hud_show(); CHECK(stub_win == 1 && stub_wy == HUD_Y);
     fprintf(stdout, "%s\n", fails ? "FAILED" : "ALL OK");
     return fails;
 }

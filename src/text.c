@@ -11,9 +11,18 @@ static const palette_color_t txt_pal[16] = {
     RGB(1,1,6), RGB(3,3,5),   RGB(11,11,14), RGB(16,16,20)    /* 3 grey */
 };
 
+static UINT8 to_win;                       /* 1: draw into the window layer instead of the background */
+void txt_win(UINT8 on){ to_win = on; }
+static void put_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){
+    if(to_win) set_win_tiles(x, y, w, h, t); else set_bkg_tiles(x, y, w, h, t);
+}
+static void fill_rect(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){
+    if(to_win) fill_win_rect(x, y, w, h, t); else fill_bkg_rect(x, y, w, h, t);
+}
+
 void txt_cls(void){
-    VBK_REG = VBK_BANK_1; fill_bkg_rect(0, 0, 32, 32, 0);     /* attributes: palette 0, bank 0 */
-    VBK_REG = VBK_BANK_0; fill_bkg_rect(0, 0, 32, 32, T_BLANK);
+    VBK_REG = VBK_BANK_1; fill_rect(0, 0, 32, 32, 0);     /* attributes: palette 0, bank 0 */
+    VBK_REG = VBK_BANK_0; fill_rect(0, 0, 32, 32, T_BLANK);
 }
 
 void txt_init(void){
@@ -26,7 +35,7 @@ void txt_init(void){
 void txt_put(UINT8 x, UINT8 y, const char *s){
     UINT8 b[32], n = 0;
     while(s[n] && n < 32){ b[n] = (UINT8)s[n] & 0x7F; n++; }
-    if(n) set_bkg_tiles(x, y, n, 1, b);
+    if(n) put_tiles(x, y, n, 1, b);
 }
 
 void txt_line(UINT8 x, UINT8 y, const char *s, UINT8 w){
@@ -34,7 +43,7 @@ void txt_line(UINT8 x, UINT8 y, const char *s, UINT8 w){
     if(w > 32) w = 32;
     while(i < w && s[i]){ b[i] = (UINT8)s[i] & 0x7F; i++; }
     while(i < w) b[i++] = T_BLANK;
-    if(w) set_bkg_tiles(x, y, w, 1, b);
+    if(w) put_tiles(x, y, w, 1, b);
 }
 
 void txt_box(UINT8 x, UINT8 y, UINT8 w, UINT8 h){
@@ -45,7 +54,7 @@ void txt_box(UINT8 x, UINT8 y, UINT8 w, UINT8 h){
         UINT8 m = r == 0 ? T_BOX_T  : r == h - 1 ? T_BOX_B  : T_BLANK;
         UINT8 e = r == 0 ? T_BOX_TR : r == h - 1 ? T_BOX_BR : T_BOX_R;
         b[0] = l; for(c = 1; c < w - 1; c++) b[c] = m; b[w - 1] = e;
-        set_bkg_tiles(x, y + r, w, 1, b);
+        put_tiles(x, y + r, w, 1, b);
     }
 }
 
@@ -61,10 +70,10 @@ void txt_bar(UINT8 x, UINT8 y, UINT8 w, UINT16 val, UINT16 max){
         b[1 + i] = T_BAR0 + (f <= lo ? 0 : f - lo >= 8 ? 8 : (UINT8)(f - lo));
     }
     b[w - 1] = T_BAR_R;
-    set_bkg_tiles(x, y, w, 1, b);
+    put_tiles(x, y, w, 1, b);
 }
 
 void txt_color(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 pal){
-    VBK_REG = VBK_BANK_1; fill_bkg_rect(x, y, w, h, pal & 3);
+    VBK_REG = VBK_BANK_1; fill_rect(x, y, w, h, pal & 3);
     VBK_REG = VBK_BANK_0;
 }
