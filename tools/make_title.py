@@ -85,12 +85,12 @@ GOLD, DG, WHITE, CYAN = (255,210,90), (60,40,10), (232,230,222), (140,220,255)
 ctext("BUGSTAR", 12, GOLD, 2, DG)
 ctext("A LITTLE BUG", 37, WHITE)
 ctext("A BIG GALAXY", 47, WHITE)
-# menu panel, aligned to the 8px tile grid: tiles x5..14, y12..15
+# menu panel, aligned to the 8px tile grid: tiles x5..14, y11..15. Four lines, 9px apart (title.c MENU_Y0/MENU_DY)
 PANEL, EDGE = (18,16,38), (255,210,90)
-img[96:128, 40:120] = PANEL
-img[96, 40:120] = EDGE; img[127, 40:120] = EDGE; img[96:128, 40] = EDGE; img[96:128, 119] = EDGE
-ctext("NEW GAME", 102, WHITE)
-ctext("CONTINUE", 114, WHITE)
+img[88:128, 40:120] = PANEL
+img[88, 40:120] = EDGE; img[127, 40:120] = EDGE; img[88:128, 40] = EDGE; img[88:128, 119] = EDGE
+for i, name in enumerate(("CONTINUE", "NEW GAME", "LOAD GAME", "OPTIONS")):
+    ctext(name, 90 + i*9, WHITE)
 img = (img & 0xF8).astype(np.uint8)
 Image.fromarray(img).save("tools/title.png")
 print("wrote tools/title.png")

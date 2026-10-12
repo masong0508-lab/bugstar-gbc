@@ -8,8 +8,11 @@ all: bugstar.gbc
 bugstar.gbc: $(SRCS) $(wildcard src/*.h)
 	$(LCC) $(FLAGS) -o $@ $(SRCS)
 clean:
-	rm -f bugstar.gbc *.map *.sym *.noi *.lst *.ihx *.o *.asm
+	rm -f host_test bugstar.gbc *.map *.sym *.noi *.lst *.ihx *.o *.asm
 # Regenerate the title art (needs python3 + numpy + pillow); the generated src/title_art.* are committed.
 art:
 	python3 tools/make_title.py && python3 tools/img2gbc.py
-.PHONY: all clean art
+# Runs the save/menu logic on the PC against a fake SRAM (needs only gcc).
+test:
+	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/menus.c -o host_test && ./host_test > /dev/null && echo "host tests: ALL OK"
+.PHONY: all clean art test

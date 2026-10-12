@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Host tests (save system + menus)
+        run: make test
       - name: Install GBDK-2020
         run: |
           curl -sL https://github.com/gbdk-2020/gbdk-2020/releases/latest/download/gbdk-linux64.tar.gz | tar xz -C /opt

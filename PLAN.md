@@ -7,7 +7,7 @@ Each step ends with a ROM that boots in an emulator.
 
 1. Scaffold: GBDK-2020 build, CI, input, title. DONE.
 2. Title art: planet re-rendered at 160x144 (tools/make_title.py), converted to 243 GBC tiles + 8 palettes (tools/img2gbc.py), sprite cursor, twinkling stars. DONE (untested on hardware/emulator).
-3. Options + SRAM save (3 slots): port save.inc, drop the huge address words; keep a 32-bit seed.
+3. Options + SRAM save: 3 slots (one SRAM bank each, FNV checksum), 15 options, 32-bit world seed, title menu CONTINUE/NEW/LOAD/OPTIONS. DONE (host-tested; `make test`).
 4. Text/menu engine: font, window-layer HUD, dialogue box. Port the SYSTEM/options page.
 5. Bug creator, tile-built sprite from parts (OAM 8x16, 10 sprites/line budget).
 6. Planet top-down: tilemap scroll replaces the 3D hills; seeded terrain from WorldDNA.
