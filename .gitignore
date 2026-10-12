@@ -1,0 +1,8 @@
+host_test
+*.o
+*.ihx
+*.map
+*.noi
+*.sym
+*.lst
+*.asm

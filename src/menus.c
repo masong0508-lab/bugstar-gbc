@@ -1,18 +1,12 @@
 #include <gb/gb.h>
-#include <stdio.h>
 #include <string.h>
 #include "input.h"
+#include "text.h"
 #include "save.h"
 #include "menus.h"
 
 /* ------------------------------------------------------------ small text helpers */
-void put_line(UINT8 x, UINT8 y, const char *s, UINT8 w){
-    char b[21]; UINT8 i = 0;
-    while(i < w && s[i]){ b[i] = s[i]; i++; }
-    while(i < w) b[i++] = ' ';
-    b[i] = 0;
-    gotoxy(x, y); printf("%s", b);
-}
+void put_line(UINT8 x, UINT8 y, const char *s, UINT8 w){ txt_line(x, y, s, w); }
 char *scat(char *d, const char *s){ while(*s) *d++ = *s++; *d = 0; return d; }
 char *u16s(char *d, UINT16 v){
     char t[6]; UINT8 n = 0;
@@ -112,12 +106,12 @@ void options_screen(void){
                 if(o >= NOPT){ put_line(0, 2 + i, "", 19); continue; }
                 v = op_val(o); nl = (UINT8)strlen(op_name[o]); vl = (UINT8)strlen(v);
                 memset(b, ' ', 19); b[19] = 0;
-                b[0] = (o == sel) ? '>' : ' ';
+                b[0] = (o == sel) ? T_CURSOR : ' ';
                 memcpy(b + 1, op_name[o], nl); memcpy(b + 19 - vl, v, vl);
                 put_line(0, 2 + i, b, 19);
             }
-            put_line(0, 1,  top > 0 ? "                  ^" : "", 19);
-            put_line(0, 13, top + OP_ROWS < NOPT ? "                  v" : "", 19);
+            put_line(0, 1,  top > 0 ? "                  " S_ARROW_UP : "", 19);
+            put_line(0, 13, top + OP_ROWS < NOPT ? "                  " S_ARROW_DN : "", 19);
             print_wrap(14, 3, op_help[sel]);
             put_line(1, 17, "LEFT/RIGHT  B:BACK", 18);
         }
@@ -155,7 +149,7 @@ int slot_picker(UINT8 mode){
             for(i = 0; i < NSLOT; i++){
                 char b[20], *d; UINT8 y = 3 + i * 3;
                 good[i] = slot_peek(i, &t);
-                d = b; *d++ = (i == sel) ? '>' : ' '; *d++ = '1' + i; *d++ = ' ';
+                d = b; *d++ = (i == sel) ? T_CURSOR : ' '; *d++ = '1' + i; *d++ = ' ';
                 if(good[i]){ d = scat(d, t.name); d = scat(d, " LV "); u16s(d, t.level); }
                 else scat(d, "EMPTY");
                 put_line(0, y, b, 19);

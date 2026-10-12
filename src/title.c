@@ -1,14 +1,13 @@
 /* Title screen (step 2): full-screen planet art from tools/img2gbc.py.
-   Art tiles live in VRAM bank 1 (bank 0 keeps the printf font), the tile map is in bank 0,
+   Art tiles live in VRAM bank 1 (bank 0 keeps the text font, see text.c), the tile map is in bank 0,
    per-tile palette/bank attributes in the bank-1 map. Menu text is baked into the art;
    the cursor is a sprite. Stars twinkle by rewriting one palette colour. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
-#include <gb/font.h>
-#include <stdio.h>
 #include "input.h"
 #include "title.h"
 #include "title_art.h"
+#include "text.h"
 
 #define CURSOR_TILE 254                 /* high sprite tile: clear of the font in tiles 0..127 */
 #define MENU_Y0     90                  /* pixel row of the first menu line (see tools/make_title.py) */
@@ -16,8 +15,6 @@
 unsigned int title_frames;
 
 static const palette_color_t cursor_pal[4] = { RGB(0,0,0), RGB(2,1,6), RGB(31,26,11), RGB(31,31,31) };
-/* text-mode BG palette 0 (printf font): deep-space blue, bug-red, gold, white */
-static const palette_color_t text_pal[4]   = { RGB(1,1,6), RGB(26,6,6), RGB(30,24,4), RGB(31,31,31) };
 
 void title_init(void){
     DISPLAY_OFF;
@@ -73,12 +70,6 @@ int title_run(UINT8 have_save){
 void title_exit(void){
     DISPLAY_OFF;
     HIDE_SPRITES;
-    VBK_REG = VBK_BANK_1;
-    fill_bkg_rect(0, 0, 32, 32, 0);                    /* clear attributes: palette 0, bank 0 */
-    VBK_REG = VBK_BANK_0;
-    set_bkg_palette(0, 1, text_pal);
-    font_init();
-    font_set(font_load(font_ibm));                     /* back to printf text mode */
-    cls();
+    txt_init();                                        /* font + text palettes, blank map, attributes reset */
     DISPLAY_ON;
 }

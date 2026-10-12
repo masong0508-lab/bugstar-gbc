@@ -1,4 +1,4 @@
-/* BUGSTAR GBC - step 3: title, options, 3-slot save. The game itself comes in later steps. See PLAN.md */
+/* BUGSTAR GBC - step 4a: title, options, 3-slot save, own font + text engine. The game itself comes in later steps. See PLAN.md */
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <stdio.h>
@@ -6,6 +6,7 @@
 #include "title.h"
 #include "save.h"
 #include "menus.h"
+#include "text.h"
 
 static UINT32 make_seed(void){
     UINT32 s = ((UINT32)title_frames << 16) ^ (frames32() << 3) ^ ((UINT32)DIV_REG << 20) ^ DIV_REG;
@@ -17,7 +18,7 @@ static UINT32 make_seed(void){
 static void game_screen(void){
     char b[24], *d; UINT8 dirty = 1, shown = 255, msg = 0; UINT32 secs;
     play_reset(sv.secs);
-    cls();
+    txt_cls();
     for(;;){
         secs = play_secs();
         if(dirty){
@@ -36,7 +37,7 @@ static void game_screen(void){
         if(HIT(J_UP) && sv.level < 99){ sv.level++; dirty = 1; }
         if(msg && !--msg) put_line(1, 16, "", 18);
         if(HIT(J_A)){ slot_write(cur_slot); put_line(1, 16, "SAVED!", 18); msg = 90; dirty = 1; }
-        if(HIT(J_B)){ if(opt.autosave) slot_write(cur_slot); cls(); return; }
+        if(HIT(J_B)){ if(opt.autosave) slot_write(cur_slot); txt_cls(); return; }
     }
 }
 
@@ -57,6 +58,6 @@ void main(void){
             s = slot_picker(1);
             if(s >= 0){ cur_slot = s; new_game(s, make_seed()); game_screen(); }
         }
-        cls();
+        txt_cls();
     }
 }

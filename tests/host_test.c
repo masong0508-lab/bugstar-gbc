@@ -4,21 +4,30 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <gb/gb.h>
+#include <gb/cgb.h>
 #include "save.h"
 #include "menus.h"
 #include "input.h"
+#include "text.h"
 UINT8 stub_div, stub_vbk, _cpu; int stub_bank;
 unsigned char sram_buf[4*8192];
 /* ---- stubs */
-static int cx, cy; static char scr[18][21];
+/* fake BG map (bank 0) and attribute map (bank 1): the real text engine draws into these */
+static UINT8 tmap[32][32], amap[32][32]; UINT8 pal_loaded; int font_loaded_n;
+static void st_set(UINT8 x, UINT8 y, UINT8 t){ if(stub_vbk) amap[y & 31][x & 31] = t; else tmap[y & 31][x & 31] = t; }
+void set_bkg_data(UINT8 f, UINT8 n, const UINT8 *d){ (void)f; (void)d; font_loaded_n = n; }
+void set_bkg_palette(UINT8 f, UINT8 n, const palette_color_t *p){ (void)f; (void)p; pal_loaded = n; }
+void set_bkg_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) st_set(x + i, y + j, t[j * w + i]); }
+void fill_bkg_rect(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) st_set(x + i, y + j, t); }
+static char glyph(UINT8 t){ switch(t){ case 0: return ' '; case T_CURSOR: return '>'; case T_ARROW_DN: return 'v'; case T_ARROW_UP: return '^'; default: return t >= 32 && t < 127 ? (char)t : '#'; } }
 static const UINT8 *script; static int sp, phase;
 UINT8 joypad(void){ if(!script) return 0; UINT8 k = script[sp]; if(k==0xFF) { fprintf(stderr,"script ended\n"); exit(2);} return phase ? k : 0; }
 void wait_vbl_done(void){ if(phase){ phase=0; sp++; } else phase=1; /* press for one poll, release for one */ }
-void gotoxy(UINT8 x, UINT8 y){ cx=x; cy=y; }
-void cls(void){ memset(scr,' ',sizeof scr); for(int i=0;i<18;i++) scr[i][20]=0; }
-int printf(const char *f, ...){ va_list a; va_start(a,f); char b[64]; vsnprintf(b,64,f,a); va_end(a); for(char*p=b;*p;p++){ if(cy<18&&cx<20) scr[cy][cx]=*p; cx++; } return 0; }
+void gotoxy(UINT8 x, UINT8 y){ (void)x; (void)y; }
+void cls(void){ txt_cls(); }
 void add_VBL(void(*f)(void)){} void set_interrupts(UINT8 x){}
-static void dump(const char*t){ fprintf(stdout,"--- %s\n",t); for(int i=0;i<18;i++){ char l[21]; memcpy(l,scr[i],20); l[20]=0; int e=19; while(e>=0&&l[e]==' ') l[e--]=0; fprintf(stdout,"|%s\n",l);} }
+static void dump(const char*t){ fprintf(stdout,"--- %s\n",t); for(int i=0;i<18;i++){ char l[21]; for(int c=0;c<20;c++) l[c]=glyph(tmap[i][c]); l[20]=0; int e=19; while(e>=0&&l[e]==' ') l[e--]=0; fprintf(stdout,"|%s\n",l);} }
+static int row_is(int y, int x, const char *want){ for(int i=0; want[i]; i++) if(tmap[y][x+i] != (UINT8)want[i]) return 0; return 1; }
 #define CHECK(c) do{ if(!(c)){ fprintf(stdout,"FAIL line %d: %s\n",__LINE__,#c); fails++; } }while(0)
 int fails;
 int main(void){
@@ -66,6 +75,38 @@ int main(void){
     save_init(); script=o1; sp=0; phase=0; cls(); options_screen();
     CHECK(opt.baby==1); CHECK(opt.diff==4 /* 1->0->4 */); CHECK(opt.arrow==1); dump("options after edits (cursor wrapped to bottom)");
     memset(&opt,0,sizeof opt); save_init(); CHECK(opt.baby==1 && opt.diff==4);
+    /* ---- font data: tile number == ASCII, every drawn glyph has ink, aliases and specials are right */
+    CHECK(sizeof bs_font == 128 * 16);
+    for(int t = 0; t < 128; t++){
+        int ink = 0, shadow = 0;
+        for(int r = 0; r < 8; r++){ UINT8 lo = bs_font[t*16+r*2], hi = bs_font[t*16+r*2+1]; ink |= (lo & hi); shadow |= (lo & ~hi); }
+        if(t == 0 || t == ' ') CHECK(!ink && !shadow);
+        if((t >= 33 && t <= 90) || (t >= 123 && t <= 126) || t == '`') CHECK(ink);
+        if(t >= 'A' && t <= 'Z') { CHECK(shadow); CHECK(!memcmp(bs_font + t*16, bs_font + (t + 32)*16, 16)); }
+    }
+    CHECK(bs_font[T_BOX_TL*16+2] == 0x3F); CHECK(T_BAR8 - T_BAR0 == 8);
+    CHECK(S_CURSOR[0] == T_CURSOR && S_CURSOR[1] == 0 && S_HEART[0] == T_HEART);
+    /* ---- text engine */
+    txt_init(); CHECK(font_loaded_n == FONT_NTILES && pal_loaded == 4);
+    txt_put(2, 3, "AB"); CHECK(tmap[3][2] == 'A' && tmap[3][3] == 'B' && tmap[3][4] == T_BLANK);
+    txt_line(1, 4, "HELLO", 8); CHECK(row_is(4, 1, "HELLO") && tmap[4][6] == T_BLANK && tmap[4][8] == T_BLANK);
+    txt_line(0, 5, "TOOLONGTEXT", 4); CHECK(row_is(5, 0, "TOOL") && tmap[5][4] == T_BLANK);
+    txt_put(0, 6, "a" S_HEART "z"); CHECK(tmap[6][0] == 'a' && tmap[6][1] == T_HEART && tmap[6][2] == 'z');
+    txt_box(1, 7, 6, 4);
+    CHECK(tmap[7][1] == T_BOX_TL && tmap[7][3] == T_BOX_T && tmap[7][6] == T_BOX_TR);
+    CHECK(tmap[8][1] == T_BOX_L && tmap[8][3] == T_BLANK && tmap[8][6] == T_BOX_R);
+    CHECK(tmap[10][1] == T_BOX_BL && tmap[10][4] == T_BOX_B && tmap[10][6] == T_BOX_BR && tmap[7][0] == T_BLANK && tmap[7][7] == T_BLANK);
+    /* bar: 6 tiles wide = 4 middle tiles = 32 px; 50% = 16 px = two full tiles then two empty */
+    txt_bar(0, 12, 6, 50, 100);
+    CHECK(tmap[12][0] == T_BAR_L && tmap[12][1] == T_BAR8 && tmap[12][2] == T_BAR8 && tmap[12][3] == T_BAR0 && tmap[12][4] == T_BAR0 && tmap[12][5] == T_BAR_R);
+    txt_bar(0, 13, 6, 3, 32 * 1);                       /* 3/32 of 32 px = 3 px */
+    CHECK(tmap[13][1] == T_BAR0 + 3 && tmap[13][2] == T_BAR0);
+    txt_bar(0, 14, 6, 999, 100); CHECK(tmap[14][4] == T_BAR8);          /* over max clamps to full */
+    txt_bar(0, 15, 6, 5, 0);     CHECK(tmap[15][1] == T_BAR0);          /* max 0 is empty, no divide by zero */
+    txt_bar(0, 16, 4, 65535, 65535); CHECK(tmap[16][1] == T_BAR8 && tmap[16][2] == T_BAR8);  /* 16-bit values do not overflow */
+    txt_bar(0, 17, 4, 32768, 65535); CHECK(tmap[17][1] == T_BAR8 && tmap[17][2] == T_BAR0);
+    txt_color(0, 3, 3, 1, TXT_GOLD); CHECK(amap[3][0] == 1 && amap[3][2] == 1 && amap[3][3] == 0 && stub_vbk == 0);
+    txt_cls(); CHECK(tmap[3][2] == T_BLANK && amap[3][0] == 0);
     fprintf(stdout, "%s\n", fails ? "FAILED" : "ALL OK");
     return fails;
 }
