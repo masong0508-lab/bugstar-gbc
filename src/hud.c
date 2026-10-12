@@ -20,11 +20,13 @@ static UINT16 l_hp, l_mp, l_lv; static UINT32 l_gold;
 UINT16 hud_hpmax(UINT16 level){ return 5 + 5 * level; }
 UINT16 hud_mpmax(UINT16 level){ return 2 + 3 * level; }
 
+static UINT8 on;
 void hud_pos(UINT8 y){ move_win(7, y); }
-void hud_show(void){ hud_pos(HUD_Y); SHOW_WIN; }
-void hud_hide(void){ HIDE_WIN; }
+void hud_show(void){ hud_pos(HUD_Y); SHOW_WIN; on = 1; }
+void hud_hide(void){ HIDE_WIN; on = 0; }
+UINT8 hud_is_on(void){ return on; }
 
-void hud_init(void){
+void hud_redraw(void){
     txt_win(1);
     txt_cls();                                       /* clears the window map and its attributes */
     txt_put(0, 0, S_HEART);
@@ -34,8 +36,8 @@ void hud_init(void){
     txt_win(0);
     l_hp = l_mp = l_lv = 0xFFFF; l_gold = 0xFFFFFFFFUL;   /* impossible values: everything redraws once */
     hud_update();
-    hud_show();
 }
+void hud_init(void){ hud_redraw(); hud_show(); }
 
 void hud_update(void){
     char b[12]; UINT16 lvmax; UINT8 hp_changed, lv_changed;

@@ -9,6 +9,8 @@
 UINT16 hud_hpmax(UINT16 level);            /* placeholder stat curve until the bug stats step: 10 at level 1 */
 UINT16 hud_mpmax(UINT16 level);            /* 5 at level 1 */
 void hud_init(void);                       /* draw everything and show the window (LCD may be on, drawing is VBL-safe) */
+void hud_redraw(void);                     /* draw everything into the window map without moving or showing it */
+UINT8 hud_is_on(void);                     /* 1 between hud_show/hud_init and hud_hide */
 void hud_update(void);                     /* redraw only what changed since last call: cheap, call every frame */
 void hud_pos(UINT8 y);                     /* slide the window to pixel row y (HUD_Y = docked, 144 = off screen) */
 void hud_show(void);

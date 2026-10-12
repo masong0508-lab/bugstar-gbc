@@ -10,6 +10,7 @@
 #include "input.h"
 #include "text.h"
 #include "hud.h"
+#include "dialog.h"
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy; int stub_bank;
 unsigned char sram_buf[4*8192];
 /* ---- stubs */
@@ -28,8 +29,9 @@ void set_bkg_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){ for(UINT
 void fill_bkg_rect(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) st_set(x + i, y + j, t); }
 static char glyph(UINT8 t){ switch(t){ case 0: return ' '; case T_CURSOR: return '>'; case T_ARROW_DN: return 'v'; case T_ARROW_UP: return '^'; default: return t >= 32 && t < 127 ? (char)t : '#'; } }
 static const UINT8 *script; static int sp, phase;
-UINT8 joypad(void){ if(!script) return 0; UINT8 k = script[sp]; if(k==0xFF) { fprintf(stderr,"script ended\n"); exit(2);} return phase ? k : 0; }
-void wait_vbl_done(void){ if(phase){ phase=0; sp++; } else phase=1; /* press for one poll, release for one */ }
+static UINT8 (*padfn)(int); static int frames;
+UINT8 joypad(void){ if(padfn) return padfn(frames); if(!script) return 0; UINT8 k = script[sp]; if(k==0xFF) { fprintf(stderr,"script ended\n"); exit(2);} return phase ? k : 0; }
+void wait_vbl_done(void){ frames++; if(phase){ phase=0; sp++; } else phase=1; /* press for one poll, release for one */ }
 void gotoxy(UINT8 x, UINT8 y){ (void)x; (void)y; }
 void cls(void){ txt_cls(); }
 void add_VBL(void(*f)(void)){} void set_interrupts(UINT8 x){}
@@ -37,6 +39,21 @@ static void dump(const char*t){ fprintf(stdout,"--- %s\n",t); for(int i=0;i<18;i
 static int row_is(int y, int x, const char *want){ for(int i=0; want[i]; i++) if(tmap[y][x+i] != (UINT8)want[i]) return 0; return 1; }
 #define CHECK(c) do{ if(!(c)){ fprintf(stdout,"FAIL line %d: %s\n",__LINE__,#c); fails++; } }while(0)
 int fails;
+/* ---- dialogue test pad: presses A whenever the "more" arrow is showing, snapshotting the window first */
+static int d_snaps, d_last, d_blips, d_rush_at = -1, d_start;
+static UINT8 d_snap[4][6][20], d_snapa[4][6][20];
+static UINT8 pad_dlg(int f){
+    UINT8 r = 0;
+    if(d_rush_at >= 0 && f - d_start == d_rush_at) return J_A;
+    if(wmap[5][18] == T_ARROW_DN && stub_wy == DLG_Y && !d_last){
+        if(d_snaps < 4){ for(int y = 0; y < 6; y++){ memcpy(d_snap[d_snaps][y], wmap[y], 20); memcpy(d_snapa[d_snaps][y], wamap[y], 20); } }
+        d_snaps++; r = J_A;
+    }
+    d_last = r ? 1 : 0; return r;
+}
+static void d_blip(void){ d_blips++; }
+static int snap_is(int pg, int y, const char *want){ for(int i = 0; want[i]; i++) if(d_snap[pg][y][1 + i] != (UINT8)want[i]) return 0; return strlen(want) >= 18 || d_snap[pg][y][1 + (int)strlen(want)] == T_BLANK; }   /* a full 18-column line runs into the frame */
+static int d_run(const char *name, const char *text, UINT8 spd){ keys = keys_old = 0; d_snaps = 0; d_last = 0; d_blips = 0; padfn = pad_dlg; d_start = frames; dlg_set_speed(spd); dlg_say(name, text); padfn = 0; return frames - d_start; }
 int main(void){
     extern UINT8 keys, keys_old; (void)keys; (void)keys_old;
     cls();
@@ -146,6 +163,48 @@ int main(void){
     wmap[0][4] = 99; hud_update(); CHECK(wmap[0][4] == 99);
     sv.hp = 251; hud_update(); CHECK(wmap[0][4] != 99);
     hud_pos(144); CHECK(stub_wy == 144); hud_hide(); CHECK(stub_win == 0); hud_show(); CHECK(stub_win == 1 && stub_wy == HUD_Y);
+    /* ---- dialogue: word wrap */
+    { const char *p; char l[20]; UINT8 n;
+      p = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG";
+      n = dlg_next_line(&p, l); CHECK(n == 15 && !strcmp(l, "THE QUICK BROWN"));
+      n = dlg_next_line(&p, l); CHECK(n == 18 && !strcmp(l, "FOX JUMPS OVER THE"));
+      n = dlg_next_line(&p, l); CHECK(n == 8 && !strcmp(l, "LAZY DOG"));
+      n = dlg_next_line(&p, l); CHECK(n == 255);
+      p = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      n = dlg_next_line(&p, l); CHECK(n == 18 && !strcmp(l, "ABCDEFGHIJKLMNOPQR"));
+      n = dlg_next_line(&p, l); CHECK(n == 8 && !strcmp(l, "STUVWXYZ"));
+      p = "A\nB"; n = dlg_next_line(&p, l); CHECK(n == 1 && l[0] == 'A'); n = dlg_next_line(&p, l); CHECK(n == 1 && l[0] == 'B'); CHECK(dlg_next_line(&p, l) == 255);
+      p = "A\n\nB"; dlg_next_line(&p, l); n = dlg_next_line(&p, l); CHECK(n == 0 && !l[0]); n = dlg_next_line(&p, l); CHECK(n == 1 && l[0] == 'B');
+      p = "  HI  \nYO"; n = dlg_next_line(&p, l); CHECK(n == 2 && !strcmp(l, "HI")); n = dlg_next_line(&p, l); CHECK(n == 2 && !strcmp(l, "YO"));
+      p = ""; CHECK(dlg_next_line(&p, l) == 255);
+      p = "EXACTLY EIGHTEEN!!"; n = dlg_next_line(&p, l); CHECK(n == 18); CHECK(dlg_next_line(&p, l) == 255);
+    }
+    /* ---- dialogue: box, name, two pages, HUD slides away and back */
+    memset(&sv, 0, sizeof sv); sv.level = 1; sv.hp = 10; sv.mp = 5; hud_init();
+    { dlg_set_blip(d_blip); int fr = d_run("BUG", "ONE\nTWO\nTHREE\nFOUR", 1);
+      CHECK(d_snaps == 2); (void)fr;
+      CHECK(d_snap[0][0][0] == T_BOX_TL && d_snap[0][0][19] == T_BOX_TR && d_snap[0][5][0] == T_BOX_BL && d_snap[0][5][19] == T_BOX_BR);
+      CHECK(d_snap[0][3][0] == T_BOX_L && d_snap[0][3][19] == T_BOX_R);
+      CHECK(snap_is(0, 1, "BUG") && d_snapa[0][1][1] == TXT_GOLD && d_snapa[0][2][1] == TXT_WHITE);
+      CHECK(snap_is(0, 2, "ONE") && snap_is(0, 3, "TWO") && snap_is(0, 4, "THREE"));
+      CHECK(snap_is(1, 1, "BUG") && snap_is(1, 2, "FOUR") && snap_is(1, 3, "") && snap_is(1, 4, ""));    /* page 2: old text cleared */
+      CHECK(d_blips == 3 + 3 + 5 + 4);                                                                   /* one blip per visible char */
+      CHECK(stub_win == 1 && stub_wy == HUD_Y && wmap[0][0] == T_HEART && wrow_is(0, 11, "LV 1"));      /* HUD is back and redrawn */
+    }
+    /* no name: 4 lines per page, starting on row 1; no HUD showing -> window hides afterwards */
+    hud_hide(); dlg_set_blip(0);
+    d_run(0, "A\nB\nC\nD\nE", 0);
+    CHECK(d_snaps == 2 && snap_is(0, 1, "A") && snap_is(0, 4, "D") && snap_is(1, 1, "E") && snap_is(1, 2, ""));
+    CHECK(stub_win == 0);
+    d_run("X", "", 0); CHECK(d_snaps == 0 && stub_win == 0);                                          /* empty text opens nothing to wait on */
+    /* rush: A during typing finishes the page early */
+    { const char *t = "THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG AGAIN";
+      d_rush_at = -1; int slow = d_run("BUG", t, 3);
+      d_rush_at = 40; int fast = d_run("BUG", t, 3); d_rush_at = -1;
+      CHECK(slow > 100 && fast < slow - 50);
+      CHECK(snap_is(0, 2, "THE QUICK BROWN") && snap_is(0, 3, "FOX JUMPS OVER THE") && snap_is(0, 4, "LAZY DOG AGAIN"));   /* rushed text is complete */
+    }
+    dlg_set_speed(2);
     fprintf(stdout, "%s\n", fails ? "FAILED" : "ALL OK");
     return fails;
 }
