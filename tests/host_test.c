@@ -11,7 +11,8 @@
 #include "text.h"
 #include "hud.h"
 #include "dialog.h"
-UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy; int stub_bank;
+#include "sysmenu.h"
+UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
 unsigned char sram_buf[4*8192];
 /* ---- stubs */
 /* fake BG map (bank 0) and attribute map (bank 1): the real text engine draws into these */
@@ -20,7 +21,7 @@ static UINT8 wmap[32][32], wamap[32][32];
 static void wst_set(UINT8 x, UINT8 y, UINT8 t){ if(stub_vbk) wamap[y & 31][x & 31] = t; else wmap[y & 31][x & 31] = t; }
 void set_win_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) wst_set(x + i, y + j, t[j * w + i]); }
 void fill_win_rect(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){ for(UINT8 j = 0; j < h; j++) for(UINT8 i = 0; i < w; i++) wst_set(x + i, y + j, t); }
-void move_win(UINT8 x, UINT8 y){ (void)x; stub_wy = y; }
+void move_win(UINT8 x, UINT8 y){ stub_wx = x; stub_wy = y; }
 static int wrow_is(int y, int x, const char *want){ for(int i=0; want[i]; i++) if(wmap[y][x+i] != (UINT8)want[i]) return 0; return 1; }
 static void st_set(UINT8 x, UINT8 y, UINT8 t){ if(stub_vbk) amap[y & 31][x & 31] = t; else tmap[y & 31][x & 31] = t; }
 void set_bkg_data(UINT8 f, UINT8 n, const UINT8 *d){ (void)f; (void)d; font_loaded_n = n; }
@@ -53,6 +54,18 @@ static UINT8 pad_dlg(int f){
 }
 static void d_blip(void){ d_blips++; }
 static int snap_is(int pg, int y, const char *want){ for(int i = 0; want[i]; i++) if(d_snap[pg][y][1 + i] != (UINT8)want[i]) return 0; return strlen(want) >= 18 || d_snap[pg][y][1 + (int)strlen(want)] == T_BLANK; }   /* a full 18-column line runs into the frame */
+/* ---- SYSTEM menu test pad: each step is one press then one release; every poll snapshots the window and state */
+static const UINT8 *sq; static int sq_n, sq_calls, sq_win[40], sq_wx[40]; static UINT8 sq_snap[40][8][12];
+static int redraws;
+static UINT8 pad_seq(int f){
+    (void)f; int i = sq_n / 2; UINT8 k = sq[i];
+    if(k == 0xFF){ fprintf(stderr, "sysmenu script ended\n"); exit(2); }
+    if(sq_n < 40){ for(int y = 0; y < 8; y++) memcpy(sq_snap[sq_n][y], wmap[y], 12); sq_win[sq_n] = stub_win; sq_wx[sq_n] = stub_wx; }
+    return (sq_n++ & 1) ? 0 : k;
+}
+static void sm_repaint(void){ redraws++; }
+static int sm_run(const UINT8 *seq){ keys = keys_old = 0; sq = seq; sq_n = 0; redraws = 0; padfn = pad_seq; int r = sysmenu_run(sm_repaint); padfn = 0; return r; }
+static int sq_is(int n, int y, int x, const char *want){ for(int i = 0; want[i]; i++) if(sq_snap[n][y][x + i] != (UINT8)want[i]) return 0; return 1; }
 static int d_run(const char *name, const char *text, UINT8 spd){ keys = keys_old = 0; d_snaps = 0; d_last = 0; d_blips = 0; padfn = pad_dlg; d_start = frames; dlg_set_speed(spd); dlg_say(name, text); padfn = 0; return frames - d_start; }
 int main(void){
     extern UINT8 keys, keys_old; (void)keys; (void)keys_old;
@@ -205,6 +218,59 @@ int main(void){
       CHECK(snap_is(0, 2, "THE QUICK BROWN") && snap_is(0, 3, "FOX JUMPS OVER THE") && snap_is(0, 4, "LAZY DOG AGAIN"));   /* rushed text is complete */
     }
     dlg_set_speed(2);
+    /* ---- SYSTEM menu */
+    memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv);
+    CHECK(SM_WX == 71 && SM_WY == 80);
+    { /* open with the HUD showing, resume with B: layout, then HUD is back */
+      static const UINT8 q1[] = { J_B, 0xFF };
+      hud_init(); sv.level = 1; sv.hp = 10; hud_update();
+      CHECK(sm_run(q1) == SYS_RESUME);
+      CHECK(sq_wx[0] == SM_WX && stub_wx == 7 && stub_wy == HUD_Y && stub_win == 1 && wmap[0][0] == T_HEART && wrow_is(0, 11, "LV 1"));
+      CHECK(sq_snap[0][0][0] == T_BOX_TL && sq_snap[0][0][11] == T_BOX_TR && sq_snap[0][7][0] == T_BOX_BL && sq_snap[0][7][11] == T_BOX_BR);
+      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "SAVE") && sq_is(0, 5, 2, "OPTIONS") && sq_is(0, 6, 2, "TO TITLE"));
+      CHECK(sq_snap[0][3][1] == T_CURSOR && sq_snap[0][4][1] == ' ');
+      CHECK(wamap[0][0] == TXT_WHITE);
+    }
+    { /* no HUD: window hides afterwards. START resumes too */
+      static const UINT8 q2[] = { J_START, 0xFF };
+      hud_hide(); CHECK(sm_run(q2) == SYS_RESUME); CHECK(stub_win == 0);
+      static const UINT8 q2b[] = { J_A, 0xFF };                         /* A on RESUME */
+      CHECK(sm_run(q2b) == SYS_RESUME);
+    }
+    { /* DOWN, A = save; stays open showing SAVED!; cursor moved; then B */
+      static const UINT8 q3[] = { J_DOWN, J_A, J_B, 0xFF };
+      UINT16 before = 0; Save t; slot_peek(0, &t); before = t.saves;
+      sv.level = 17;
+      CHECK(sm_run(q3) == SYS_RESUME);
+      CHECK(sq_snap[2][4][1] == T_CURSOR && sq_snap[2][3][1] == ' ');
+      CHECK(sq_is(4, 2, 1, "SAVED!") && sq_is(4, 4, 1, "") && sq_snap[4][4][1] == T_CURSOR);
+      slot_peek(0, &t); CHECK(t.saves == before + 1 && t.level == 17);
+    }
+    { /* cursor wraps both ways and clears the status line */
+      static const UINT8 q4[] = { J_UP, J_DOWN, J_DOWN, J_B, 0xFF };
+      CHECK(sm_run(q4) == SYS_RESUME);
+      CHECK(sq_snap[2][6][1] == T_CURSOR && sq_snap[4][3][1] == T_CURSOR && sq_snap[6][4][1] == T_CURSOR);
+    }
+    { /* OPTIONS: overlay hides, options page runs (B inside it), repaint hook fires, overlay returns */
+      static const UINT8 q5[] = { J_DOWN, J_DOWN, J_A, J_B, J_B, 0xFF };
+      opt.sfx = 1; hud_hide();
+      CHECK(sm_run(q5) == SYS_RESUME);
+      CHECK(redraws == 1 && sq_win[6] == 0 /* hidden while the options page polls */ && sq_win[8] == 1 && stub_win == 0);
+    }
+    { /* TO TITLE: B cancels the prompt, A confirms, autosave writes the slot */
+      static const UINT8 q6[] = { J_UP, J_A, J_B, J_B, 0xFF };
+      CHECK(sm_run(q6) == SYS_RESUME);
+      CHECK(sq_is(4, 4, 1, "SURE?") && sq_is(4, 5, 1, " A: YES") && sq_is(4, 6, 1, " B: NO"));   /* prompt shows while waiting */
+      CHECK(sq_snap[6][6][1] == T_CURSOR && sq_is(6, 6, 2, "TO TITLE") && sq_is(6, 4, 2, "SAVE"));  /* B cancelled: list restored */
+      static const UINT8 q7[] = { J_UP, J_A, J_A, 0xFF };
+      Save t; opt.autosave = 1; sv.level = 33; hud_hide();
+      CHECK(sm_run(q7) == SYS_TITLE);
+      slot_peek(0, &t); CHECK(t.level == 33);
+      opt.autosave = 0; sv.level = 44; hud_hide();
+      CHECK(sm_run(q7) == SYS_TITLE);
+      slot_peek(0, &t); CHECK(t.level == 33);                                  /* autosave off: not written */
+      CHECK(stub_win == 0);
+    }
     fprintf(stdout, "%s\n", fails ? "FAILED" : "ALL OK");
     return fails;
 }

@@ -12,7 +12,7 @@ Each step ends with a ROM that boots in an emulator.
    4a. Own font (tools/make_font.py -> src/font.c/h, tile number == ASCII), text engine core (src/text.c: put/line/box/bar/colour), menus moved onto it. DONE (host-tested).
    4b. Window-layer HUD (src/hud.c: HP/MP bars, gold, level; low-HP red) that stays put while the map scrolls. DONE (host-tested).
    4c. Typewriter dialogue box (src/dialog.c): slides over the HUD, word wrap, speaker name, paging with a blinking arrow, A rushes. DONE (host-tested).
-   4d. SYSTEM menu (options, save, quit) as an overlay usable from the game.
+   4d. SYSTEM menu (src/sysmenu.c): right-side overlay in the window layer, RESUME / SAVE / OPTIONS / TO TITLE, START opens it in the game. DONE (host-tested). Step 4 complete.
 5. Bug creator, tile-built sprite from parts (OAM 8x16, 10 sprites/line budget).
 6. Planet top-down: tilemap scroll replaces the 3D hills; seeded terrain from WorldDNA.
 7. Dungeon: top-down or fake-3D by row-strip (NOT textured raycast); monsters, bite, items.

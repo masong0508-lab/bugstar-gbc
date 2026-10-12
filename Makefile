@@ -17,5 +17,5 @@ font:
 	python3 tools/make_font.py
 # Runs the save/menu logic on the PC against a fake SRAM (needs only gcc).
 test:
-	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/menus.c src/text.c src/font.c src/hud.c src/dialog.c -o host_test && ./host_test > /dev/null && echo "host tests: ALL OK"
+	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/menus.c src/text.c src/font.c src/hud.c src/dialog.c src/sysmenu.c -o host_test && ./host_test > /dev/null && echo "host tests: ALL OK"
 .PHONY: all clean art font test
