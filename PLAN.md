@@ -13,7 +13,10 @@ Each step ends with a ROM that boots in an emulator.
    4b. Window-layer HUD (src/hud.c: HP/MP bars, gold, level; low-HP red) that stays put while the map scrolls. DONE (host-tested).
    4c. Typewriter dialogue box (src/dialog.c): slides over the HUD, word wrap, speaker name, paging with a blinking arrow, A rushes. DONE (host-tested).
    4d. SYSTEM menu (src/sysmenu.c): right-side overlay in the window layer, RESUME / SAVE / OPTIONS / TO TITLE, START opens it in the game. DONE (host-tested). Step 4 complete.
-5. Bug creator, tile-built sprite from parts (OAM 8x16, 10 sprites/line budget).
+5. Bug creator. DONE (builds; untested on screen). src/bug.c builds the bug at run time from parts (art: tools/make_bug.py -> src/bugparts.c),
+   cut into 8x16 sprites, at most 6 per scanline; 13 parts + 8 colours (the GBA's antenna/leg colours are now the outline), 18 ready-made looks,
+   MATCH colour schemes, lock, surprise, undo, RGB mixer, name entry (src/bugmake.c). Save slots are now v2 (96 bytes, holds the look; v1 slots convert on load).
+   NEW GAME opens the creator; a walking bug shows on the placeholder game screen. Not done: a MIRROR entry in the SYSTEM menu (call bugmake_run(&sv.look, sv.name, 0)).
 6. Planet top-down: tilemap scroll replaces the 3D hills; seeded terrain from WorldDNA.
 7. Dungeon: top-down or fake-3D by row-strip (NOT textured raycast); monsters, bite, items.
 8. Space/ship/hangar: flat-sprite flight, simple galaxy of 256 stars, 32-bit seed.

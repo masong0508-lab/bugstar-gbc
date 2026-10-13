@@ -16,13 +16,15 @@ void txt_win(UINT8 on){ to_win = on; }
 static void put_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){
     if(to_win) set_win_tiles(x, y, w, h, t); else set_bkg_tiles(x, y, w, h, t);
 }
-static void fill_rect(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){
+static void txt_fill(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){
     if(to_win) fill_win_rect(x, y, w, h, t); else fill_bkg_rect(x, y, w, h, t);
 }
 
+void txt_pal_reset(void){ set_bkg_palette(0, 4, txt_pal); }
+
 void txt_cls(void){
-    VBK_REG = VBK_BANK_1; fill_rect(0, 0, 32, 32, 0);     /* attributes: palette 0, bank 0 */
-    VBK_REG = VBK_BANK_0; fill_rect(0, 0, 32, 32, T_BLANK);
+    VBK_REG = VBK_BANK_1; txt_fill(0, 0, 32, 32, 0);     /* attributes: palette 0, bank 0 */
+    VBK_REG = VBK_BANK_0; txt_fill(0, 0, 32, 32, T_BLANK);
 }
 
 void txt_init(void){
@@ -74,6 +76,6 @@ void txt_bar(UINT8 x, UINT8 y, UINT8 w, UINT16 val, UINT16 max){
 }
 
 void txt_color(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 pal){
-    VBK_REG = VBK_BANK_1; fill_rect(x, y, w, h, pal & 3);
+    VBK_REG = VBK_BANK_1; txt_fill(x, y, w, h, pal & 7);
     VBK_REG = VBK_BANK_0;
 }

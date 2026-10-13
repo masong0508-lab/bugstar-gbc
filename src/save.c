@@ -5,7 +5,7 @@
 
 #define SAVE_MAGIC 0x43475542UL      /* "BUGC" */
 #define SET_MAGIC  0x53544553UL      /* "SETS" */
-#define SAVE_VER   1
+#define SAVE_VER   2
 #define SET_BANK   3
 /* MBC5 cart RAM: 0x0A to 0x0000-0x1FFF enables it, the RAM bank number goes to 0x4000-0x5FFF.
    (tests/ overrides these to run the save logic on a PC) */
@@ -21,6 +21,9 @@ Opts  opt;
 UINT8 cur_slot = 0, last_slot = 0;
 
 typedef struct { UINT32 magic; UINT8 last; Opts o; UINT32 sum; } Settings;
+typedef struct {                 /* the version 1 slot (steps 3-4), converted on load */
+    UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9]; UINT8 rsv[20]; UINT32 sum;
+} Save1;
 
 static volatile UINT32 vbl32;
 static UINT32 play_base, play_t0;
@@ -82,9 +85,17 @@ void save_init(void){
 }
 
 UINT8 slot_peek(UINT8 slot, Save *out){
+    Save1 o;
     if(slot >= NSLOT) return 0;
     sram_read(slot, out, sizeof(Save));
-    return out->magic == SAVE_MAGIC && out->ver == SAVE_VER && out->sum == fnv(out, sizeof(Save) - 4);
+    if(out->magic == SAVE_MAGIC && out->ver == SAVE_VER && out->sum == fnv(out, sizeof(Save) - 4)) return 1;
+    sram_read(slot, &o, sizeof o);                                   /* an old step 3-4 save: keep it, give the bug the CLASSIC look */
+    if(o.magic != SAVE_MAGIC || o.ver != 1 || o.sum != fnv(&o, sizeof o - 4)) return 0;
+    memset(out, 0, sizeof *out);
+    out->magic = SAVE_MAGIC; out->ver = SAVE_VER; out->seed = o.seed; out->zone = o.zone; out->level = o.level; out->hp = o.hp; out->mp = o.mp;
+    out->gold = o.gold; out->xp = o.xp; out->secs = o.secs; out->saves = o.saves; memcpy(out->name, o.name, 9);
+    bug_default(&out->look);
+    return 1;
 }
 UINT8 slot_read(UINT8 slot){
     Save t;
@@ -107,10 +118,12 @@ void slot_erase(UINT8 slot){
     sram_write(slot, &z, sizeof z);
     if(last_slot == slot){ last_slot = first_good_slot() == 255 ? 0 : first_good_slot(); settings_save(); }
 }
-void new_game(UINT8 slot, UINT32 seed){
+void new_game(UINT8 slot, UINT32 seed, const BugLook *look, const char *name){
     memset(&sv, 0, sizeof sv);
     sv.seed = seed; sv.level = 1; sv.hp = 10; sv.mp = 5;
-    strcpy(sv.name, "BUG");                    /* the bug creator (step 5) will set this */
+    strcpy(sv.name, name ? name : "BUG");
+    if(look) sv.look = *look; else bug_default(&sv.look);
+    bug_clamp(&sv.look);
     play_reset(0);
     slot_write(slot);
 }

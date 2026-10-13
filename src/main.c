@@ -1,7 +1,8 @@
-/* BUGSTAR GBC - step 4d: title, options, 3-slot save, own font + text engine, window HUD, dialogue box, SYSTEM menu. The game itself comes in later steps. See PLAN.md */
+/* BUGSTAR GBC - step 5: title, options, 3-slot save, text engine, HUD, dialogue, SYSTEM menu, bug creator. The game itself comes in later steps. See PLAN.md */
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <stdio.h>
+#include <string.h>
 #include "input.h"
 #include "title.h"
 #include "save.h"
@@ -10,6 +11,9 @@
 #include "hud.h"
 #include "dialog.h"
 #include "sysmenu.h"
+#include "bug.h"
+#include "bugspr.h"
+#include "bugmake.h"
 
 static UINT32 make_seed(void){
     UINT32 s = ((UINT32)title_frames << 16) ^ (frames32() << 3) ^ ((UINT32)DIV_REG << 20) ^ DIV_REG;
@@ -37,19 +41,23 @@ static void game_draw(void){                         /* the static part of the s
 }
 
 static void game_screen(void){
-    char b[24], *d; UINT8 msg = 0; UINT32 secs;
+    char b[24], *d; UINT8 msg = 0; UINT32 secs; UINT8 bx = 40; INT8 bdir = 1;
     play_reset(sv.secs);
     txt_cls();
     hud_init();
     g_dirty = 1;
+    bugspr_load(&sv.look);
     for(;;){
+        bx += bdir; if(bx > 100 || bx < 8){ bdir = -bdir; bx += bdir; }
+        bugspr_show(bx, 60, bdir < 0, (UINT8)((bx >> 3) & 1));
         secs = play_secs();
         if(g_dirty) game_draw();
         if((UINT8)(secs & 0xFF) != g_shown){ g_shown = (UINT8)(secs & 0xFF); d = scat(b, "TIME "); fmt_time(d, secs); put_line(1, 9, b, 18); }
         hud_update();
         wait_vbl_done(); input_poll();
         if(HIT(J_START)){
-            if(sysmenu_run(game_draw) == SYS_TITLE){ hud_hide(); txt_cls(); return; }
+            if(sysmenu_run(game_draw) == SYS_TITLE){ hud_hide(); bugspr_hide(); txt_cls(); return; }
+            bugspr_load(&sv.look);
             g_dirty = 1;
         }
         if(HIT(J_B)){
@@ -83,7 +91,11 @@ void main(void){
         else if(choice == TI_LOAD){ s = slot_picker(0); if(s >= 0 && slot_read(s)){ cur_slot = s; game_screen(); } }
         else {                                                    /* TI_NEW */
             s = slot_picker(1);
-            if(s >= 0){ cur_slot = s; new_game(s, make_seed()); game_screen(); }
+            if(s >= 0){
+                BugLook l; char nm[9];
+                bug_default(&l); strcpy(nm, "PIP"); txt_cls();
+                if(bugmake_run(&l, nm, 1)){ cur_slot = s; new_game(s, make_seed(), &l, nm); game_screen(); }
+            }
         }
         txt_cls();
     }

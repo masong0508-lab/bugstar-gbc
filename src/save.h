@@ -1,6 +1,7 @@
 #ifndef SAVE_H
 #define SAVE_H
 #include <gb/gb.h>
+#include "bug.h"
 
 /* SRAM map (MBC5, 4 banks of 8 KB = 32 KB, see Makefile -Wm-ya4):
      bank 0,1,2 : save slot 1,2,3 (one whole bank each, so a slot can grow later)
@@ -8,7 +9,7 @@
    The GBA game's 64-bit economy and huge galaxy address are gone: a world is one 32-bit seed. */
 #define NSLOT 3
 
-typedef struct {                 /* one save slot: exactly 64 bytes */
+typedef struct {                 /* one save slot: 96 bytes on the cartridge (version 2; version 1 was 64 and is converted on load) */
     UINT32 magic;                /* SAVE_MAGIC */
     UINT16 ver;
     UINT32 seed;                 /* the world: everything is generated from this */
@@ -19,7 +20,8 @@ typedef struct {                 /* one save slot: exactly 64 bytes */
     UINT32 secs;                 /* play time */
     UINT16 saves;                /* how many times this slot was saved */
     char   name[9];              /* the bug's name (8 chars + NUL) */
-    UINT8  rsv[20];
+    BugLook look;                /* the bug, from the creator (step 5) */
+    UINT8  rsv[23];
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 
@@ -43,7 +45,7 @@ UINT8  slot_peek(UINT8 slot, Save *out);   /* 1 if the slot holds a good save (c
 UINT8  slot_read(UINT8 slot);              /* load into sv; 1 if good */
 void   slot_write(UINT8 slot);             /* save sv (play time and counter updated) */
 void   slot_erase(UINT8 slot);
-void   new_game(UINT8 slot, UINT32 seed);  /* fresh bug in that slot, saved straight away */
+void   new_game(UINT8 slot, UINT32 seed, const BugLook *look, const char *name);  /* fresh game in that slot, saved straight away; 0 look/name = CLASSIC / "BUG" */
 UINT8  first_good_slot(void);              /* last_slot if good, else the first good one, else 255 */
 UINT32 frames32(void);                     /* VBL frames since boot */
 UINT32 play_secs(void);

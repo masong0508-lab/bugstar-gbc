@@ -28,6 +28,7 @@ void title_init(void){
     set_sprite_data(CURSOR_TILE, 1, title_cursor);
     set_sprite_tile(0, CURSOR_TILE);
     move_sprite(0, 54, MENU_Y0 + MENU_DY + 16);
+    SPRITES_8x8; { UINT8 i; for(i = 1; i < 40; i++) move_sprite(i, 0, 0); }
     SHOW_BKG; SHOW_SPRITES;
     DISPLAY_ON;
 }

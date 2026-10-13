@@ -75,7 +75,7 @@ int main(void){
     save_init();
     CHECK(opt.music==2 && opt.diff==1 && opt.autosave==1);
     CHECK(first_good_slot()==255);
-    new_game(1, 0xDEADBEEF);
+    new_game(1, 0xDEADBEEF, 0, 0);
     CHECK(first_good_slot()==1); CHECK(last_slot==1);
     Save t; CHECK(slot_peek(1,&t)); CHECK(t.seed==0xDEADBEEF && t.level==1 && t.saves==1 && !strcmp(t.name,"BUG"));
     CHECK(!slot_peek(0,&t)); CHECK(!slot_peek(2,&t));
@@ -88,7 +88,7 @@ int main(void){
     save_init(); CHECK(opt.music==0 && opt.diff==3 && opt.xpm==2 && last_slot==1);
     sram_buf[3*8192+6]=9; /* corrupt settings -> defaults */ save_init(); CHECK(opt.music==2 && opt.diff==1);
     /* second slot, erase logic */
-    new_game(2, 5); CHECK(last_slot==2); slot_erase(2); CHECK(!slot_peek(2,&t)); CHECK(first_good_slot()==1);
+    new_game(2, 5, 0, 0); CHECK(last_slot==2); slot_erase(2); CHECK(!slot_peek(2,&t)); CHECK(first_good_slot()==1);
     /* formatting helpers */
     char b[32]; fmt_time(b,3725); CHECK(!strcmp(b,"1:02:05")); fmt_time(b,0); CHECK(!strcmp(b,"0:00:00"));
     fmt_hex32(b,0xDEADBEEF); CHECK(!strcmp(b,"DEADBEEF")); u16s(b,0); CHECK(!strcmp(b,"0")); u16s(b,65535); CHECK(!strcmp(b,"65535"));
@@ -219,7 +219,7 @@ int main(void){
     }
     dlg_set_speed(2);
     /* ---- SYSTEM menu */
-    memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv);
+    memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1, 0, 0); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv);
     CHECK(SM_WX == 71 && SM_WY == 80);
     { /* open with the HUD showing, resume with B: layout, then HUD is back */
       static const UINT8 q1[] = { J_B, 0xFF };

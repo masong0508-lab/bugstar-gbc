@@ -18,5 +18,6 @@ void txt_put(UINT8 x, UINT8 y, const char *s);        /* write s as tiles at x,y
 void txt_line(UINT8 x, UINT8 y, const char *s, UINT8 w); /* like txt_put but space-padded/cut to exactly w tiles */
 void txt_box(UINT8 x, UINT8 y, UINT8 w, UINT8 h);     /* framed box, interior cleared (w,h in tiles, both >= 2) */
 void txt_bar(UINT8 x, UINT8 y, UINT8 w, UINT16 val, UINT16 max); /* bar w tiles wide (>= 3) incl. end caps */
-void txt_color(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 pal);   /* recolour a rectangle with text palette 0..3 */
+void txt_color(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 pal);   /* recolour a rectangle with BG palette 0..7 (0..3 are the text colours) */
+void txt_pal_reset(void);                             /* reload the four text palettes (after a screen borrowed them) */
 #endif
