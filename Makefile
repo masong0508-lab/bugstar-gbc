@@ -1,9 +1,10 @@
 # BUGSTAR GBC - GBDK-2020. Build: make   (needs GBDK_HOME, e.g. /opt/gbdk)
 GBDK_HOME ?= /opt/gbdk
 LCC = $(GBDK_HOME)/bin/lcc
-# -Wm-yC: GBC only. -Wm-yt0x1B: MBC5+RAM+BATTERY. -Wm-yo32: 32 ROM banks (512K; MBC5 goes to 512 banks / 8 MB). -Wm-ya4: 32K SRAM
+# -Wm-yC: GBC only. -Wm-yt0x1B: MBC5+RAM+BATTERY. -Wm-yo512: 512 ROM banks = 8 MB, the most MBC5 can do. -Wm-ya4: 32K SRAM
+# (GBDK banked calls reach banks 1..255; banks 256..511 are for data, switched with SWITCH_ROM_MBC5_8M)
 # -Wl-g.STACK=0xD000: the stack tops out at D000, so all of WRAM D000-DFFF (7 banks) is free for big buffers (src/wram.h)
-FLAGS = -Wm-yC -Wm-yt0x1B -Wm-yo32 -Wm-ya4 -Wm-yn"BUGSTAR" -Wl-g.STACK=0xD000
+FLAGS = -Wm-yC -Wm-yt0x1B -Wm-yo512 -Wm-ya4 -Wm-yn"BUGSTAR" -Wl-g.STACK=0xD000
 # Each .c compiles to its own object in build/ (make -j2 builds two at once, and only what changed is rebuilt).
 # Test builds go to their own folder and ROM: make DEFS="-DTEST_SPACE" BUILD=build_test OUT=test.gbc
 DEFS ?=

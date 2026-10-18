@@ -65,9 +65,10 @@ Each step ends with a ROM that boots in an emulator.
   attack (3 pirates that strafe and shoot orbs). Gold, XP, a clean-run bonus and the save's best (warp_best). Test: -DTEST_ATTACK.
 
 ## Optimizing and room to grow (after the warp)
-- ROM: 512 KB now (32 banks of MBC5, which can go to 8 MB). Bank map: 0 core, 2 title + menus + ending, 3 bug creator,
+- ROM: 8 MB now (512 banks, the most MBC5 can do; header 0x148 = 08). GBDK's banked calls reach banks 1..255;
+  banks 256..511 are for data, read after SWITCH_ROM_MBC5_8M. Bank map: 0 core, 2 title + menus + ending, 3 bug creator,
   4 planet, 5 dungeon code, 6 space (map, ship, landing, warp), 7 sound + font, 8 space tiles, 9 warp, 10 space foes,
-  11 dungeon tiles; 12..31 empty. tools/check_banks.py prints every bank's free bytes and fails the build on an overflow.
+  11 dungeon tiles; 12..511 empty. tools/check_banks.py prints every bank's free bytes and fails the build on an overflow.
 - Bank 0 (always mapped, the precious one): the font moved to bank 7 (bsfont_load); 2.9 KB free (was 0.9).
 - WRAM: the stack now tops out at D000 (-Wl-g.STACK=0xD000), so D000-DFFF is free: the big buffers (bug canvas, fade copies,
   dungeon map, stars) sit there at fixed addresses (src/wram.h). The variables in C000-CFFF went from 5.6 KB to 2.2 KB,
