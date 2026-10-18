@@ -6,3 +6,4 @@ host_test
 *.sym
 *.lst
 *.asm
+bugstar.gbc
