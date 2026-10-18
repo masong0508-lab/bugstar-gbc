@@ -34,7 +34,9 @@
 #define OAM_MON0  16
 
 enum { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_QUEEN };
-typedef struct { UINT16 x, y; UINT8 kind, hp, cool, flash, frame, alive; INT8 kx, ky; } Mon;
+typedef struct { UINT16 x, y; UINT8 kind, hp, cool, flash, frame, alive; INT8 kx, ky; UINT8 st, t; INT8 lx, ly; } Mon;
+/* st/t: spiders crouch (st 1, they blink) then lunge (st 2); a slime with st 9 is a small one that will not split again;
+   the queen counts t up to calling her spiderlings */
 typedef struct { UINT8 x, y, w, h; } Room;
 
 static UINT8  dmap[DW * DW];
@@ -222,6 +224,7 @@ static UINT8 bite_power(void){ return 30; }
 #else
 static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends); }
 #endif
+static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static void do_bite(void){
     UINT8 i; INT16 hx = (INT16)bx + (face == 0 ? 16 : face == 1 ? -16 : 0), hy = (INT16)by - 6 + (face == 2 ? -16 : face == 3 ? 12 : 0);
     for(i = 0; i < NMON; i++){
@@ -235,6 +238,8 @@ static void do_bite(void){
         if(!m->hp){
             m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5); stop = 6;
             fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
+            if(m->kind == K_QUEEN){ fx_add(m->x - 24, m->y - 20, 255, 0); fx_add(m->x + 8, m->y - 22, 255, 3); fx_add(m->x - 8, m->y + 4, 255, 2); }   /* she goes up big */
+            if(m->kind == K_SLIME && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(K_SLIME, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(K_SLIME, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
             if(m->kind == K_QUEEN){ sv.gold += 200 + sv.zone * 100; gain_xp(40 + sv.zone * 20); }
             else { sv.gold += 3 + m->kind * 2 + depth; gain_xp(3 + m->kind + depth); }
         }
@@ -249,6 +254,16 @@ static void do_bite(void){
               if(q < NMON) dlg_say("BOLT", "THE QUEEN IS STILL HERE. BEAT HER FIRST!");
               else { set_mt(tx, ty, D_FREED); sv.friends++; atk = 0; sfx(SFX_FANFARE); } } } }
 }
+static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py){   /* a new monster in a free slot (not the queen's); (px, py): where to put it if (x, y) is in a wall */
+    UINT8 i;
+    if(blocked(x, y, 5)){ x = px; y = py; }
+    for(i = 0; i < NMON - 1; i++) if(!mon[i].alive){
+        Mon *m = &mon[i]; memset(m, 0, sizeof *m);
+        m->kind = kind; m->x = x; m->y = y; m->hp = hp; m->st = st; m->alive = 1; m->flash = 8;
+        fx_add(x - 8, y - 10, 255, kind);
+        return;
+    }
+}
 static void mon_step(void){
     UINT8 i;
     for(i = 0; i < NMON; i++){
@@ -259,6 +274,21 @@ static void mon_step(void){
         dx = (INT16)bx - (INT16)m->x; dy = (INT16)by - (INT16)m->y;
         if(dx > 112 || dx < -112 || dy > 100 || dy < -100) continue;       /* asleep until you come near */
         r = m->kind == K_QUEEN ? 12 : 5;
+        if(m->kind == K_SPIDER){                                    /* crouch, blink, then lunge */
+            if(m->st == 1){ m->flash = 2 + (m->t & 2); if(!--m->t){ m->st = 2; m->t = 12; m->lx = dx > 4 ? 3 : dx < -4 ? -3 : 0; m->ly = dy > 4 ? 3 : dy < -4 ? -3 : 0; } continue; }
+            if(m->st == 2){
+                if(!blocked(m->x + m->lx, m->y, r)) m->x += m->lx;
+                if(!blocked(m->x, m->y + m->ly, r)) m->y += m->ly;
+                if(!--m->t){ m->st = 0; m->t = 80; }
+                goto contact;
+            }
+            if(m->t) m->t--;
+            else if(dx > -56 && dx < 56 && dy > -48 && dy < 48){ m->st = 1; m->t = 18; sfx(SFX_HISS); continue; }
+        }
+        if(m->kind == K_QUEEN && ++m->t >= 220){                    /* she calls her spiderlings */
+            m->t = 0; sfx(SFX_HISS); shake(8);
+            mon_spawn(K_SPIDER, m->x - 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16); mon_spawn(K_SPIDER, m->x + 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16);
+        }
         sp = m->kind == K_WASP ? 3 : m->kind == K_SLIME ? 0 : m->kind == K_QUEEN ? 1 : 1;   /* steps per 2 frames */
         if(m->kind == K_SLIME) sp = (step & 1); else if(m->kind == K_QUEEN) sp = (step & 1) ? 1 : 0; else if(m->kind == K_BEETLE) sp = (step & 3) ? 1 : 0; else if(m->kind == K_SPIDER) sp = (step & 1) ? 2 : 1;
         for(n = 0; n < sp; n++){
@@ -266,6 +296,7 @@ static void mon_step(void){
             if(dy > 3 && !blocked(m->x, m->y + 1, r)) m->y++; else if(dy < -3 && !blocked(m->x, m->y - 1, r)) m->y--;
         }
         if(!(step & 7)) m->frame ^= 1;
+contact:
         { INT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, reach = m->kind == K_QUEEN ? 22 : 11;
           if(ax < reach && ay < reach - 2 && !inv){ UINT8 dmg = 1 + depth / 2 + sv.zone + (m->kind == K_BEETLE) + (m->kind == K_QUEEN) * (2 + sv.zone);
               hurt(dmg, dx > 0 ? 2 : dx < 0 ? -2 : 0, dy > 0 ? 2 : dy < 0 ? -2 : 0); } }

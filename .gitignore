@@ -7,3 +7,4 @@ host_test
 *.lst
 *.asm
 bugstar.gbc
+bugstar.map

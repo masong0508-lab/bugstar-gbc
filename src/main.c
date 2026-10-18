@@ -47,6 +47,9 @@ void main(void){
 #endif
 #ifdef TEST_SPACE
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0);   /* (test builds: straight into space) */
+#ifdef TEST_ZONE
+    sv.zone = TEST_ZONE; sv.level = 12; sv.hp = hud_hpmax(12);
+#endif
     { int r = space_run(); if(r == SP_LAND) play(); else if(r == SP_END) ending_run(); }
 #endif
     for(;;){

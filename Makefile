@@ -6,7 +6,8 @@ FLAGS = -Wm-yC -Wm-yt0x1B -Wm-yo16 -Wm-ya4 -Wm-yn"BUGSTAR"
 SRCS = $(wildcard src/*.c)
 all: bugstar.gbc
 bugstar.gbc: $(SRCS) $(wildcard src/*.h)
-	$(LCC) $(FLAGS) -o $@ $(SRCS)
+	$(LCC) $(FLAGS) -Wl-m -o $@ $(SRCS)
+	python3 tools/check_banks.py bugstar.map
 clean:
 	rm -f host_test bugstar.gbc *.map *.sym *.noi *.lst *.ihx *.o *.asm
 # Regenerate the title art (needs python3 + numpy + pillow); the generated src/title_art.* are committed.
