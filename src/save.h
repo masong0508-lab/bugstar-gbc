@@ -24,7 +24,8 @@ typedef struct {                 /* one save slot: 96 bytes on the cartridge (ve
     UINT8  friends;              /* bug friends freed from cages (step 7) */
     UINT8  deepest;              /* the deepest dungeon floor reached */
     UINT8  potions;              /* health potions carried (SELECT drinks one) */
-    UINT8  rsv[20];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
+    UINT8  star;                 /* the star (world) you are on or last landed on, 0..255; 0 = the home world (step 8) */
+    UINT8  rsv[19];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 
@@ -53,4 +54,5 @@ UINT8  first_good_slot(void);              /* last_slot if good, else the first 
 UINT32 frames32(void);                     /* VBL frames since boot */
 UINT32 play_secs(void);
 void   play_reset(UINT32 base);
+UINT32 world_seed(UINT8 star);             /* the seed of star n's world (star 0 is sv.seed itself, so older saves keep their world) */
 #endif

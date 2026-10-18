@@ -133,3 +133,5 @@ UINT8 first_good_slot(void){
     for(i = 0; i < NSLOT; i++) if(slot_peek(i, &t)) return i;
     return 255;
 }
+
+UINT32 world_seed(UINT8 star){ return star ? sv.seed ^ ((UINT32)star * 0x9E3779B1UL) : sv.seed; }

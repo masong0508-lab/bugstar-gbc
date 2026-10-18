@@ -31,3 +31,13 @@ char *fmt_hex32(char *d, UINT32 v){
     for(i = 0; i < 8; i++){ UINT8 n = (UINT8)((v >> (28 - 4 * i)) & 15); *d++ = n < 10 ? '0' + n : 'A' + n - 10; }
     *d = 0; return d;
 }
+
+const char *const kind_name[6] = { "GARDEN", "DESERT", "ICE", "JUNGLE", "OCEAN", "DUSK" };
+UINT8 world_kind(UINT32 wseed){ return (UINT8)((wseed >> 8) % 6); }
+static const char *const syl[16] = { "ZOR", "BA", "KI", "LU", "MOX", "TE", "VEN", "RA", "QUI", "NO", "PEL", "SA", "DRO", "MI", "GAX", "U" };
+char *world_name(char *d, UINT32 wseed){
+    UINT8 a = (UINT8)(wseed >> 16), b = (UINT8)(wseed >> 24);
+    d = scat(d, syl[a & 15]); d = scat(d, syl[a >> 4]);
+    if(b & 1) d = scat(d, syl[(b >> 1) & 15]);
+    return d;
+}

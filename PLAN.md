@@ -22,7 +22,7 @@ Each step ends with a ROM that boots in an emulator.
    JUNGLE, OCEAN, DUSK) that recolour the same 11 ground tiles (VRAM bank 1, BG palettes 4..7), forests, flowers, boulders on high ground, berry bushes
    (heal, gold; the last 32 eaten are remembered), the ship as a sprite on a landing pad (A: heal + save), the door down (sealed until step 7).
    B runs. NEW GAME / CONTINUE / LOAD now land on the planet; the step-5 placeholder screen is gone.
-   ROM layout: bank 0 = always-mapped core (keep it under 16 KB!), bank 2 = title + menus, bank 3 = bug creator, bank 4 = planet, bank 5 = dungeon.
+   ROM layout: bank 0 = always-mapped core (keep it under 16 KB!), bank 2 = title + menus, bank 3 = bug creator, bank 4 = planet, bank 5 = dungeon, bank 6 = space.
 7. Dungeon, top-down. DONE (tested in an emulator). src/dungeon.c (bank 5) + tools/make_dungeon.py -> src/dungeon_art.c. The planet's door leads down.
    Floors of 32x32 metatiles (1 KB map in RAM) from the seed + floor number: up to 8 rooms and L corridors, wall faces, stairs up and down,
    chests (bite to open: gold, sometimes a potion), potions on the floor (SELECT drinks one), spiders, beetles, wasps and slimes that wake
@@ -30,6 +30,12 @@ Each step ends with a ROM that boots in an emulator.
    3 floors + 1 per world freed (max 6); the last floor has the spider queen (32x32) and a caged friend: beat her, bite the cage, the world
    is free (sv.zone++, autosave). Fainting: back to the ship, a quarter of the gold lost. Save v2 gained friends / deepest / potions
    (taken from the reserved bytes). Test builds: -DTEST_DOOR starts by the door, -DTEST_BOSS goes straight to the queen.
-8. Space/ship/hangar: flat-sprite flight, simple galaxy of 256 stars, 32-bit seed.
+8. Space and the ship. DONE (tested in an emulator). src/space.c (bank 6) + tools/make_space.py -> src/space_art.c. A at the ship heals, saves and
+   asks FLY INTO SPACE?; main.c loops planet -> space -> planet. Space is 4096 px square (wrapping), 16x16 cells with one star each: 256 worlds.
+   world_seed(n) (save.c) gives star n its world (star 0 = the save's seed, so older saves keep their home), and its kind and made-up name
+   (util.c). The planet and the dungeon use world_seed(sv.star). Flight: d-pad 8 ways with drift, B boosts, A shoots, A over a planet lands
+   (its name and kind show in the HUD line). Pirate drones spawn away from planets, chase and ram; shoot them for gold and XP. An arrow
+   points at the nearest other world. Planets are tinted per kind with BG palettes 4..7 on a 2x2-cell checkerboard; the stars use palette 3.
+   Save gained star (from the reserved bytes). Test build: -DTEST_SPACE starts in space with a fresh game in slot 1.
 9. Sound: GBC 4-channel music driver (hUGEDriver) replacing sound.inc.
 10. Cut/shrink: karts, hell-world variants, 8 cores story as a flag set. (Film and trailer are dropped entirely.)

@@ -52,7 +52,7 @@ static UINT8 ground_at(UINT16 x, UINT16 y){ if(x >= DW * 16 || y >= DW * 16) ret
 static void carve(UINT8 x, UINT8 y){ if(x > 0 && y > 0 && x < DW - 1 && y < DW - 1 && (DM(x, y) == D_WALL)) DM(x, y) = (rnd8() & 3) ? D_FLOOR : D_FLOOR2; }
 static void make_floor(void){
     UINT8 i, t, x, y, a, b;
-    rng = (UINT16)sv.seed ^ ((UINT16)depth * 0x3C1Bu) ^ ((UINT16)sv.zone << 11) ^ 0x2B7Du; if(!rng) rng = 1;
+    rng = (UINT16)world_seed(sv.star) ^ ((UINT16)depth * 0x3C1Bu) ^ ((UINT16)sv.zone << 11) ^ 0x2B7Du; if(!rng) rng = 1;
     memset(dmap, D_WALL, sizeof dmap);
     nrooms = 0;
     for(t = 0; t < 60 && nrooms < NROOM; t++){                    /* rooms: place them where they do not touch */
@@ -171,15 +171,6 @@ static void redraw(void){ SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pa
 static UINT8 blocked(UINT16 x, UINT16 y, UINT8 r){                 /* a box 2r wide and 4 tall at the feet */
     return solid_mt(ground_at(x - r, y - 3)) || solid_mt(ground_at(x + r - 1, y - 3)) || solid_mt(ground_at(x - r, y)) || solid_mt(ground_at(x + r - 1, y));
 }
-static UINT16 xp_need(void){ return sv.level * 12; }
-static void gain_xp(UINT16 n){
-    char b[32], *d;
-    sv.xp += n;
-    while(sv.xp >= xp_need() && sv.level < 99){
-        sv.xp -= xp_need(); sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
-        d = scat(b, "LEVEL UP! YOU ARE LEVEL "); u16s(d, sv.level); dlg_say(0, b);
-    }
-}
 static void hurt(UINT8 n, INT8 kx, INT8 ky){
     UINT8 k;
     if(inv) return;
@@ -285,7 +276,7 @@ static int play_floor(void){                                       /* returns DG
 }
 int dungeon_run(void) BANKED {
     int r;
-    kind = (UINT8)((sv.seed >> 8) % DG_NKIND);
+    kind = world_kind(world_seed(sv.star));
     floors = 3 + (sv.zone > 3 ? 3 : sv.zone);
     depth = 1; inv = 0; atk = 0; face = 3;
 #ifdef TEST_BOSS

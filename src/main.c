@@ -1,4 +1,5 @@
-/* BUGSTAR GBC - step 6 (the planet): title, options, 3-slot save, text engine, HUD, dialogue, SYSTEM menu, bug creator. The game itself comes in later steps. See PLAN.md */
+/* BUGSTAR GBC: title, options, 3-slot save, bug creator, then the game: a world (planet.c, with its dungeon) and space between
+   the worlds (space.c). See PLAN.md */
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include "bugspr.h"
 #include "bugmake.h"
 #include "planet.h"
+#include "space.h"
 
 static UINT32 make_seed(void){
     UINT32 s = ((UINT32)title_frames << 16) ^ (frames32() << 3) ^ ((UINT32)DIV_REG << 20) ^ DIV_REG;
@@ -22,25 +24,36 @@ static UINT32 make_seed(void){
     return s ? s : 0x5EED1234UL;
 }
 
+static void play(void){                                       /* land, fly, land... until the person quits to the title */
+    for(;;){
+        if(planet_run() == PL_TITLE) return;
+        if(space_run() == SP_TITLE) return;
+    }
+}
+
 void main(void){
     if(_cpu != CGB_TYPE) { printf("NEEDS GAME BOY COLOR"); return; }
     cpu_fast();                       /* double speed: 8 MHz */
     save_init();
     DISPLAY_ON;
+#ifdef TEST_SPACE
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0);   /* (test builds: straight into space) */
+    if(space_run() == SP_LAND) play();
+#endif
     for(;;){
         int choice, s;
         title_init();
         choice = title_run(first_good_slot() != 255);
         title_exit();
         if(choice == TI_OPT){ options_screen(); }
-        else if(choice == TI_CONT){ cur_slot = first_good_slot(); if(cur_slot != 255 && slot_read(cur_slot)) planet_run(); }
-        else if(choice == TI_LOAD){ s = slot_picker(0); if(s >= 0 && slot_read(s)){ cur_slot = s; planet_run(); } }
+        else if(choice == TI_CONT){ cur_slot = first_good_slot(); if(cur_slot != 255 && slot_read(cur_slot)) play(); }
+        else if(choice == TI_LOAD){ s = slot_picker(0); if(s >= 0 && slot_read(s)){ cur_slot = s; play(); } }
         else {                                                    /* TI_NEW */
             s = slot_picker(1);
             if(s >= 0){
                 BugLook l; char nm[9];
                 bug_default(&l); strcpy(nm, "PIP"); txt_cls();
-                if(bugmake_run(&l, nm, 1)){ cur_slot = s; new_game(s, make_seed(), &l, nm); planet_run(); }
+                if(bugmake_run(&l, nm, 1)){ cur_slot = s; new_game(s, make_seed(), &l, nm); play(); }
             }
         }
         txt_cls();

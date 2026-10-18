@@ -14,5 +14,6 @@ UINT8 hud_is_on(void);                     /* 1 between hud_show/hud_init and hu
 void hud_update(void);                     /* redraw only what changed since last call: cheap, call every frame */
 void hud_pos(UINT8 y);                     /* slide the window to pixel row y (HUD_Y = docked, 144 = off screen) */
 void hud_show(void);
+void gain_xp(UINT16 n);                    /* add XP; levels up (12 x level each) with a message, refilling HP and MP */
 void hud_hide(void);
 #endif

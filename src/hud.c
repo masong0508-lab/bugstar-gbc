@@ -3,6 +3,7 @@
 #include "menus.h"
 #include "text.h"
 #include "hud.h"
+#include "dialog.h"
 
 /* window map columns */
 #define HP_BAR_X 1      /* 6 tiles incl. caps */
@@ -66,4 +67,13 @@ void hud_update(void){
         l_gold = sv.gold;
     }
     txt_win(0);
+}
+
+void gain_xp(UINT16 n){
+    char b[32], *d;
+    sv.xp += n;
+    while(sv.xp >= (UINT32)sv.level * 12 && sv.level < 99){
+        sv.xp -= (UINT32)sv.level * 12; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
+        d = scat(b, "LEVEL UP! YOU ARE LEVEL "); u16s(d, sv.level); dlg_say(0, b);
+    }
 }

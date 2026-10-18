@@ -5,7 +5,8 @@
    a second noise for where trees and flowers grow). The kind of world (GARDEN, DESERT, ICE, JUNGLE, OCEAN, DUSK) comes from the
    seed too, and only changes the colours and how much water and forest there is.
    The hardware BG map is 32x32 tiles (16x16 metatiles); as the camera moves, the row or column that comes into view is drawn.
-   The ship you landed in is a sprite: A next to it saves and heals. Berry bushes heal a little. The door leads down (step 7). */
+   The ship you landed in is a sprite: A next to it saves and heals, and can fly you back into space (step 8).
+   Berry bushes heal a little. The door leads down (step 7). Each star has its own world: see world_seed() in save.h. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
@@ -134,9 +135,10 @@ static void find_land(UINT8 *ox, UINT8 *oy, UINT8 cx, UINT8 cy, UINT8 r){   /* t
     *ox = cx; *oy = cy;
 }
 static void world_setup(void){
-    seed_a = (UINT16)sv.seed; seed_b = (UINT16)(sv.seed >> 16) ^ 0x1234u; if(!seed_b) seed_b = 1;
+    UINT32 ws = world_seed(sv.star);
+    seed_a = (UINT16)ws; seed_b = (UINT16)(ws >> 16) ^ 0x1234u; if(!seed_b) seed_b = 1;
     sa1 = (UINT8)seed_a; sa2 = (UINT8)(seed_a >> 8); sb1 = (UINT8)seed_b; sb2 = (UINT8)(seed_b >> 8) ^ 0x5A;
-    wk = (UINT8)((sv.seed >> 8) % PL_NWORLD);
+    wk = world_kind(ws);
     ship_mx = 250; ship_my = 250;                                /* (out of the way while we look for land) */
     door_mx = 0; door_my = 0;
     find_land(&ship_mx, &ship_my, 128, 128, 2);                  /* a clearing big enough to land in */
@@ -179,6 +181,26 @@ static UINT8 near_ship(void){
     return dx < 28 && dy < 40;
 }
 
+static void ask_draw(UINT8 sel){ txt_win(1); txt_line(1, 2, sel ? " YES  " S_CURSOR "NO" : S_CURSOR "YES   NO", 18); txt_win(0); }
+static UINT8 ask_fly(void){                                    /* a little YES / NO box in the window; 1 = fly */
+    UINT8 sel = 0;
+    txt_win(1); txt_box(0, 0, 20, 4); txt_line(1, 1, "FLY INTO SPACE?", 18); txt_color(1, 1, 18, 1, TXT_GOLD); txt_win(0);
+    ask_draw(sel); move_win(7, 144 - 32); SHOW_WIN;
+    for(;;){
+        wait_vbl_done(); input_poll();
+        if(HIT(J_LEFT) || HIT(J_RIGHT)){ sel ^= 1; ask_draw(sel); }
+        if(HIT(J_A)) break;
+        if(HIT(J_B)){ sel = 1; break; }
+    }
+    txt_win(1); txt_color(1, 1, 18, 1, TXT_WHITE); txt_win(0);
+    hud_redraw(); hud_pos(HUD_Y);
+    return sel == 0;
+}
+static void leave(void){                                       /* clear the screen for the next scene */
+    UINT8 k;
+    hud_hide(); bugspr_hide(); for(k = 0; k < 40; k++) move_sprite(k, 0, 0); SCX_REG = 0; SCY_REG = 0; txt_cls();
+}
+
 static void enter(void){                                       /* the planet onto the screen (again, after a dungeon) */
     DISPLAY_OFF;
     load_gfx();
@@ -198,7 +220,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     enter();
     play_reset(sv.secs);
     ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
-    d = msg; d = scat(d, "WE LANDED. THIS IS "); d = scat(d, planet_world_name[wk]); d = scat(d, " WORLD. FIND THE DOOR AND GO DOWN. PRESS A AT THE SHIP TO SAVE.");
+    d = scat(msg, "WE LANDED ON "); d = world_name(d, world_seed(sv.star)); d = scat(d, ", A "); d = scat(d, planet_world_name[wk]);
+    d = scat(d, " WORLD. FIND THE DOOR AND GO DOWN. A AT THE SHIP SAVES, OR FLIES US AWAY.");
     dlg_say("BOLT", msg);
     for(;;){
         input_poll();
@@ -216,7 +239,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         if(ox == door_mx && oy == door_my){ if(!was_door){ int r;
                 was_door = 1;
                 r = dungeon_run();                                 /* down you go */
-                if(r == DG_TITLE){ hud_hide(); bugspr_hide(); for(k = 0; k < 40; k++) move_sprite(k, 0, 0); SCX_REG = 0; SCY_REG = 0; txt_cls(); return PL_TITLE; }
+                if(r == DG_TITLE){ leave(); return PL_TITLE; }
                 if(r == DG_FAINT){ bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40; was_door = 0; }
                 else { bx = ((UINT16)door_mx << 4) + 8; by = ((UINT16)door_my << 4) + 30; was_door = 0; }   /* out of the door, one step below it */
                 if(r == DG_WIN && opt.autosave) slot_write(cur_slot);
@@ -230,9 +253,10 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         if(HIT(J_A) && near_ship()){
             sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); slot_write(cur_slot);
             dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
+            if(ask_fly()){ leave(); return PL_LAUNCH; }
         }
         if(HIT(J_START)){
-            if(sysmenu_run(redraw) == SYS_TITLE){ hud_hide(); bugspr_hide(); for(k = 0; k < 8; k++) move_sprite(SHIP_OAM0 + k, 0, 0); SCX_REG = 0; SCY_REG = 0; txt_cls(); return PL_TITLE; }
+            if(sysmenu_run(redraw) == SYS_TITLE){ leave(); return PL_TITLE; }
             bugspr_load(&sv.look);
         }
     }
