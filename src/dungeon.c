@@ -275,6 +275,28 @@ static int play_floor(void){                                       /* returns DG
         }
     }
 }
+static const char *const memory[8] = {      /* what each data core gives back to Bolt (the GBA game's words) */
+    "I WAS A SHIP. I WAS CALLED THE DAWN. I REMEMBER THE DARK, AND THE STARS, AND SOMEONE SMALL WHO SANG.",
+    "I CARRIED SEEDS. A GARDEN. A POND. A LAWN AT NIGHT. I PLANTED THEM ONE BY ONE. YOUR WORLDS. I MADE THEM.",
+    "MY CREW WERE BUGS. SMALL. STUBBORN. BRAVE. THEY SLEPT IN MY HEART ON THE LONG WAY. ONE OF THEM LOOKED LIKE YOU.",
+    "WE FELL. THE ANTHILL CAUGHT US. THE ANTS WERE KIND AT FIRST. THEN THEY WERE HUNGRY.",
+    "THE ANT KING OPENED MY HEART. HE BUILT A MOUTH AROUND IT. HE FED IT SHIPS SO IT WOULD GROW. THAT MOUTH IS THE TECHNOBEAST.",
+    "EVERY SHIP IT EATS, IT GROWS. IT IS EATING MY MEMORY TOO. THAT IS WHY I FORGET. THAT IS WHY I AM SMALL.",
+    "THERE IS A WORD THAT OPENS MY HEART. THE KING NEVER FOUND IT. IT IS MY NAME. MY REAL NAME.",
+    "I KNOW MY NAME NOW. TAKE ME TO THE BEAST. I WILL SAY IT. ITS HEART WILL OPEN. I AM NOT AFRAID. I HAVE YOU." };
+static void won(void){                                            /* the queen is beaten and the cage is open */
+    char b[100], *d;
+    if(world_freed(sv.star)){ dlg_say("BOLT", "THE QUEEN CAME BACK, AND YOU BEAT HER AGAIN. THIS WORLD IS STILL SAFE."); return; }
+    sv.zone++;
+    if(sv.cores >= 8){ dlg_say("BOLT", "THE QUEEN IS BEATEN AND YOUR FRIEND IS FREE! THIS WORLD IS SAFE NOW."); return; }
+    sv.freed[sv.cores++] = sv.star;
+    sfx(SFX_LEVEL);
+    d = scat(b, "THE QUEEN IS BEATEN AND YOUR FRIEND IS FREE! SHE HAD ONE OF MY DATA CORES. THAT IS "); d = u16s(d, sv.cores); scat(d, " OF 8.");
+    dlg_say("BOLT", b);
+    dlg_say("BOLT", memory[sv.cores - 1]);
+    if(sv.cores == 8) dlg_say("BOLT", "THAT WAS THE LAST OF ME. FIND THE TECHNOBEAST: IN SPACE THE ARROW POINTS TO IT NOW. SHOOT ITS CORE WHEN IT GLOWS.");
+    else dlg_say("BOLT", "EVERY WORLD WE FREE MAKES THE NEXT DUNGEON DEEPER. LET'S FLY TO A NEW WORLD!");
+}
 int dungeon_run(void) BANKED {
     int r;
     kind = world_kind(world_seed(sv.star));
@@ -290,7 +312,7 @@ int dungeon_run(void) BANKED {
     }
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
     if(r == DG_FAINT){ sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT OF YOUR POCKETS."); }
-    else if(r == DG_WIN){ sv.zone++; dlg_say("BOLT", "THE QUEEN IS BEATEN AND YOUR FRIEND IS FREE! THIS WORLD IS SAFE. THE NEXT DUNGEON WILL BE DEEPER."); }
+    else if(r == DG_WIN) won();
     else if(r == DG_EXIT) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     return r;
 }

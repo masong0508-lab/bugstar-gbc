@@ -18,6 +18,7 @@
 #include "bugmake.h"
 #include "planet.h"
 #include "space.h"
+#include "ending.h"
 
 static UINT32 make_seed(void){
     UINT32 s = ((UINT32)title_frames << 16) ^ (frames32() << 3) ^ ((UINT32)DIV_REG << 20) ^ DIV_REG;
@@ -28,7 +29,9 @@ static UINT32 make_seed(void){
 static void play(void){                                       /* land, fly, land... until the person quits to the title */
     for(;;){
         if(planet_run() == PL_TITLE) return;
-        if(space_run() == SP_TITLE) return;
+        { int r = space_run();
+          if(r == SP_TITLE) return;
+          if(r == SP_END){ ending_run(); return; } }
     }
 }
 
@@ -40,7 +43,7 @@ void main(void){
     DISPLAY_ON;
 #ifdef TEST_SPACE
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0);   /* (test builds: straight into space) */
-    if(space_run() == SP_LAND) play();
+    { int r = space_run(); if(r == SP_LAND) play(); else if(r == SP_END) ending_run(); }
 #endif
     for(;;){
         int choice, s;

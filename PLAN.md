@@ -42,4 +42,10 @@ Each step ends with a ROM that boots in an emulator.
    -> src/sound_data.c. The GBA tunes (title, planet, dungeon, space, boss, ending): tune on channel 2, wave bass on 3, an echo of the tune
    three steps late on 1 (right speaker), a 16-step drum line on 4. 22 effects (the GBA's 15 plus laser, boom, menu move/ok/back,
    level up, dialogue typing) borrow channel 1 or 4 for a moment. OPTIONS music OFF/LOW/FULL and SFX ON/OFF work.
-10. Cut/shrink: karts, hell-world variants, 8 cores story as a flag set. (Film and trailer are dropped entirely.)
+10. Story and ending. DONE (tested in an emulator). Cut from the GBA game: karts, hell-world variants, towns, the film and the trailer.
+   The 8 data cores, as a flag set in the save (cores, story flags, the 8 freed stars, from the reserved bytes): each new world whose queen
+   you beat gives Bolt a core and a memory (the GBA's words). Bolt tells the goal on the first landing; SYSTEM shows CORES n/8.
+   With all 8, the Technobeast waits in space where four cells meet, halfway from home (2048, 2048): a 48x48 sprite of 18 + a core
+   sprite that opens for a moment (lasers clang off the shut armour), spits orbs, rams. Beat it: Bolt says her name (DAWN), the ending
+   (src/ending.c, bank 2) pages through the story with the ending tune, then the game's numbers; the save is kept with ST_DONE.
+   Test builds: -DTEST_SPACE -DTEST_BEAST starts under the beast (3 HP) at level 30.

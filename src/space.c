@@ -8,7 +8,9 @@
    2x2 cells, so the four planets in view always have a palette each); each palette is set to its planet's kind as you fly.
    The starfield borrows text palette 3 (grey: nothing else on this screen uses it).
    You fly with the d-pad (8 ways, with drift), B boosts, A shoots; over a planet A lands. Pirate drones chase you; ramming hurts
-   both of you. An arrow points at the nearest other world. */
+   both of you. An arrow points at the nearest other world.
+   With all 8 data cores back (step 10) the Technobeast waits halfway across space: armour that shrugs off lasers, a core that opens
+   and glows for a moment, orbs it spits at you. The arrow points at it. Beat it and the ending plays (SP_END). */
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include "sound.h"
@@ -47,11 +49,14 @@ static UINT8  pk[4];             /* the kind each planet palette (4..7) holds no
 static UINT8  o1, o2;            /* the starfield hash's offsets, from the seed */
 static UINT16 rng;
 static UINT8  told;              /* the how-to-fly talk, once per power-on */
+static UINT8  inv;               /* frames the ship can not be hurt (after a hit) */
 
 typedef struct { UINT16 x, y; INT8 dx, dy; UINT8 life; } Laser;
 typedef struct { UINT16 x, y; UINT8 st, hp; } Pirate;       /* st: 0 none, 1 flying, 2.. exploding (counts up) */
 static Laser  las[NLAS];
 static Pirate pir[NPIR];
+static UINT8  b_on, b_dead;      /* the Technobeast: here at all, dying (frames left) */
+static UINT16 b_x, b_y;          /* its middle, world px */
 
 static const INT8 dir_x[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
 static const INT8 dir_y[8] = { -1, -1, 0, 1, 1, 1, 0, -1 };
@@ -154,12 +159,14 @@ static void arrow(void){                                         /* point at the
     UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j, best = 255, d;
     INT16 bdx = 0, bdy = 0; UINT16 bd = 0xFFFF;
     if(!opt.arrow){ hide2(OAM_ARR); return; }
+    if(b_on && !b_dead){ bdx = wrapd(b_x, px); bdy = wrapd(b_y, py); best = 0; goto aim; }
     for(j = 0; j < 3; j++) for(i = 0; i < 3; i++){
         UINT8 s = (UINT8)((((cy + j - 1) & 15) << 4) | ((cx + i - 1) & 15));
         INT16 dx = wrapd(star_px(s), px), dy = wrapd(star_py(s), py);
         UINT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, m = ax > ay ? ax + ay / 2 : ay + ax / 2;
         if(m > 40 && m < bd){ bd = m; best = s; bdx = dx; bdy = dy; }
     }
+aim:
     if(best == 255 || (bdx > -88 && bdx < 88 && bdy > -72 && bdy < 72)){ hide2(OAM_ARR); return; }
     { UINT16 ax = bdx < 0 ? -bdx : bdx, ay = bdy < 0 ? -bdy : bdy;
       if(ax > ay * 2) d = bdx > 0 ? 2 : 6;
@@ -186,9 +193,46 @@ static void spawn(void){
     }
 }
 static void boom(Pirate *p){ p->st = 2; }
+static void hurt(UINT8 dmg, INT16 dx, INT16 dy, INT8 push){     /* the ship is hit; dx, dy: from what hit it to the ship */
+    if(inv) return;
+    sv.hp = sv.hp > dmg ? sv.hp - dmg : 0;
+    inv = 60; sfx(SFX_HURT);
+    vx = dx > 0 ? push : -push; vy = dy > 0 ? push : -push;       /* knocked away */
+}
+
+/* ------------------------------------------------------------ the Technobeast */
+#define BEAST_X  2048            /* its lair, where four cells meet: halfway across space from home, both ways */
+#define BEAST_Y  2048
+#define BEAST_HP 36
+#define OAM_CORE 0               /* 2 sprites: drawn over the body */
+#define OAM_BODY 2               /* 18 sprites */
+#define OAM_ORB  38              /* 2 orbs, one 8x16 sprite each */
+typedef struct { UINT16 x, y; INT8 dx, dy; UINT8 life; } Orb;
+static Orb    orb[2];
+static UINT8  b_hp, b_flash, b_fight, b_t, b_ang;
+static const INT8 circ[32] = { 0, 6, 11, 17, 21, 25, 28, 29, 30, 29, 28, 25, 21, 17, 11, 6, 0, -6, -11, -17, -21, -25, -28, -29, -30, -29, -28, -25, -21, -17, -11, -6 };
+#define CORE_OPEN() ((b_t & 127) < 56)   /* open a little under half the time */
+static void beast_hide(void){ UINT8 i; for(i = 0; i < 20; i++) move_sprite(OAM_CORE + i, 0, 0); }
+static void beast_show(UINT8 frame){
+    INT16 sx = wrapd(b_x, cam_x), sy = wrapd(b_y, cam_y); UINT8 cx, cy, o, pal = b_flash ? 3 : 4;
+    if(!b_on || (b_dead && (frame & 2)) || sx < -32 || sx > 192 || sy < -32 || sy > 168){ beast_hide(); return; }
+    for(cx = 0; cx < 6; cx++) for(cy = 0; cy < 3; cy++){
+        INT16 x = sx - 16 + cx * 8, y = sy - 8 + cy * 16;          /* OAM position: (top-left + 8, top-left + 16) */
+        o = OAM_BODY + cx * 3 + cy;
+        set_sprite_prop(o, pal | 0x08);
+        if(x <= 0 || x >= 168 || y <= 0 || y >= 160) move_sprite(o, 0, 0); else move_sprite(o, (UINT8)x, (UINT8)y);
+    }
+    set_sprite_prop(OAM_CORE, (b_flash ? 3 : CORE_OPEN() ? 5 : 4) | 0x08); set_sprite_prop(OAM_CORE + 1, (b_flash ? 3 : CORE_OPEN() ? 5 : 4) | 0x08);
+    spr16(OAM_CORE, SP_T_CORE(CORE_OPEN()), sx, sy);
+}
+static void orb_fire(INT16 dx, INT16 dy){                        /* spit an orb the way of (dx, dy) */
+    UINT8 i, d; UINT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy;
+    if(ax > ay * 2) d = dx > 0 ? 2 : 6; else if(ay > ax * 2) d = dy > 0 ? 4 : 0; else d = dx > 0 ? (dy > 0 ? 3 : 1) : (dy > 0 ? 5 : 7);
+    for(i = 0; i < 2; i++) if(!orb[i].life){ orb[i].x = b_x; orb[i].y = b_y; orb[i].dx = dir_x[d] * 2; orb[i].dy = dir_y[d] * 2; orb[i].life = 150; sfx(SFX_FIRE); return; }
+}
 
 int space_run(void) BANKED {
-    UINT8 k, i, frame = 0, cool = 0, inv = 0, spawn_t = 200;
+    UINT8 k, i, frame = 0, cool = 0, spawn_t = 200;
     UINT32 ws = sv.seed;
     DISPLAY_OFF;
     cpu_fast();
@@ -202,14 +246,24 @@ int space_run(void) BANKED {
       } }
     o1 = (UINT8)sv.seed; o2 = (UINT8)(sv.seed >> 24); rng = (UINT16)sv.seed | 1;
     shx = star_px(sv.star) << 4; shy = (star_py(sv.star) - 36) << 4; vx = 0; vy = -24; dir = 0;
+#ifdef TEST_BEAST
+    sv.cores = 8; told = 1; sv.level = 30; sv.hp = hud_hpmax(30); shx = (UINT16)BEAST_X << 4; shy = (UINT16)(BEAST_Y + 72) << 4;   /* (test builds: just below the beast) */
+#endif
     for(i = 0; i < NLAS; i++) las[i].life = 0;
     for(i = 0; i < NPIR; i++) pir[i].st = 0;
+    inv = 0;
+    b_on = sv.cores >= 8 && !(sv.story & ST_DONE); b_hp = BEAST_HP; b_flash = b_fight = b_dead = 0; orb[0].life = orb[1].life = 0;
+#ifdef TEST_BEAST
+    b_hp = 3;
+#endif
     VBK_REG = VBK_BANK_1;
     set_bkg_data(0, SP_NMT * 4, sp_bg);
     set_sprite_data(SPR0, SP_NSPR, sp_spr);
     VBK_REG = VBK_BANK_0;
-    set_sprite_palette(0, 4, sp_spr_pal);
-    sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2);
+    set_sprite_palette(0, 6, sp_spr_pal);
+    sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2); sprite_pals(OAM_ORB, 2, 3);
+    for(i = 0; i < 18; i++) set_sprite_tile(OAM_BODY + i, SPR0 + SP_T_BEAST(i / 3, i % 3));
+    set_sprite_tile(OAM_ORB, SPR0 + SP_T_ORB); set_sprite_tile(OAM_ORB + 1, SPR0 + SP_T_ORB);
     SPRITES_8x16;
     txt_pal_reset(); pals();
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
@@ -238,6 +292,14 @@ int space_run(void) BANKED {
         for(i = 0; i < NLAS; i++){ Laser *l = &las[i];
             if(!l->life) continue;
             l->life--; l->x = (l->x + l->dx) & 4095; l->y = (l->y + l->dy) & 4095;
+            if(b_on && !b_dead){ INT16 dx = wrapd(l->x, b_x), dy = wrapd(l->y, b_y);
+                if(dx > -11 && dx < 11 && dy > -11 && dy < 11 && CORE_OPEN()){    /* the core: that hurts it */
+                    l->life = 0; b_flash = 6; sfx(SFX_HIT);
+                    if(!--b_hp){ b_dead = 90; sfx(SFX_BOOM); }
+                    continue;
+                }
+                if(!CORE_OPEN() && dx > -20 && dx < 20 && dy > -22 && dy < 22){ l->life = 0; sfx(SFX_THUD); continue; }   /* shut: the armour goes clang */
+            }
             for(k = 0; k < NPIR; k++){ Pirate *p = &pir[k]; INT16 dx, dy;
                 if(p->st != 1) continue;
                 dx = wrapd(l->x, p->x); dy = wrapd(l->y, p->y);
@@ -250,7 +312,38 @@ int space_run(void) BANKED {
             }
         }
         /* pirates */
-        if(!--spawn_t){ spawn(); spawn_t = 120 + (rnd() & 127); }
+        if(!--spawn_t){ spawn(); spawn_t = b_fight ? 70 + (rnd() & 63) : 120 + (rnd() & 127); }
+        /* the Technobeast */
+        if(b_on){ INT16 dx, dy;
+            b_t++; if(!(b_t & 7)) b_ang = (b_ang + 1) & 31;
+            b_x = BEAST_X + circ[b_ang]; b_y = BEAST_Y + circ[(b_ang + 8) & 31];
+            dx = wrapd(shx >> 4, b_x); dy = wrapd(shy >> 4, b_y);
+            if(!b_fight && dx > -200 && dx < 200 && dy > -180 && dy < 180){
+                b_fight = 1; music(MUS_BOSS);
+                if(!(sv.story & ST_BEAST)){ sv.story |= ST_BEAST; dlg_say("BOLT", "THERE IT IS: THE TECHNOBEAST! LASERS BOUNCE OFF ITS ARMOUR. SHOOT ITS CORE WHEN IT GLOWS PINK!"); shown = 253; }
+            } else if(b_fight && (dx > 320 || dx < -320 || dy > 320 || dy < -320)){ b_fight = 0; music(MUS_SPACE); }
+            if(b_flash) b_flash--;
+            if(b_dead){
+                if(!(b_dead & 15)){ Pirate *p = &pir[b_dead >> 4 & 1 ? 0 : 1]; p->st = 2; p->x = b_x - 16 + (rnd() & 31); p->y = b_y - 16 + (rnd() & 31); sfx(SFX_BOOM); }
+                if(!--b_dead){
+                    UINT8 n; for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
+                    sv.story |= ST_DONE; sv.gold += 5000; b_on = 0;
+                    dlg_say("BOLT", "NOW! I SAY MY NAME... I AM DAWN!");
+                    dlg_say(0, "THE BEAST'S HEART OPENS WIDE. EVERY SHIP IT EVER ATE FLIES OUT, BACK TO THE STARS.");
+                    gain_xp(200);
+                    k = SP_END; goto out;
+                }
+            } else if(b_fight){
+                if(!(b_t & 63)) orb_fire(dx, dy);
+                if(dx > -20 && dx < 20 && dy > -20 && dy < 20) hurt(4 + sv.zone / 2, dx, dy, 32);
+            }
+        }
+        for(i = 0; i < 2; i++){ Orb *o = &orb[i]; INT16 dx, dy;
+            if(!o->life) continue;
+            o->life--; o->x = (o->x + o->dx) & 4095; o->y = (o->y + o->dy) & 4095;
+            dx = wrapd(shx >> 4, o->x); dy = wrapd(shy >> 4, o->y);
+            if(dx > -7 && dx < 7 && dy > -7 && dy < 7){ o->life = 0; hurt(3 + sv.zone / 2, dx, dy, 10); }
+        }
         for(i = 0; i < NPIR; i++){ Pirate *p = &pir[i]; INT16 dx, dy;
             if(!p->st) continue;
             if(p->st > 1){ if(++p->st > 24) p->st = 0; continue; }
@@ -261,12 +354,7 @@ int space_run(void) BANKED {
                 if(dy > 1) p->y++; else if(dy < -1) p->y--;
                 p->x &= 4095; p->y &= 4095;
             }
-            if(!inv && dx > -12 && dx < 12 && dy > -12 && dy < 12){      /* rammed */
-                UINT8 dmg = 2 + sv.zone;
-                sv.hp = sv.hp > dmg ? sv.hp - dmg : 0;
-                inv = 60; boom(p); sfx(SFX_HURT);
-                vx = dx > 0 ? 24 : -24; vy = dy > 0 ? 24 : -24;           /* knocked away */
-            }
+            if(!inv && dx > -12 && dx < 12 && dy > -12 && dy < 12){ hurt(2 + sv.zone, dx, dy, 24); boom(p); }   /* rammed */
         }
         if(inv) inv--;
         if(cool) cool--;
@@ -284,6 +372,11 @@ int space_run(void) BANKED {
             set_sprite_prop(OAM_PIR + i * 2, (p->st > 1 ? 3 : 1) | 0x08); set_sprite_prop(OAM_PIR + i * 2 + 1, (p->st > 1 ? 3 : 1) | 0x08);
             spr16(OAM_PIR + i * 2, p->st > 1 ? SP_T_BOOM(p->st > 10) : SP_T_PIRATE((frame >> 3) & 1), wrapd(p->x, cam_x), wrapd(p->y, cam_y));
         }
+        beast_show(frame);
+        for(i = 0; i < 2; i++){
+            INT16 x = wrapd(orb[i].x, cam_x), y = wrapd(orb[i].y, cam_y);
+            if(!orb[i].life || x < -4 || x > 164 || y < -4 || y > 132) move_sprite(OAM_ORB + i, 0, 0); else move_sprite(OAM_ORB + i, (UINT8)(x + 4), (UINT8)(y + 12));
+        }
         arrow();
         label(over_star());
         if(shown == 255) hud_update();
@@ -291,7 +384,7 @@ int space_run(void) BANKED {
             UINT8 n; char b[96], *d;
             for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
             sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1;
-            d = scat(b, "OUCH! THE PIRATES WRECKED THE SHIP. I LIMPED BACK TO "); d = world_name(d, world_seed(sv.star)); scat(d, ". SOME GOLD FELL OUT.");
+            d = scat(b, b_fight ? "OUCH! THE BEAST WRECKED THE SHIP." : "OUCH! THE PIRATES WRECKED THE SHIP."); d = scat(d, " I LIMPED BACK TO "); d = world_name(d, world_seed(sv.star)); scat(d, ". SOME GOLD FELL OUT.");
             dlg_say("BOLT", b);
             break;
         }

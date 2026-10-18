@@ -9,11 +9,14 @@ enum { SP_STAR0, SP_STAR1, SP_STAR2, SP_STAR3, SP_PL_TL, SP_PL_TR, SP_PL_BL, SP_
 #define SP_T_LASER     40
 #define SP_T_BOOM(f)   (44 + (f) * 4)
 #define SP_T_ARROW(d)  (52 + (d) * 4)
-#define SP_NSPR        84
+#define SP_T_BEAST(cx, cy) (84 + ((cx) * 3 + (cy)) * 2)   /* the Technobeast: 6 columns x 3 rows of 8x16 sprites */
+#define SP_T_CORE(open) (120 + ((open) ? 0 : 4))
+#define SP_T_ORB       128
+#define SP_NSPR        130
 extern const UINT8 sp_bg[SP_NMT * 64];
 extern const UINT8 sp_spr[SP_NSPR * 16];
 extern const palette_color_t sp_space_pal[4];
 extern const palette_color_t sp_kind_pal[6 * 4];
-extern const palette_color_t sp_spr_pal[16];
+extern const palette_color_t sp_spr_pal[24];   /* sprite palettes 0..5 */
 extern const UINT8 sp_perm[256];               /* a shuffle of 0..255, for the starfield hash */
 #endif

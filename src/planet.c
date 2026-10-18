@@ -214,7 +214,7 @@ static void enter(void){                                       /* the planet ont
     DISPLAY_ON;
 }
 int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
-    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0; char msg[96], *d;
+    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0; char msg[140], *d;
     DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
@@ -223,7 +223,12 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     play_reset(sv.secs);
     ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
     d = scat(msg, "WE LANDED ON "); d = world_name(d, world_seed(sv.star)); d = scat(d, ", A "); d = scat(d, planet_world_name[wk]);
-    d = scat(d, " WORLD. FIND THE DOOR AND GO DOWN. A AT THE SHIP SAVES, OR FLIES US AWAY.");
+    d = scat(d, world_freed(sv.star) ? " WORLD. IT IS FREE NOW, THANKS TO YOU." : " WORLD. FIND THE DOOR AND GO DOWN TO ITS QUEEN.");
+    scat(d, " A AT THE SHIP SAVES, OR FLIES US AWAY.");
+    if(!(sv.story & ST_INTRO)){
+        sv.story |= ST_INTRO;
+        dlg_say("BOLT", "HI, I AM BOLT, YOUR SHIP. I LOST MY MEMORY. EVERY WORLD HAS A QUEEN DEEP DOWN, AND EACH ONE HOLDS ONE OF MY 8 DATA CORES. PLEASE GET THEM BACK!");
+    }
     dlg_say("BOLT", msg);
     for(;;){
         input_poll();

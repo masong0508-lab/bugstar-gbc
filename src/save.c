@@ -135,3 +135,4 @@ UINT8 first_good_slot(void){
 }
 
 UINT32 world_seed(UINT8 star){ return star ? sv.seed ^ ((UINT32)star * 0x9E3779B1UL) : sv.seed; }
+UINT8 world_freed(UINT8 star){ UINT8 i; for(i = 0; i < sv.cores && i < 8; i++) if(sv.freed[i] == star) return 1; return 0; }

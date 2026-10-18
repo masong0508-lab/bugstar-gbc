@@ -4,5 +4,6 @@
 /* step 8: space and the ship (bank 6, with its art) */
 #define SP_TITLE 1
 #define SP_LAND  2
-int space_run(void) BANKED;      /* fly from the world of sv.star; returns SP_LAND (sv.star = where you came down) or SP_TITLE */
+#define SP_END   3               /* the Technobeast is beaten: play the ending */
+int space_run(void) BANKED;      /* fly from the world of sv.star; returns SP_LAND (sv.star = where you came down), SP_TITLE or SP_END */
 #endif

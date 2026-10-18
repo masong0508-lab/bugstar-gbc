@@ -25,7 +25,10 @@ typedef struct {                 /* one save slot: 96 bytes on the cartridge (ve
     UINT8  deepest;              /* the deepest dungeon floor reached */
     UINT8  potions;              /* health potions carried (SELECT drinks one) */
     UINT8  star;                 /* the star (world) you are on or last landed on, 0..255; 0 = the home world (step 8) */
-    UINT8  rsv[19];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
+    UINT8  cores;                /* Bolt's data cores won back, 0..8: one per world freed (step 10) */
+    UINT8  story;                /* ST_* flags */
+    UINT8  freed[8];             /* the stars whose worlds gave a core, in order */
+    UINT8  rsv[9];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 
@@ -38,6 +41,9 @@ typedef struct {                 /* options, same set as the GBA game */
     UINT8 cam, minimap, nums, hints, arrow;
 } Opts;
 
+#define ST_INTRO 1               /* Bolt has told the story so far */
+#define ST_BEAST 2               /* ...and met the Technobeast */
+#define ST_DONE  4               /* the Technobeast is beaten: the ending was seen */
 extern Save  sv;                 /* the slot in play */
 extern Opts  opt;
 extern UINT8 cur_slot;           /* 0..2 */
@@ -54,5 +60,6 @@ UINT8  first_good_slot(void);              /* last_slot if good, else the first 
 UINT32 frames32(void);                     /* VBL frames since boot */
 UINT32 play_secs(void);
 void   play_reset(UINT32 base);
-UINT32 world_seed(UINT8 star);             /* the seed of star n's world (star 0 is sv.seed itself, so older saves keep their world) */
+UINT32 world_seed(UINT8 star);
+UINT8  world_freed(UINT8 star);            /* 1 if that world's queen gave up a core already */             /* the seed of star n's world (star 0 is sv.seed itself, so older saves keep their world) */
 #endif
