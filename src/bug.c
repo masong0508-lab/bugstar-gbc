@@ -1,3 +1,4 @@
+#pragma bank 3
 /* The bug (step 5): look data, ready-made looks, colour tools and the sprite builder. See bug.h. No hardware in here. */
 #include <string.h>
 #include "bug.h"
@@ -56,8 +57,8 @@ void bug_preset(BugLook *l, UINT8 i, UINT16 lock_parts, UINT8 lock_cols){
     for(k = 0; k < BP_N; k++) if(!((lock_parts >> k) & 1)) l->pt[k] = p->p[k];
     for(k = 0; k < BC_N; k++) if(!((lock_cols >> k) & 1)) l->col[k] = p->c[k];
 }
-void bug_default(BugLook *l){ memset(l, 0, sizeof *l); bug_preset(l, 0, 0, 0); }
-void bug_clamp(BugLook *l){ UINT8 k; for(k = 0; k < BP_N; k++) if(l->pt[k] >= bug_part_n[k]) l->pt[k] = 0; for(k = 0; k < BC_N; k++) l->col[k] &= 0x7FFF; }
+void bug_default(BugLook *l) BANKED { memset(l, 0, sizeof *l); bug_preset(l, 0, 0, 0); }
+void bug_clamp(BugLook *l) BANKED { UINT8 k; for(k = 0; k < BP_N; k++) if(l->pt[k] >= bug_part_n[k]) l->pt[k] = 0; for(k = 0; k < BC_N; k++) l->col[k] &= 0x7FFF; }
 UINT8 bug_col_on(const BugLook *l, UINT8 c){
     switch(c){ case BC_MARK: return l->pt[BP_PAT] != 0; case BC_HORN: return l->pt[BP_HORN] != 0;
                case BC_WING: return l->pt[BP_WING] != 0; case BC_HAT: return l->pt[BP_HAT] != 0; default: return 1; }
@@ -110,7 +111,7 @@ static UINT16 mix15(UINT16 a, UINT16 b, UINT8 t){
     UINT16 r = ((a & 31) * (16 - t) + (b & 31) * t) >> 4, g = (((a >> 5) & 31) * (16 - t) + ((b >> 5) & 31) * t) >> 4, bl = (((a >> 10) & 31) * (16 - t) + ((b >> 10) & 31) * t) >> 4;
     return r | (g << 5) | (bl << 10);
 }
-void bug_palettes(const BugLook *l, UINT16 *p){
+void bug_palettes(const BugLook *l, UINT16 *p) BANKED {
     UINT16 sh = l->col[BC_SHELL], wg = l->col[BC_WING], shine = lift15(sh, 11);
     UINT8 k;
     for(k = 0; k < 16; k++) p[k] = 0;
@@ -220,7 +221,7 @@ static void draw_frame(const BugLook *l, UINT8 f, UINT8 tc, UINT8 hc, UINT8 W, U
     }
 }
 
-void bug_build(const BugLook *l){
+void bug_build(const BugLook *l) BANKED {
     UINT8 W = 16 + 8 * l->pt[BP_LENGTH], tc = l->pt[BP_TAIL] ? 1 : 0, hc = tc + (W >> 3), c, n = 0;
     UINT8 used[BUG_MAXCELL];
     memset(used, 0, sizeof used);

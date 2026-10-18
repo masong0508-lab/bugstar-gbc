@@ -1,3 +1,4 @@
+#pragma bank 2
 /* Title screen (step 2): full-screen planet art from tools/img2gbc.py.
    Art tiles live in VRAM bank 1 (bank 0 keeps the text font, see text.c), the tile map is in bank 0,
    per-tile palette/bank attributes in the bank-1 map. Menu text is baked into the art;
@@ -16,7 +17,7 @@ unsigned int title_frames;
 
 static const palette_color_t cursor_pal[4] = { RGB(0,0,0), RGB(2,1,6), RGB(31,26,11), RGB(31,31,31) };
 
-void title_init(void){
+void title_init(void) BANKED {
     DISPLAY_OFF;
     set_bkg_palette(0, 8, title_pal);
     VBK_REG = VBK_BANK_1;
@@ -50,7 +51,7 @@ static int title_sel = TI_NEW;
 static UINT8 visited;
 static UINT8 enabled(int i, UINT8 have_save){ return (i == TI_CONT || i == TI_LOAD) ? have_save : 1; }
 
-int title_run(UINT8 have_save){
+int title_run(UINT8 have_save) BANKED {
     UINT8 t = 0;
     int i;
     if(!visited){ visited = 1; title_sel = have_save ? TI_CONT : TI_NEW; }   /* first time: start on CONTINUE if there is a save */
@@ -68,7 +69,7 @@ int title_run(UINT8 have_save){
     }
 }
 
-void title_exit(void){
+void title_exit(void) BANKED {
     DISPLAY_OFF;
     HIDE_SPRITES;
     txt_init();                                        /* font + text palettes, blank map, attributes reset */

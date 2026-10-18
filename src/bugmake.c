@@ -1,3 +1,4 @@
+#pragma bank 3
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
@@ -150,7 +151,7 @@ static void mixer(UINT16 *c){
     }
 }
 
-UINT8 bugmake_run(BugLook *look, char *name, UINT8 first){
+UINT8 bugmake_run(BugLook *look, char *name, UINT8 first) BANKED {
     BugLook before; char bnm[9];
     UINT8 sel = 0, top = 0, dirty = 1, rep = 0, sel_down = 0, chord = 0, note_t = 0, k, d, fresh, rebuild;
     UINT16 old;

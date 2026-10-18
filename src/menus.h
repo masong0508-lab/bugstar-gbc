@@ -8,7 +8,7 @@ char *u32s(char *d, UINT32 v);           /* decimal 32-bit; returns pointer to t
 char *scat(char *d, const char *s);       /* copy; returns pointer to the end NUL */
 char *fmt_time(char *d, UINT32 secs);     /* H:MM:SS */
 char *fmt_hex32(char *d, UINT32 v);       /* 8 hex digits */
-void  options_screen(void);
+void  options_screen(void) BANKED;              /* bank 2 */
 /* mode 0 = LOAD (used slots only), 1 = NEW (asks before overwriting). Returns slot 0..2, or -1 for back. */
-int   slot_picker(UINT8 mode);
+int   slot_picker(UINT8 mode) BANKED;   /* bank 2 */
 #endif

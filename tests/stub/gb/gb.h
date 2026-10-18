@@ -1,5 +1,7 @@
 #ifndef STUB_GB
 #define STUB_GB
+#define BANKED                 /* (on the PC there are no ROM banks) */
+#define NONBANKED
 #include <stdint.h>
 typedef uint8_t UINT8; typedef uint16_t UINT16; typedef uint32_t UINT32; typedef int8_t INT8; typedef int16_t INT16;
 #define J_UP 4

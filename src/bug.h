@@ -37,8 +37,8 @@ extern const char *const bug_col_label[BC_N];               /* "SHELL", "MARKING
 #define BUG_NPRESET 18
 extern const char *bug_preset_name(UINT8 i);
 void   bug_preset(BugLook *l, UINT8 i, UINT16 lock_parts, UINT8 lock_cols);   /* ready-made look i; a locked part (bit BP_x) or colour (bit BC_x) keeps what it has */
-void   bug_default(BugLook *l);                              /* the CLASSIC look */
-void   bug_clamp(BugLook *l);                                /* force every part into range (damaged save) */
+void   bug_default(BugLook *l) BANKED;                              /* the CLASSIC look */
+void   bug_clamp(BugLook *l) BANKED;                                /* force every part into range (damaged save) */
 UINT8  bug_col_on(const BugLook *l, UINT8 c);                /* 0 when the part that colour paints is switched off */
 
 /* 16 ready-made colours, a colour scheme maker, the mixer's helpers */
@@ -71,8 +71,8 @@ typedef struct {
     UINT8  tiles[BUG_FRAMES][BUG_MAXCELL][32];               /* one 8x16 sprite (two tiles) per cell and frame */
 } BugSet;
 extern BugSet bug_set;
-void   bug_build(const BugLook *l);                          /* draw both frames, cut them into bug_set */
-void   bug_palettes(const BugLook *l, UINT16 *out16);        /* 4 palettes x 4 colours (entry 0 of each is clear) */
+void   bug_build(const BugLook *l) BANKED;                          /* draw both frames, cut them into bug_set */
+void   bug_palettes(const BugLook *l, UINT16 *out16) BANKED;        /* 4 palettes x 4 colours (entry 0 of each is clear) */
 UINT8  bug_peak(void);                                       /* the most sprites that any one scanline of the canvas holds */
 UINT8  bug_pixel(UINT8 x, UINT8 y);                          /* the 2-bit picture of the last bug_build (frame 0), for tests and previews */
 UINT8  bug_cell_pal(UINT8 cell);                             /* which palette cell c uses */
