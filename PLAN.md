@@ -17,7 +17,12 @@ Each step ends with a ROM that boots in an emulator.
    cut into 8x16 sprites, at most 6 per scanline; 13 parts + 8 colours (the GBA's antenna/leg colours are now the outline), 18 ready-made looks,
    MATCH colour schemes, lock, surprise, undo, RGB mixer, name entry (src/bugmake.c). Save slots are now v2 (96 bytes, holds the look; v1 slots convert on load).
    NEW GAME opens the creator; a walking bug shows on the placeholder game screen. Not done: a MIRROR entry in the SYSTEM menu (call bugmake_run(&sv.look, sv.name, 0)).
-6. Planet top-down: tilemap scroll replaces the 3D hills; seeded terrain from WorldDNA.
+6. Planet top-down. DONE (tested in an emulator). src/planet.c (bank 4) + tools/make_planet.py -> src/planet_art.c: a 256x256-metatile world (4096 px,
+   wrapping) worked out from the save's seed as it scrolls into view (table-driven value noise: no RAM map), six kinds of world (GARDEN, DESERT, ICE,
+   JUNGLE, OCEAN, DUSK) that recolour the same 11 ground tiles (VRAM bank 1, BG palettes 4..7), forests, flowers, boulders on high ground, berry bushes
+   (heal, gold; the last 32 eaten are remembered), the ship as a sprite on a landing pad (A: heal + save), the door down (sealed until step 7).
+   B runs. NEW GAME / CONTINUE / LOAD now land on the planet; the step-5 placeholder screen is gone.
+   ROM layout: bank 0 = always-mapped core (keep it under 16 KB!), bank 2 = title + menus, bank 3 = bug creator, bank 4 = planet.
 7. Dungeon: top-down or fake-3D by row-strip (NOT textured raycast); monsters, bite, items.
 8. Space/ship/hangar: flat-sprite flight, simple galaxy of 256 stars, 32-bit seed.
 9. Sound: GBC 4-channel music driver (hUGEDriver) replacing sound.inc.

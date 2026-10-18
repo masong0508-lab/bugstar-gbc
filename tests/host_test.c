@@ -67,6 +67,7 @@ static void sm_repaint(void){ redraws++; }
 static int sm_run(const UINT8 *seq){ keys = keys_old = 0; sq = seq; sq_n = 0; redraws = 0; padfn = pad_seq; int r = sysmenu_run(sm_repaint); padfn = 0; return r; }
 static int sq_is(int n, int y, int x, const char *want){ for(int i = 0; want[i]; i++) if(sq_snap[n][y][x + i] != (UINT8)want[i]) return 0; return 1; }
 static int d_run(const char *name, const char *text, UINT8 spd){ keys = keys_old = 0; d_snaps = 0; d_last = 0; d_blips = 0; padfn = pad_dlg; d_start = frames; dlg_set_speed(spd); dlg_say(name, text); padfn = 0; return frames - d_start; }
+unsigned char SCX_REG, SCY_REG, LCDC_REG;
 int main(void){
     extern UINT8 keys, keys_old; (void)keys; (void)keys_old;
     cls();

@@ -68,7 +68,8 @@ int sysmenu_run(void (*redraw)(void)){
             if(sel == 1){ slot_write(cur_slot); status("SAVED!"); }
             else if(sel == 2){
                 HIDE_WIN;
-                txt_cls(); options_screen(); txt_cls();
+                { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;   /* the options page is drawn unscrolled, without sprites over it */
+                  SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; txt_cls(); options_screen(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
                 if(redraw) redraw();
                 SHOW_WIN; status("");
             } else {

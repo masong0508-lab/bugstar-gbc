@@ -3,6 +3,8 @@
 #define BANKED                 /* (on the PC there are no ROM banks) */
 #define NONBANKED
 #include <stdint.h>
+extern unsigned char SCX_REG, SCY_REG, LCDC_REG;   /* (scroll and LCD control: plain variables on the PC) */
+#define LCDCF_OBJON 0x02
 typedef uint8_t UINT8; typedef uint16_t UINT16; typedef uint32_t UINT32; typedef int8_t INT8; typedef int16_t INT16;
 #define J_UP 4
 #define J_DOWN 8
