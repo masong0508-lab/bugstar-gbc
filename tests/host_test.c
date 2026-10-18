@@ -220,7 +220,7 @@ int main(void){
     }
     dlg_set_speed(2);
     /* ---- SYSTEM menu */
-    memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1, 0, 0); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv);
+    memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1, 0, 0); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv); sv.friends = sv.deepest = sv.potions = 0;
     CHECK(SM_WX == 71 && SM_WY == 80);
     { /* open with the HUD showing, resume with B: layout, then HUD is back */
       static const UINT8 q1[] = { J_B, 0xFF };

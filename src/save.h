@@ -21,7 +21,10 @@ typedef struct {                 /* one save slot: 96 bytes on the cartridge (ve
     UINT16 saves;                /* how many times this slot was saved */
     char   name[9];              /* the bug's name (8 chars + NUL) */
     BugLook look;                /* the bug, from the creator (step 5) */
-    UINT8  rsv[23];
+    UINT8  friends;              /* bug friends freed from cages (step 7) */
+    UINT8  deepest;              /* the deepest dungeon floor reached */
+    UINT8  potions;              /* health potions carried (SELECT drinks one) */
+    UINT8  rsv[20];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 

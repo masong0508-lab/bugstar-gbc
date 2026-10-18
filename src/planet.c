@@ -20,6 +20,7 @@
 #include "bugspr.h"
 #include "planet_art.h"
 #include "planet.h"
+#include "dungeon.h"
 
 #define SHIP_TILE0 64            /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..43) */
 #define SHIP_OAM0  20
@@ -143,6 +144,9 @@ static void world_setup(void){
       find_land(&door_mx, &door_my, ship_mx + dx, ship_my + dy, 1); }
     bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40;   /* you step out just below the ship */
     npicked = 0;
+#ifdef TEST_DOOR
+    bx = ((UINT16)door_mx << 4) + 8; by = ((UINT16)door_my << 4) - 6;   /* (test builds: start just above the door) */
+#endif
 }
 static void load_gfx(void){
     UINT8 i;
@@ -175,12 +179,8 @@ static UINT8 near_ship(void){
     return dx < 28 && dy < 40;
 }
 
-int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
-    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0; char msg[96], *d;
+static void enter(void){                                       /* the planet onto the screen (again, after a dungeon) */
     DISPLAY_OFF;
-    cpu_fast();
-    for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
-    world_setup();
     load_gfx();
     txt_pal_reset();
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
@@ -188,6 +188,14 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     bugspr_load(&sv.look);
     SHOW_BKG; SHOW_SPRITES;
     DISPLAY_ON;
+}
+int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
+    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0; char msg[96], *d;
+    DISPLAY_OFF;
+    cpu_fast();
+    for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
+    world_setup();
+    enter();
     play_reset(sv.secs);
     ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
     d = msg; d = scat(d, "WE LANDED. THIS IS "); d = scat(d, planet_world_name[wk]); d = scat(d, " WORLD. FIND THE DOOR AND GO DOWN. PRESS A AT THE SHIP TO SAVE.");
@@ -205,7 +213,14 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
-        if(ox == door_mx && oy == door_my){ if(!was_door){ was_door = 1; dlg_say("BOLT", "THE DOOR DOWN. IT IS SEALED FOR NOW: THE DUNGEONS ARE STILL BEING DUG. COME BACK SOON."); } }
+        if(ox == door_mx && oy == door_my){ if(!was_door){ int r;
+                was_door = 1;
+                r = dungeon_run();                                 /* down you go */
+                if(r == DG_TITLE){ hud_hide(); bugspr_hide(); for(k = 0; k < 40; k++) move_sprite(k, 0, 0); SCX_REG = 0; SCY_REG = 0; txt_cls(); return PL_TITLE; }
+                if(r == DG_FAINT){ bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40; was_door = 0; }
+                else { bx = ((UINT16)door_mx << 4) + 8; by = ((UINT16)door_my << 4) + 30; was_door = 0; }   /* out of the door, one step below it */
+                if(r == DG_WIN && opt.autosave) slot_write(cur_slot);
+                camera(); enter(); continue; } }
         else was_door = 0;
         wait_vbl_done();
         SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;

@@ -22,8 +22,14 @@ Each step ends with a ROM that boots in an emulator.
    JUNGLE, OCEAN, DUSK) that recolour the same 11 ground tiles (VRAM bank 1, BG palettes 4..7), forests, flowers, boulders on high ground, berry bushes
    (heal, gold; the last 32 eaten are remembered), the ship as a sprite on a landing pad (A: heal + save), the door down (sealed until step 7).
    B runs. NEW GAME / CONTINUE / LOAD now land on the planet; the step-5 placeholder screen is gone.
-   ROM layout: bank 0 = always-mapped core (keep it under 16 KB!), bank 2 = title + menus, bank 3 = bug creator, bank 4 = planet.
-7. Dungeon: top-down or fake-3D by row-strip (NOT textured raycast); monsters, bite, items.
+   ROM layout: bank 0 = always-mapped core (keep it under 16 KB!), bank 2 = title + menus, bank 3 = bug creator, bank 4 = planet, bank 5 = dungeon.
+7. Dungeon, top-down. DONE (tested in an emulator). src/dungeon.c (bank 5) + tools/make_dungeon.py -> src/dungeon_art.c. The planet's door leads down.
+   Floors of 32x32 metatiles (1 KB map in RAM) from the seed + floor number: up to 8 rooms and L corridors, wall faces, stairs up and down,
+   chests (bite to open: gold, sometimes a potion), potions on the floor (SELECT drinks one), spiders, beetles, wasps and slimes that wake
+   when you come near, chase, bite and get knocked back; A bites the way you face (the bite flash sprite), XP and level-ups, gold.
+   3 floors + 1 per world freed (max 6); the last floor has the spider queen (32x32) and a caged friend: beat her, bite the cage, the world
+   is free (sv.zone++, autosave). Fainting: back to the ship, a quarter of the gold lost. Save v2 gained friends / deepest / potions
+   (taken from the reserved bytes). Test builds: -DTEST_DOOR starts by the door, -DTEST_BOSS goes straight to the queen.
 8. Space/ship/hangar: flat-sprite flight, simple galaxy of 256 stars, 32-bit seed.
 9. Sound: GBC 4-channel music driver (hUGEDriver) replacing sound.inc.
 10. Cut/shrink: karts, hell-world variants, 8 cores story as a flag set. (Film and trailer are dropped entirely.)
