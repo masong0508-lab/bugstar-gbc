@@ -10,6 +10,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "fx.h"
 #include "sound.h"
 #include "input.h"
 #include "save.h"
@@ -199,11 +200,13 @@ static UINT8 ask_fly(void){                                    /* a little YES /
 }
 static void leave(void){                                       /* clear the screen for the next scene */
     UINT8 k;
-    hud_hide(); bugspr_hide(); for(k = 0; k < 40; k++) move_sprite(k, 0, 0); SCX_REG = 0; SCY_REG = 0; txt_cls();
+    fade_out(); DISPLAY_OFF;
+    hud_hide(); bugspr_hide(); for(k = 0; k < 40; k++) move_sprite(k, 0, 0); SCX_REG = 0; SCY_REG = 0; txt_cls(); txt_pal_reset();
+    DISPLAY_ON;
 }
 
 static void enter(void){                                       /* the planet onto the screen (again, after a dungeon) */
-    DISPLAY_OFF;
+    fade_out(); DISPLAY_OFF;
     load_gfx();
     txt_pal_reset();
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
@@ -211,11 +214,11 @@ static void enter(void){                                       /* the planet ont
     bugspr_load(&sv.look);
     music(MUS_PLANET);
     SHOW_BKG; SHOW_SPRITES;
-    DISPLAY_ON;
+    fade_in();
 }
 int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
     UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0; char msg[140], *d;
-    DISPLAY_OFF;
+    fade_out(); DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
     world_setup();

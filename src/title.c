@@ -5,6 +5,7 @@
    the cursor is a sprite. Stars twinkle by rewriting one palette colour. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
+#include "fx.h"
 #include "sound.h"
 #include "input.h"
 #include "title.h"
@@ -33,7 +34,7 @@ void title_init(void) BANKED {
     move_sprite(0, 54, MENU_Y0 + MENU_DY + 16);
     SPRITES_8x8; { UINT8 i; for(i = 1; i < 40; i++) move_sprite(i, 0, 0); }
     SHOW_BKG; SHOW_SPRITES;
-    DISPLAY_ON;
+    fade_in();
 }
 
 static void twinkle(UINT8 t){
@@ -72,6 +73,7 @@ int title_run(UINT8 have_save) BANKED {
 }
 
 void title_exit(void) BANKED {
+    fade_out();
     DISPLAY_OFF;
     HIDE_SPRITES;
     txt_init();                                        /* font + text palettes, blank map, attributes reset */

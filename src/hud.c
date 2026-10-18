@@ -78,3 +78,10 @@ void gain_xp(UINT16 n){
         sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); u16s(d, sv.level); dlg_say(0, b);
     }
 }
+
+INT8 shake_x, shake_y; static UINT8 shake_t;
+void shake(UINT8 n){ if(opt.shake && n > shake_t) shake_t = n; }
+void shake_tick(void){
+    if(shake_t){ shake_t--; shake_x = (shake_t & 1) ? 2 : -2; shake_y = (shake_t & 2) ? 1 : -1; if(shake_t < 4){ shake_x >>= 1; shake_y = 0; } }
+    else shake_x = shake_y = 0;
+}

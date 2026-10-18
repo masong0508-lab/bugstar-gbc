@@ -3,6 +3,7 @@
    whole game. A hurries the lines along and turns the pages. The game is saved with ST_DONE first, so CONTINUE goes on after it. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
+#include "fx.h"
 #include "input.h"
 #include "save.h"
 #include "text.h"
@@ -24,7 +25,7 @@ static void line(UINT8 y, const char *s, UINT8 pal){ UINT8 n = slen(s); txt_put(
 void ending_run(void) BANKED {
     UINT8 p, i; char b[24], *d;
     slot_write(cur_slot);
-    DISPLAY_OFF; HIDE_SPRITES; HIDE_WIN; SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); txt_cls(); DISPLAY_ON;
+    fade_out(); DISPLAY_OFF; HIDE_SPRITES; HIDE_WIN; SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); txt_cls(); fade_in();
     music(MUS_ENDING);
     for(p = 0; p < 3; p++){
         txt_cls();

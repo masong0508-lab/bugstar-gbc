@@ -8,6 +8,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "fx.h"
 #include "sound.h"
 #include "input.h"
 #include "save.h"
@@ -175,7 +176,7 @@ static UINT8 blocked(UINT16 x, UINT16 y, UINT8 r){                 /* a box 2r w
 static void hurt(UINT8 n, INT8 kx, INT8 ky){
     UINT8 k;
     if(inv) return;
-    sv.hp = sv.hp > n ? sv.hp - n : 0; inv = 50; sfx(SFX_HURT);
+    sv.hp = sv.hp > n ? sv.hp - n : 0; inv = 50; sfx(SFX_HURT); shake(10);
     for(k = 0; k < 10; k++){ if(!blocked(bx + kx, by + ky, 5)){ bx += kx; by += ky; } }   /* knocked back */
 }
 #ifdef TEST_BOSS
@@ -194,7 +195,7 @@ static void do_bite(void){
         { UINT8 p = bite_power(); m->hp = m->hp > p ? m->hp - p : 0; } sfx(SFX_HIT);
         m->flash = 12; m->kx = face == 0 ? 2 : face == 1 ? -2 : 0; m->ky = face == 3 ? 2 : face == 2 ? -2 : 0;
         if(!m->hp){
-            m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE);
+            m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5);
             if(m->kind == K_QUEEN){ sv.gold += 200 + sv.zone * 100; gain_xp(40 + sv.zone * 20); }
             else { sv.gold += 3 + m->kind * 2 + depth; gain_xp(3 + m->kind + depth); }
         }
@@ -235,7 +236,9 @@ static void mon_step(void){
 /* ------------------------------------------------------------ the floors */
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
-    DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES; DISPLAY_ON;
+    fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
+    show_bug(); fade_in();
+    if(depth == floors) banner(BN_QUEEN);
     if(depth > sv.deepest) sv.deepest = depth;
 #ifdef TEST_BOSS
     { Room *r = &rooms[nrooms - 1]; bx = ((UINT16)(r->x + r->w / 2) << 4) + 8; by = ((UINT16)(r->y + r->h - 1) << 4) + 12; }
@@ -261,7 +264,7 @@ static int play_floor(void){                                       /* returns DG
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
         wait_vbl_done();
-        SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;
+        shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
         show_bug(); show_mons(); show_bite();
         hud_update();
         if(!sv.hp) return DG_FAINT;
