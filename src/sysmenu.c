@@ -1,4 +1,5 @@
 #include <gb/gb.h>
+#include "sound.h"
 #include "input.h"
 #include "save.h"
 #include "text.h"
@@ -51,6 +52,7 @@ static UINT8 confirm_title(void){
 int sysmenu_run(void (*redraw)(void)){
     UINT8 sel = 0, had = hud_is_on();
     int result = SYS_RESUME;
+    sfx(SFX_OK);
     move_win(OFFX, SM_WY); SHOW_WIN;                 /* the HUD vanishes: this box takes over the window */
     txt_win(1);
     txt_cls(); txt_box(0, 0, SM_W, SM_H);
@@ -60,12 +62,12 @@ int sysmenu_run(void (*redraw)(void)){
     slide_x(OFFX, SM_WX);
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NITEM - 1; status(""); draw_items(sel); }
-        if(HIT(J_DOWN)) { sel = (sel + 1) % NITEM;         status(""); draw_items(sel); }
+        if(HIT(J_UP))   { sel = sel ? sel - 1 : NITEM - 1; status(""); draw_items(sel); sfx(SFX_MOVE); }
+        if(HIT(J_DOWN)) { sel = (sel + 1) % NITEM;         status(""); draw_items(sel); sfx(SFX_MOVE); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             if(sel == 0) break;
-            if(sel == 1){ slot_write(cur_slot); status("SAVED!"); }
+            if(sel == 1){ slot_write(cur_slot); status("SAVED!"); sfx(SFX_COIN); }
             else if(sel == 2){
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;   /* the options page is drawn unscrolled, without sprites over it */

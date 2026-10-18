@@ -36,6 +36,7 @@ void wait_vbl_done(void){ frames++; if(phase){ phase=0; sp++; } else phase=1; /*
 void gotoxy(UINT8 x, UINT8 y){ (void)x; (void)y; }
 void cls(void){ txt_cls(); }
 void add_VBL(void(*f)(void)){} void set_interrupts(UINT8 x){}
+void sfx(UINT8 n){ (void)n; } void music(UINT8 n){ (void)n; }
 static void dump(const char*t){ fprintf(stdout,"--- %s\n",t); for(int i=0;i<18;i++){ char l[21]; for(int c=0;c<20;c++) l[c]=glyph(tmap[i][c]); l[20]=0; int e=19; while(e>=0&&l[e]==' ') l[e--]=0; fprintf(stdout,"|%s\n",l);} }
 static int row_is(int y, int x, const char *want){ for(int i=0; want[i]; i++) if(tmap[y][x+i] != (UINT8)want[i]) return 0; return 1; }
 #define CHECK(c) do{ if(!(c)){ fprintf(stdout,"FAIL line %d: %s\n",__LINE__,#c); fails++; } }while(0)

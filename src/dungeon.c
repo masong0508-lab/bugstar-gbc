@@ -8,6 +8,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "sound.h"
 #include "input.h"
 #include "save.h"
 #include "text.h"
@@ -174,7 +175,7 @@ static UINT8 blocked(UINT16 x, UINT16 y, UINT8 r){                 /* a box 2r w
 static void hurt(UINT8 n, INT8 kx, INT8 ky){
     UINT8 k;
     if(inv) return;
-    sv.hp = sv.hp > n ? sv.hp - n : 0; inv = 50;
+    sv.hp = sv.hp > n ? sv.hp - n : 0; inv = 50; sfx(SFX_HURT);
     for(k = 0; k < 10; k++){ if(!blocked(bx + kx, by + ky, 5)){ bx += kx; by += ky; } }   /* knocked back */
 }
 #ifdef TEST_BOSS
@@ -190,23 +191,23 @@ static void do_bite(void){
         reach = m->kind == K_QUEEN ? 22 : 14;
         dx = (INT16)m->x - hx; dy = (INT16)m->y - 6 - hy; if(dx < 0) dx = -dx; if(dy < 0) dy = -dy;
         if(dx > reach || dy > reach) continue;
-        { UINT8 p = bite_power(); m->hp = m->hp > p ? m->hp - p : 0; }
+        { UINT8 p = bite_power(); m->hp = m->hp > p ? m->hp - p : 0; } sfx(SFX_HIT);
         m->flash = 12; m->kx = face == 0 ? 2 : face == 1 ? -2 : 0; m->ky = face == 3 ? 2 : face == 2 ? -2 : 0;
         if(!m->hp){
-            m->alive = 0;
+            m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE);
             if(m->kind == K_QUEEN){ sv.gold += 200 + sv.zone * 100; gain_xp(40 + sv.zone * 20); }
             else { sv.gold += 3 + m->kind * 2 + depth; gain_xp(3 + m->kind + depth); }
         }
     }
     { UINT8 tx = (UINT8)((UINT16)hx >> 4), ty = (UINT8)((UINT16)(hy + 6) >> 4);    /* biting a chest or a cage opens it */
       if(tx < DW && ty < DW){
-          if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); sv.gold += g;
+          if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); sv.gold += g; sfx(SFX_COIN);
               if(rndn(3) == 0 && sv.potions < 9){ sv.potions++; dlg_say(0, "THE CHEST HOLDS GOLD AND A HEALTH POTION. (SELECT DRINKS IT)"); }
               else { d = scat(b, "THE CHEST HOLDS "); d = u16s(d, g); scat(d, " GOLD"); dlg_say(0, b); } }
           else if(DM(tx, ty) == D_CAGE){
               UINT8 q; for(q = 0; q < NMON; q++) if(mon[q].alive && mon[q].kind == K_QUEEN) break;
               if(q < NMON) dlg_say("BOLT", "THE QUEEN IS STILL HERE. BEAT HER FIRST!");
-              else { set_mt(tx, ty, D_FREED); sv.friends++; atk = 0; } } } }
+              else { set_mt(tx, ty, D_FREED); sv.friends++; atk = 0; sfx(SFX_FANFARE); } } } }
 }
 static void mon_step(void){
     UINT8 i;
@@ -234,7 +235,7 @@ static void mon_step(void){
 /* ------------------------------------------------------------ the floors */
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
-    DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES; DISPLAY_ON;
+    DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES; DISPLAY_ON;
     if(depth > sv.deepest) sv.deepest = depth;
 #ifdef TEST_BOSS
     { Room *r = &rooms[nrooms - 1]; bx = ((UINT16)(r->x + r->w / 2) << 4) + 8; by = ((UINT16)(r->y + r->h - 1) << 4) + 12; }
@@ -247,16 +248,16 @@ static int play_floor(void){                                       /* returns DG
           if(vx > 0) face = 0; else if(vx < 0) face = 1; else if(vy < 0) face = 2; else if(vy > 0) face = 3;
           for(n = 0; n < sp; n++){ if(vx && !blocked(bx + vx, by, 5)) bx += vx; if(vy && !blocked(bx, by + vy, 5)) by += vy; }
           if((vx || vy) && !(step & 7)) frame ^= 1; }
-        if(HIT(J_A) && !atk){ atk = 12; do_bite(); }
+        if(HIT(J_A) && !atk){ atk = 12; sfx(SFX_BITE); do_bite(); }
         if(atk) atk--;
         if(inv) inv--;
         mon_step();
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
-        if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; dlg_say(0, "A HEALTH POTION! SELECT DRINKS IT."); } }
-        if(DM(ox, oy) == D_DOWN){ if(!was_on) return DG_DOWN; } else if(DM(ox, oy) == D_UP){ if(!was_on) return DG_EXIT; } else was_on = 0;
+        if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! SELECT DRINKS IT."); } }
+        if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
         if(HIT(J_SELECT)){
-            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sv.hp = sv.hp + mx / 2 > mx ? mx : sv.hp + mx / 2; dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
+            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); sv.hp = sv.hp + mx / 2 > mx ? mx : sv.hp + mx / 2; dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
         wait_vbl_done();

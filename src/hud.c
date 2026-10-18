@@ -1,4 +1,5 @@
 #include <gb/gb.h>
+#include "sound.h"
 #include "save.h"
 #include "menus.h"
 #include "text.h"
@@ -74,6 +75,6 @@ void gain_xp(UINT16 n){
     sv.xp += n;
     while(sv.xp >= (UINT32)sv.level * 12 && sv.level < 99){
         sv.xp -= (UINT32)sv.level * 12; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
-        d = scat(b, "LEVEL UP! YOU ARE LEVEL "); u16s(d, sv.level); dlg_say(0, b);
+        sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); u16s(d, sv.level); dlg_say(0, b);
     }
 }

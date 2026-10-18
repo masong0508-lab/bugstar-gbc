@@ -5,6 +5,7 @@
    the cursor is a sprite. Stars twinkle by rewriting one palette colour. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
+#include "sound.h"
 #include "input.h"
 #include "title.h"
 #include "title_art.h"
@@ -18,6 +19,7 @@ unsigned int title_frames;
 static const palette_color_t cursor_pal[4] = { RGB(0,0,0), RGB(2,1,6), RGB(31,26,11), RGB(31,31,31) };
 
 void title_init(void) BANKED {
+    music(MUS_TITLE);
     DISPLAY_OFF;
     set_bkg_palette(0, 8, title_pal);
     VBK_REG = VBK_BANK_1;
@@ -62,10 +64,10 @@ int title_run(UINT8 have_save) BANKED {
         input_poll();
         twinkle(t);
         t++; title_frames++;
-        if(HIT(J_DOWN)){ i = title_sel; do { i = (i + 1) % 4; } while(!enabled(i, have_save)); title_sel = i; }
-        if(HIT(J_UP))  { i = title_sel; do { i = (i + 3) % 4; } while(!enabled(i, have_save)); title_sel = i; }
+        if(HIT(J_DOWN)){ i = title_sel; do { i = (i + 1) % 4; } while(!enabled(i, have_save)); title_sel = i; sfx(SFX_MOVE); }
+        if(HIT(J_UP))  { i = title_sel; do { i = (i + 3) % 4; } while(!enabled(i, have_save)); title_sel = i; sfx(SFX_MOVE); }
         move_sprite(0, 46 + 8 + ((t >> 4) & 1), MENU_Y0 + title_sel * MENU_DY + 16);
-        if(HIT(J_START) || HIT(J_A)) return title_sel;
+        if(HIT(J_START) || HIT(J_A)){ sfx(SFX_OK); return title_sel; }
     }
 }
 

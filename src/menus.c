@@ -1,6 +1,7 @@
 #pragma bank 2
 #include <gb/gb.h>
 #include <string.h>
+#include "sound.h"
 #include "input.h"
 #include "text.h"
 #include "save.h"
@@ -95,16 +96,16 @@ void options_screen(void) BANKED {
             put_line(1, 17, "LEFT/RIGHT  B:BACK", 18);
         }
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NOPT - 1; dirty = 1; }
-        if(HIT(J_DOWN)) { sel = (sel + 1) % NOPT; dirty = 1; }
+        if(HIT(J_UP))   { sel = sel ? sel - 1 : NOPT - 1; dirty = 1; sfx(SFX_MOVE); }
+        if(HIT(J_DOWN)) { sel = (sel + 1) % NOPT; dirty = 1; sfx(SFX_MOVE); }
         if(sel < top) top = sel;
         if(sel >= top + OP_ROWS) top = sel - OP_ROWS + 1;
         if(HIT(J_LEFT) || HIT(J_RIGHT)){
             UINT8 *p = op_ptr(sel), n = op_max(sel);
-            *p = HIT(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n;
+            *p = HIT(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; sfx(SFX_MOVE);
             dirty = 1;
         }
-        if(HIT(J_B)){ settings_save(); return; }
+        if(HIT(J_B)){ settings_save(); sfx(SFX_BACK); return; }
     }
 }
 
@@ -140,9 +141,9 @@ int slot_picker(UINT8 mode) BANKED {
             put_line(1, 16, good[sel] ? "START: ERASE" : "", 18);
         }
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NSLOT - 1; dirty = 1; }
-        if(HIT(J_DOWN)) { sel = (sel + 1) % NSLOT; dirty = 1; }
-        if(HIT(J_B)) return -1;
+        if(HIT(J_UP))   { sel = sel ? sel - 1 : NSLOT - 1; dirty = 1; sfx(SFX_MOVE); }
+        if(HIT(J_DOWN)) { sel = (sel + 1) % NSLOT; dirty = 1; sfx(SFX_MOVE); }
+        if(HIT(J_B)){ sfx(SFX_BACK); return -1; }
         if(HIT(J_START) && good[sel]){
             char b[20], *d = b; d = scat(d, "ERASE SLOT "); *d++ = '1' + sel; *d++ = '?'; *d = 0;
             if(confirm(b)) slot_erase(sel);

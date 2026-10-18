@@ -11,6 +11,7 @@
    both of you. An arrow points at the nearest other world. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
+#include "sound.h"
 #include "input.h"
 #include "save.h"
 #include "text.h"
@@ -171,7 +172,7 @@ static void fire(void){
     for(i = 0; i < NLAS; i++) if(!las[i].life){
         las[i].x = shx >> 4; las[i].y = shy >> 4;
         las[i].dx = dir_x[dir] * 5 + (INT8)(vx >> 4); las[i].dy = dir_y[dir] * 5 + (INT8)(vy >> 4);
-        las[i].life = 36; return;
+        las[i].life = 36; sfx(SFX_LASER); return;
     }
 }
 static void spawn(void){
@@ -213,6 +214,7 @@ int space_run(void) BANKED {
     txt_pal_reset(); pals();
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
     hud_init(); shown = 255;
+    music(MUS_SPACE);
     SHOW_BKG; SHOW_SPRITES;
     DISPLAY_ON;
     spr16(OAM_SHIP, SP_T_SHIP(dir), SHIP_SX, SHIP_SY);
@@ -241,7 +243,8 @@ int space_run(void) BANKED {
                 dx = wrapd(l->x, p->x); dy = wrapd(l->y, p->y);
                 if(dx > -10 && dx < 10 && dy > -10 && dy < 10){
                     l->life = 0;
-                    if(!--p->hp){ boom(p); sv.gold += 5 + sv.zone * 3; gain_xp(2 + sv.zone); shown = 253; }   /* (a level-up message covers the window: put it back) */
+                    sfx(SFX_HIT);
+                    if(!--p->hp){ boom(p); sfx(SFX_BOOM); sv.gold += 5 + sv.zone * 3; gain_xp(2 + sv.zone); shown = 253; }   /* (a level-up message covers the window: put it back) */
                     break;
                 }
             }
@@ -261,7 +264,7 @@ int space_run(void) BANKED {
             if(!inv && dx > -12 && dx < 12 && dy > -12 && dy < 12){      /* rammed */
                 UINT8 dmg = 2 + sv.zone;
                 sv.hp = sv.hp > dmg ? sv.hp - dmg : 0;
-                inv = 60; boom(p);
+                inv = 60; boom(p); sfx(SFX_HURT);
                 vx = dx > 0 ? 24 : -24; vy = dy > 0 ? 24 : -24;           /* knocked away */
             }
         }
@@ -298,7 +301,7 @@ int space_run(void) BANKED {
                 char b[64], *d;
                 sv.star = o;
                 d = scat(b, "LANDING ON "); d = world_name(d, world_seed(o)); d = scat(d, ", A "); d = scat(d, kind_name[star_k[o]]); scat(d, " WORLD.");
-                hide2(OAM_ARR);
+                hide2(OAM_ARR); sfx(SFX_STAIRS);
                 dlg_say("BOLT", b);
                 if(opt.autosave) slot_write(cur_slot);
                 break;

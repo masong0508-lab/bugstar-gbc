@@ -37,5 +37,9 @@ Each step ends with a ROM that boots in an emulator.
    (its name and kind show in the HUD line). Pirate drones spawn away from planets, chase and ram; shoot them for gold and XP. An arrow
    points at the nearest other world. Planets are tinted per kind with BG palettes 4..7 on a 2x2-cell checkerboard; the stars use palette 3.
    Save gained star (from the reserved bytes). Test build: -DTEST_SPACE starts in space with a fresh game in slot 1.
-9. Sound: GBC 4-channel music driver (hUGEDriver) replacing sound.inc.
+9. Sound. DONE (tested in an emulator with an APU: tools are minigb_apu + Walnut-CGB). A small player of our own instead of hUGEDriver:
+   src/sound_play.c (bank 7, run from the VBL interrupt; src/sound.c in bank 0 maps the bank and keeps the requests) + tools/make_sound.py
+   -> src/sound_data.c. The GBA tunes (title, planet, dungeon, space, boss, ending): tune on channel 2, wave bass on 3, an echo of the tune
+   three steps late on 1 (right speaker), a 16-step drum line on 4. 22 effects (the GBA's 15 plus laser, boom, menu move/ok/back,
+   level up, dialogue typing) borrow channel 1 or 4 for a moment. OPTIONS music OFF/LOW/FULL and SFX ON/OFF work.
 10. Cut/shrink: karts, hell-world variants, 8 cores story as a flag set. (Film and trailer are dropped entirely.)

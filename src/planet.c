@@ -10,6 +10,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "sound.h"
 #include "input.h"
 #include "save.h"
 #include "text.h"
@@ -171,7 +172,7 @@ static UINT8 blocked(UINT16 x, UINT16 y){                       /* the bug's fee
 static void eat_berry(UINT8 x, UINT8 y){
     if(npicked < 32){ picked[npicked][0] = x; picked[npicked][1] = y; npicked++; }
     else { memmove(picked[0], picked[1], 31 * 2); picked[31][0] = x; picked[31][1] = y; }
-    draw_mt(x, y);
+    draw_mt(x, y); sfx(SFX_PICK);
     { UINT16 mx = hud_hpmax(sv.level); sv.hp = sv.hp + 3 > mx ? mx : sv.hp + 3; }
     sv.gold += 2; sv.xp += 1;
 }
@@ -188,7 +189,7 @@ static UINT8 ask_fly(void){                                    /* a little YES /
     ask_draw(sel); move_win(7, 144 - 32); SHOW_WIN;
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_LEFT) || HIT(J_RIGHT)){ sel ^= 1; ask_draw(sel); }
+        if(HIT(J_LEFT) || HIT(J_RIGHT)){ sel ^= 1; ask_draw(sel); sfx(SFX_MOVE); }
         if(HIT(J_A)) break;
         if(HIT(J_B)){ sel = 1; break; }
     }
@@ -208,6 +209,7 @@ static void enter(void){                                       /* the planet ont
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
     hud_init();
     bugspr_load(&sv.look);
+    music(MUS_PLANET);
     SHOW_BKG; SHOW_SPRITES;
     DISPLAY_ON;
 }
@@ -237,7 +239,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
         if(ox == door_mx && oy == door_my){ if(!was_door){ int r;
-                was_door = 1;
+                was_door = 1; sfx(SFX_STAIRS);
                 r = dungeon_run();                                 /* down you go */
                 if(r == DG_TITLE){ leave(); return PL_TITLE; }
                 if(r == DG_FAINT){ bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40; was_door = 0; }
@@ -251,7 +253,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         ship_show();
         hud_update();
         if(HIT(J_A) && near_ship()){
-            sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); slot_write(cur_slot);
+            sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); slot_write(cur_slot); sfx(SFX_FANFARE);
             dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
             if(ask_fly()){ leave(); return PL_LAUNCH; }
         }

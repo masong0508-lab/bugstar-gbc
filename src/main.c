@@ -4,6 +4,7 @@
 #include <gb/cgb.h>
 #include <stdio.h>
 #include <string.h>
+#include "sound.h"
 #include "input.h"
 #include "title.h"
 #include "save.h"
@@ -35,6 +36,7 @@ void main(void){
     if(_cpu != CGB_TYPE) { printf("NEEDS GAME BOY COLOR"); return; }
     cpu_fast();                       /* double speed: 8 MHz */
     save_init();
+    sound_init(); dlg_set_blip(sfx_type);
     DISPLAY_ON;
 #ifdef TEST_SPACE
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0);   /* (test builds: straight into space) */
