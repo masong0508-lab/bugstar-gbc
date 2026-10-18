@@ -40,7 +40,11 @@ typedef struct { UINT8 x, y, w, h; } Room;
 static UINT8  dmap[DW * DW];
 static Room   rooms[NROOM]; static UINT8 nrooms;
 static Mon    mon[NMON];
+typedef struct { UINT16 x, y; UINT8 t, n, pal; } Fx;              /* a burst (n = 255) or a damage number rising, t frames left */
+#define NFX 4
+static Fx     fxs[NFX];
 static UINT8  depth, floors, kind, inv, atk, face, frame, step;
+static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
 static UINT16 bx, by, cam_x, cam_y, rng;
 static UINT8  left_mt, top_mt;
 
@@ -96,7 +100,7 @@ static void make_floor(void){
     if(depth == floors && nrooms > 1){                             /* the queen waits by the cage */
         Room *r = &rooms[nrooms - 1]; Mon *m = &mon[NMON - 1];
         memset(m, 0, sizeof *m); m->kind = K_QUEEN; m->alive = 1; m->x = ((UINT16)(r->x + r->w / 2) << 4) + 8; m->y = ((UINT16)(r->y + r->h / 2 + 1) << 4) + 8;
-        m->hp = 40 + sv.zone * 25;
+        m->hp = sv.zone >= 8 ? 250 : 40 + sv.zone * 25;
     }
 }
 
@@ -125,6 +129,7 @@ static void scroll_fill(void){
     while(t < top_mt){ top_mt--; for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt); }
 }
 static void set_mt(UINT8 x, UINT8 y, UINT8 mt){ DM(x, y) = mt; draw_mt(x, y); }
+static UINT8 show_fx(UINT8 o);
 static void show_mons(void){                                       /* every monster near the screen, as sprites */
     UINT8 i, o = OAM_MON0, k;
     for(i = 0; i < NMON; i++){
@@ -133,14 +138,47 @@ static void show_mons(void){                                       /* every mons
         big = m->kind == K_QUEEN; cols = big ? 4 : 2; rows = big ? 2 : 1;
         sx = (INT16)m->x - (INT16)cam_x - (big ? 16 : 8); sy = (INT16)m->y - (INT16)cam_y - (big ? 30 : 14);
         if(sx < -32 || sx > 168 || sy < -32 || sy > 136) continue;
-        if(o + cols * rows > 40) break;
+        if(o + cols * rows > 36) break;                              /* (keep a few for bursts and numbers) */
         base = MON_TILE0 + (big ? MON_T_QUEEN(m->frame) : MON_T_SMALL(m->kind, m->frame)); pal = big ? 0 : m->kind;
         for(k = 0; k < cols * rows; k++){
             set_sprite_tile(o, base + k * 2); set_sprite_prop(o, pal | 0x08);
             move_sprite(o, (UINT8)(sx + (k % cols) * 8 + 8), (UINT8)(sy + (k / cols) * 16 + 16)); o++;
         }
     }
+    o = show_fx(o);
     while(o < 40) move_sprite(o++, 0, 0);
+}
+static void fx_add(UINT16 x, UINT16 y, UINT8 n, UINT8 pal){
+    UINT8 i, best = 0;
+    for(i = 1; i < NFX; i++) if(fxs[i].t < fxs[best].t) best = i;      /* a free one, or the oldest */
+    fxs[best].x = x; fxs[best].y = y; fxs[best].n = n; fxs[best].pal = pal; fxs[best].t = n == 255 ? 16 : 32;
+}
+static UINT8 show_fx(UINT8 o){                                     /* bursts and numbers, in the sprites left over; returns the next free one */
+    UINT8 i;
+    for(i = 0; i < NFX; i++){
+        Fx *f = &fxs[i]; INT16 sx, sy;
+        if(!f->t) continue;
+        f->t--;
+        sx = (INT16)f->x - (INT16)cam_x; sy = (INT16)f->y - (INT16)cam_y;
+        if(sx < -16 || sx > 176 || sy < -16 || sy > 140) continue;
+        if(f->n == 255){                                           /* the burst: 16x16, two frames */
+            UINT8 t = MON_TILE0 + MON_T_POOF(f->t < 8);
+            if(o > 38) break;
+            set_sprite_tile(o, t); set_sprite_tile(o + 1, t + 2); set_sprite_prop(o, f->pal | 0x08); set_sprite_prop(o + 1, f->pal | 0x08);
+            move_sprite(o, (UINT8)sx, (UINT8)(sy + 8)); move_sprite(o + 1, (UINT8)(sx + 8), (UINT8)(sy + 8)); o += 2;
+        } else {                                                   /* the number floats up */
+            UINT8 d[3], nd = 0, v = f->n, k; INT16 x;
+            do { d[nd++] = v % 10; v /= 10; } while(v && nd < 3);
+            sy -= (32 - f->t) >> 1;
+            if(o + nd > 40) break;
+            x = sx - nd * 4 + 8;
+            for(k = nd; k--;){
+                set_sprite_tile(o, MON_TILE0 + MON_T_DIGIT(d[k])); set_sprite_prop(o, 2 | 0x08);
+                move_sprite(o, (UINT8)x, (UINT8)(sy + 16)); o++; x += 7;
+            }
+        }
+    }
+    return o;
 }
 static void show_bite(void){
     if(!atk || atk < 4){ move_sprite(OAM_BITE, 0, 0); move_sprite(OAM_BITE + 1, 0, 0); return; }
@@ -192,10 +230,11 @@ static void do_bite(void){
         reach = m->kind == K_QUEEN ? 22 : 14;
         dx = (INT16)m->x - hx; dy = (INT16)m->y - 6 - hy; if(dx < 0) dx = -dx; if(dy < 0) dy = -dy;
         if(dx > reach || dy > reach) continue;
-        { UINT8 p = bite_power(); m->hp = m->hp > p ? m->hp - p : 0; } sfx(SFX_HIT);
+        { UINT8 p = bite_power(); if(p > m->hp) p = (UINT8)m->hp; m->hp -= p; fx_add(m->x, m->y - 18, p, 2); } sfx(SFX_HIT); stop = 3;
         m->flash = 12; m->kx = face == 0 ? 2 : face == 1 ? -2 : 0; m->ky = face == 3 ? 2 : face == 2 ? -2 : 0;
         if(!m->hp){
-            m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5);
+            m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5); stop = 6;
+            fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
             if(m->kind == K_QUEEN){ sv.gold += 200 + sv.zone * 100; gain_xp(40 + sv.zone * 20); }
             else { sv.gold += 3 + m->kind * 2 + depth; gain_xp(3 + m->kind + depth); }
         }
@@ -236,6 +275,7 @@ static void mon_step(void){
 /* ------------------------------------------------------------ the floors */
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
+    { UINT8 i; for(i = 0; i < NFX; i++) fxs[i].t = 0; }
     fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
     show_bug(); fade_in();
     if(depth == floors) banner(BN_QUEEN);
@@ -267,6 +307,7 @@ static int play_floor(void){                                       /* returns DG
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
         show_bug(); show_mons(); show_bite();
         hud_update();
+        while(stop){ stop--; wait_vbl_done(); }
         if(!sv.hp) return DG_FAINT;
         if(depth == floors){ UINT8 q; for(q = 0; q < NMON; q++) if(mon[q].alive && mon[q].kind == K_QUEEN) break;
             if(q == NMON && mon[NMON - 1].kind == K_QUEEN && ground_at(bx, by) != D_CAGE){

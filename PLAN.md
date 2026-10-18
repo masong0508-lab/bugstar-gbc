@@ -49,3 +49,9 @@ Each step ends with a ROM that boots in an emulator.
    sprite that opens for a moment (lasers clang off the shut armour), spits orbs, rams. Beat it: Bolt says her name (DAWN), the ending
    (src/ending.c, bank 2) pages through the story with the ending tune, then the game's numbers; the save is kept with ST_DONE.
    Test builds: -DTEST_SPACE -DTEST_BEAST starts under the beast (3 HP) at level 30.
+
+## After the plan: the style pass (the person asked for "cooler, action packed and stylized")
+- Pass 1 DONE: fades between every scene (src/fx.c, bank 7, reads colour RAM so it fits any scene), a WARNING cut-in with crawling
+  hazard tape before the queen and the Technobeast, screen shake (OPTIONS: SHAKE), pirates that shoot, engine puffs when boosting.
+- Pass 2 DONE: the dungeon: gold damage numbers that float up, a burst in the monster's colours when it dies, hit-stop on bites
+  (3 frames, 6 on a kill). Test build: -DTEST_PLANET starts on the planet (add -DTEST_DOOR -DTEST_BOSS for the queen).

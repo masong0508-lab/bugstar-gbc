@@ -8,7 +8,9 @@ enum { D_FLOOR, D_FLOOR2, D_WALL, D_FACE, D_DOWN, D_UP, D_CHEST, D_OPEN, D_CAGE,
 #define MON_T_SMALL(kind, frame) (((kind) * 2 + (frame)) * 4)   /* 16x16 monster: 4 tiles (two 8x16 sprites) */
 #define MON_T_BITE 32
 #define MON_T_QUEEN(frame) (36 + (frame) * 16)                 /* the queen: 16 tiles (eight 8x16 sprites) */
-#define MON_NTILES 68
+#define MON_T_POOF(frame) (68 + (frame) * 4)                  /* a burst when a monster dies, 16x16 */
+#define MON_T_DIGIT(d) (76 + (d) * 2)                         /* damage numbers: one 8x16 sprite per digit (palette 2: gold) */
+#define MON_NTILES 96
 extern const UINT8 dg_tiles[DG_NMT * 64];
 extern const UINT8 dg_mtpal[DG_NMT];
 extern const palette_color_t dg_pals[DG_NKIND * 16];
