@@ -5,6 +5,7 @@
    and lowers them to black. */
 #include <gb/gb.h>
 #include <gb/cgb.h>
+#include "wram.h"
 #include "input.h"
 #include "save.h"
 #include "text.h"
@@ -12,7 +13,8 @@
 #include "sound.h"
 #include "fx.h"
 
-static UINT8 orig[128], work[128];       /* BG colour RAM bytes 0..63, then OBJ 64..127 */
+#define orig WRAM_AT(WRAM_FADE, UINT8)          /* BG colour RAM bytes 0..63, then OBJ 64..127 (wram.h) */
+#define work WRAM_AT(WRAM_FADE + 128, UINT8)
 
 static void read_bg(void){ UINT8 i; for(i = 0; i < 64; i++){ BCPS_REG = i; orig[i] = BCPD_REG; } }
 static void read_obj(void){ UINT8 i; for(i = 0; i < 64; i++){ OCPS_REG = i; orig[64 + i] = OCPD_REG; } }

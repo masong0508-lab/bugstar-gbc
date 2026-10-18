@@ -29,7 +29,7 @@ void txt_cls(void){
 
 void txt_init(void){
     VBK_REG = VBK_BANK_0;
-    set_bkg_data(0, FONT_NTILES, bs_font);
+    bsfont_load();
     set_bkg_palette(0, 4, txt_pal);
     txt_cls();
 }

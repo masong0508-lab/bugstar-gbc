@@ -8,3 +8,7 @@ host_test
 *.asm
 bugstar.gbc
 bugstar.map
+build/
+build_*/
+test*.gbc
+test*.map

@@ -2,7 +2,8 @@
 #ifndef FONT_H
 #define FONT_H
 #define FONT_NTILES 128
-extern const unsigned char bs_font[FONT_NTILES * 16];
+void bsfont_load(void) BANKED;     /* the font into BG tiles 0..127 of the selected VRAM bank (font.c, bank 7) */
+extern const unsigned char bs_font[FONT_NTILES * 16];   /* (in bank 7: only bsfont_load may read it on the GBC) */
 /* tile numbers */
 #define T_BOX_TL    1
 #define T_BOX_T     2

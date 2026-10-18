@@ -1,6 +1,7 @@
 #pragma bank 3
 /* The bug (step 5): look data, ready-made looks, colour tools and the sprite builder. See bug.h. No hardware in here. */
 #include <string.h>
+#include "wram.h"
 #include "bug.h"
 
 #define C15(r,g,b) ((UINT16)(((r)>>3)|(((g)>>3)<<5)|(((b)>>3)<<10)))
@@ -128,7 +129,7 @@ void bug_palettes(const BugLook *l, UINT16 *p) BANKED {
 
 /* ---- the picture */
 BugSet bug_set;
-static UINT8 bpx[BUG_BW * BUG_BH];
+#define bpx WRAM_AT(WRAM_BPX, UINT8)                     /* the canvas, BUG_BW x BUG_BH (wram.h) */
 #define PX(x, y) bpx[(UINT16)(y) * BUG_BW + (x)]
 #define HEAD_UP 6
 #define HEAD_LO 22
@@ -198,7 +199,7 @@ UINT8 bug_cell_pal(UINT8 c){ return c < 4 ? 3 : c < 9 ? 0 : c == 9 ? 2 : 1; }
 
 static void draw_frame(const BugLook *l, UINT8 f, UINT8 tc, UINT8 hc, UINT8 W, UINT8 *used){
     UINT8 c, r, x, v, lo, hi, nz, *t, x0, y0;
-    memset(bpx, 0, sizeof bpx);
+    memset(bpx, 0, BUG_BW * BUG_BH);
     if(l->pt[BP_WING]) stamp(&bp_wings[l->pt[BP_WING] * 3 + l->pt[BP_LENGTH]], tc * 8, 0);
     if(tc) stamp(&bp_tail[l->pt[BP_TAIL]], 0, 16);
     draw_shell(l, tc * 8, W);

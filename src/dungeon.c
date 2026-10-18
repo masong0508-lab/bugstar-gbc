@@ -8,6 +8,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "wram.h"
 #include "fx.h"
 #include "sound.h"
 #include "input.h"
@@ -39,7 +40,7 @@ typedef struct { UINT16 x, y; UINT8 kind, hp, cool, flash, frame, alive; INT8 kx
    the queen counts t up to calling her spiderlings */
 typedef struct { UINT8 x, y, w, h; } Room;
 
-static UINT8  dmap[DW * DW];
+#define dmap WRAM_AT(WRAM_DMAP, UINT8)                  /* DW x DW (wram.h) */
 static Room   rooms[NROOM]; static UINT8 nrooms;
 static Mon    mon[NMON];
 typedef struct { UINT16 x, y; UINT8 t, n, pal; } Fx;              /* a burst (n = 255) or a damage number rising, t frames left */
@@ -61,7 +62,7 @@ static void carve(UINT8 x, UINT8 y){ if(x > 0 && y > 0 && x < DW - 1 && y < DW -
 static void make_floor(void){
     UINT8 i, t, x, y, a, b;
     rng = (UINT16)world_seed(sv.star) ^ ((UINT16)depth * 0x3C1Bu) ^ ((UINT16)sv.zone << 11) ^ 0x2B7Du; if(!rng) rng = 1;
-    memset(dmap, D_WALL, sizeof dmap);
+    memset(dmap, D_WALL, DW * DW);
     nrooms = 0;
     for(t = 0; t < 60 && nrooms < NROOM; t++){                    /* rooms: place them where they do not touch */
         Room r; UINT8 ok = 1;
@@ -199,8 +200,7 @@ static void enter_gfx(void){                                       /* everything
     UINT8 i;
     for(i = 0; i < 40; i++) move_sprite(i, 0, 0);
     VBK_REG = VBK_BANK_1;
-    set_bkg_data(0, DG_NMT * 4, dg_tiles);
-    set_sprite_data(MON_TILE0, MON_NTILES, mon_tiles);
+    dungeon_tiles_load(MON_TILE0);
     VBK_REG = VBK_BANK_0;
     txt_pal_reset();
     set_bkg_palette(4, 4, &dg_pals[kind * 16]);

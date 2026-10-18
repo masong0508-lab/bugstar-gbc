@@ -63,3 +63,15 @@ Each step ends with a ROM that boots in an emulator.
   of depth rings (quarter stored, mirrored by flip bits, fog palettes by distance) whose colours step to fly at you, and it slides
   as you steer. Meteors (shoot them) and star shards (dodge them) are aimed where you are; about one warp in three a hyperspace
   attack (3 pirates that strafe and shoot orbs). Gold, XP, a clean-run bonus and the save's best (warp_best). Test: -DTEST_ATTACK.
+
+## Optimizing and room to grow (after the warp)
+- ROM: 512 KB now (32 banks of MBC5, which can go to 8 MB). Bank map: 0 core, 2 title + menus + ending, 3 bug creator,
+  4 planet, 5 dungeon code, 6 space (map, ship, landing, warp), 7 sound + font, 8 space tiles, 9 warp, 10 space foes,
+  11 dungeon tiles; 12..31 empty. tools/check_banks.py prints every bank's free bytes and fails the build on an overflow.
+- Bank 0 (always mapped, the precious one): the font moved to bank 7 (bsfont_load); 2.9 KB free (was 0.9).
+- WRAM: the stack now tops out at D000 (-Wl-g.STACK=0xD000), so D000-DFFF is free: the big buffers (bug canvas, fade copies,
+  dungeon map, stars) sit there at fixed addresses (src/wram.h). The variables in C000-CFFF went from 5.6 KB to 2.2 KB,
+  leaving ~1.9 KB for the stack, and WRAM banks 2..7 (24 KB) are untouched, for later.
+- Code: space.c split into space.c (bank 6) and space_foe.c (bank 10), sharing state through space_int.h.
+- Build: one object per file in build/ (make -j2, only what changed is rebuilt; a full build went from ~8 to ~2.5 minutes).
+  Test builds: make DEFS="-DTEST_SPACE" BUILD=build_t OUT=test.gbc

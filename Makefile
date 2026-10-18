@@ -1,15 +1,26 @@
 # BUGSTAR GBC - GBDK-2020. Build: make   (needs GBDK_HOME, e.g. /opt/gbdk)
 GBDK_HOME ?= /opt/gbdk
 LCC = $(GBDK_HOME)/bin/lcc
-# -Wm-yC: GBC only. -Wm-yt0x1B: MBC5+RAM+BATTERY. -Wm-yo16: 16 ROM banks (256K, grow later). -Wm-ya4: 32K SRAM
-FLAGS = -Wm-yC -Wm-yt0x1B -Wm-yo16 -Wm-ya4 -Wm-yn"BUGSTAR"
+# -Wm-yC: GBC only. -Wm-yt0x1B: MBC5+RAM+BATTERY. -Wm-yo32: 32 ROM banks (512K; MBC5 goes to 512 banks / 8 MB). -Wm-ya4: 32K SRAM
+# -Wl-g.STACK=0xD000: the stack tops out at D000, so all of WRAM D000-DFFF (7 banks) is free for big buffers (src/wram.h)
+FLAGS = -Wm-yC -Wm-yt0x1B -Wm-yo32 -Wm-ya4 -Wm-yn"BUGSTAR" -Wl-g.STACK=0xD000
+# Each .c compiles to its own object in build/ (make -j2 builds two at once, and only what changed is rebuilt).
+# Test builds go to their own folder and ROM: make DEFS="-DTEST_SPACE" BUILD=build_test OUT=test.gbc
+DEFS ?=
+BUILD ?= build
+OUT ?= bugstar.gbc
 SRCS = $(wildcard src/*.c)
-all: bugstar.gbc
-bugstar.gbc: $(SRCS) $(wildcard src/*.h)
-	$(LCC) $(FLAGS) -Wl-m -o $@ $(SRCS)
-	python3 tools/check_banks.py bugstar.map
+OBJS = $(SRCS:src/%.c=$(BUILD)/%.o)
+HDRS = $(wildcard src/*.h)
+all: $(OUT)
+$(BUILD)/%.o: src/%.c $(HDRS)
+	@mkdir -p $(BUILD)
+	$(LCC) $(FLAGS) $(DEFS) -c -o $@ $<
+$(OUT): $(OBJS)
+	$(LCC) $(FLAGS) -Wl-m -o $@ $(OBJS)
+	python3 tools/check_banks.py $(basename $(OUT)).map
 clean:
-	rm -f host_test bugstar.gbc *.map *.sym *.noi *.lst *.ihx *.o *.asm
+	rm -rf build build_* host_test bugstar.gbc test*.gbc *.map *.sym *.noi *.lst *.ihx *.o *.asm
 # Regenerate the title art (needs python3 + numpy + pillow); the generated src/title_art.* are committed.
 # Regenerate the bug part art (src/bugparts.c, tools/bugparts_check.png); needs python3 (+ pillow for the PNG).
 bug:
