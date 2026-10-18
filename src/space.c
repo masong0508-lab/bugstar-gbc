@@ -24,6 +24,7 @@
 #include "menus.h"
 #include "space_art.h"
 #include "space.h"
+#include "warp.h"
 
 #define SPR0      64             /* sprite tiles in VRAM bank 1 (the starfield uses bank-1 tiles 0..31) */
 #define OAM_SHIP  20             /* 2 sprites */
@@ -164,19 +165,23 @@ static INT16 drag(INT16 v){
     else if(v < 0){ v += 1 + ((-v) >> 4); if(v > 0) v = 0; }
     return v;
 }
-static void arrow(void){                                         /* point at the nearest other world, if it is off the screen */
+static UINT8  aim_ok, aim_beast;  /* where the arrow points (and SELECT warps to): a world, or the beast */
+static UINT16 aim_x, aim_y;
+static void arrow(void){                                         /* point at the nearest other world (one not freed yet, if there is one near), if it is off the screen */
     UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j, best = 255, d;
     INT16 bdx = 0, bdy = 0; UINT16 bd = 0xFFFF;
-    if(!opt.arrow){ hide2(OAM_ARR); return; }
-    if(b_on && !b_dead){ bdx = wrapd(b_x, px); bdy = wrapd(b_y, py); best = 0; goto aim; }
+    aim_beast = 0;
+    if(b_on && !b_dead){ bdx = wrapd(b_x, px); bdy = wrapd(b_y, py); best = 0; aim_beast = 1; goto aim; }
     for(j = 0; j < 3; j++) for(i = 0; i < 3; i++){
         UINT8 s = (UINT8)((((cy + j - 1) & 15) << 4) | ((cx + i - 1) & 15));
         INT16 dx = wrapd(star_px(s), px), dy = wrapd(star_py(s), py);
         UINT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, m = ax > ay ? ax + ay / 2 : ay + ax / 2;
+        if(world_freed(s)) m += 300;                                /* freed worlds only if nothing else is near */
         if(m > 40 && m < bd){ bd = m; best = s; bdx = dx; bdy = dy; }
     }
 aim:
-    if(best == 255 || (bdx > -88 && bdx < 88 && bdy > -72 && bdy < 72)){ hide2(OAM_ARR); return; }
+    aim_ok = best != 255; aim_x = (px + bdx) & 4095; aim_y = (py + bdy) & 4095;
+    if(!opt.arrow || best == 255 || (bdx > -88 && bdx < 88 && bdy > -72 && bdy < 72)){ hide2(OAM_ARR); return; }
     { UINT16 ax = bdx < 0 ? -bdx : bdx, ay = bdy < 0 ? -bdy : bdy;
       if(ax > ay * 2) d = bdx > 0 ? 2 : 6;
       else if(ay > ax * 2) d = bdy > 0 ? 4 : 0;
@@ -258,6 +263,26 @@ static void orb_dir(UINT16 x, UINT16 y, UINT8 d){                /* an orb from 
 }
 static void orb_fire(UINT16 x, UINT16 y, INT16 dx, INT16 dy){ orb_dir(x, y, dir8(dx, dy)); }   /* ...the way of (dx, dy) */
 
+static void gfx(void){                                           /* everything onto the screen (LCD off): it fades in */
+    UINT8 i;
+    VBK_REG = VBK_BANK_1;
+    space_tiles_load(0, SPR0);
+    VBK_REG = VBK_BANK_0;
+    set_sprite_palette(0, 6, sp_spr_pal);
+    sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2); sprite_pals(OAM_ORB, 2, 3);
+    for(i = 0; i < NORB; i++) set_sprite_tile(ORB_OAM(i), SPR0 + SP_T_ORB);
+    for(i = 0; i < 18; i++) set_sprite_tile(OAM_BODY + i, SPR0 + SP_T_BEAST(i / 3, i % 3));
+    set_sprite_tile(OAM_ORB, SPR0 + SP_T_ORB); set_sprite_tile(OAM_ORB + 1, SPR0 + SP_T_ORB);
+    SPRITES_8x16;
+    txt_pal_reset(); pals();
+    camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
+    hud_init(); shown = 255;
+    music(MUS_SPACE);
+    SHOW_BKG; SHOW_SPRITES;
+    spr16(OAM_SHIP, SP_T_SHIP(dir), SHIP_SX, SHIP_SY);
+    fade_in();
+}
+
 int space_run(void) BANKED {
     UINT8 k, i, frame = 0, cool = 0, spawn_t = 200;
     UINT32 ws = sv.seed;
@@ -286,23 +311,8 @@ int space_run(void) BANKED {
 #ifdef TEST_BEAST
     b_hp = 3;
 #endif
-    VBK_REG = VBK_BANK_1;
-    space_tiles_load(0, SPR0);
-    VBK_REG = VBK_BANK_0;
-    set_sprite_palette(0, 6, sp_spr_pal);
-    sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2); sprite_pals(OAM_ORB, 2, 3);
-    for(i = 0; i < NORB; i++) set_sprite_tile(ORB_OAM(i), SPR0 + SP_T_ORB);
-    for(i = 0; i < 18; i++) set_sprite_tile(OAM_BODY + i, SPR0 + SP_T_BEAST(i / 3, i % 3));
-    set_sprite_tile(OAM_ORB, SPR0 + SP_T_ORB); set_sprite_tile(OAM_ORB + 1, SPR0 + SP_T_ORB);
-    SPRITES_8x16;
-    txt_pal_reset(); pals();
-    camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
-    hud_init(); shown = 255;
-    music(MUS_SPACE);
-    SHOW_BKG; SHOW_SPRITES;
-    spr16(OAM_SHIP, SP_T_SHIP(dir), SHIP_SX, SHIP_SY);
-    fade_in();
-    if(!told){ told = 1; dlg_say("BOLT", "SPACE! STEER WITH THE D-PAD. B GOES FASTER AND A SHOOTS. THE ARROW POINTS TO THE NEAREST WORLD: FLY OVER ONE AND PRESS A TO LAND."); }
+    gfx();
+    if(!told){ told = 1; space_say(SAY_HOWTO); }
     for(;;){
         input_poll();
         k = keys; frame++;
@@ -353,7 +363,7 @@ int space_run(void) BANKED {
             dx = wrapd(shx >> 4, b_x); dy = wrapd(shy >> 4, b_y);
             if(!b_fight && dx > -200 && dx < 200 && dy > -180 && dy < 180){
                 b_fight = 1; music(MUS_BOSS);
-                if(!(sv.story & ST_BEAST)){ sv.story |= ST_BEAST; banner(BN_BEAST); dlg_say("BOLT", "THERE IT IS: THE TECHNOBEAST! LASERS BOUNCE OFF ITS ARMOUR. SHOOT ITS CORE WHEN IT GLOWS PINK!"); shown = 253; }
+                if(!(sv.story & ST_BEAST)){ sv.story |= ST_BEAST; banner(BN_BEAST); space_say(SAY_BEAST); shown = 253; }
             } else if(b_fight && (dx > 320 || dx < -320 || dy > 320 || dy < -320)){ b_fight = 0; music(MUS_SPACE); }
             if(b_flash) b_flash--;
             if(b_dead){
@@ -361,8 +371,7 @@ int space_run(void) BANKED {
                 if(!--b_dead){
                     UINT8 n; for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
                     sv.story |= ST_DONE; sv.gold += 5000; b_on = 0;
-                    dlg_say("BOLT", "NOW! I SAY MY NAME... I AM DAWN!");
-                    dlg_say(0, "THE BEAST'S HEART OPENS WIDE. EVERY SHIP IT EVER ATE FLIES OUT, BACK TO THE STARS.");
+                    space_say(SAY_DAWN);
                     gain_xp(200);
                     k = SP_END; goto out;
                 }
@@ -469,6 +478,22 @@ int space_run(void) BANKED {
             }
             if(!cool){ fire(); cool = 8; }
         }
+        if(HIT(J_SELECT) && aim_ok && !b_dead){                      /* hyperspace! */
+            WarpResult wr;
+            fade_out(); DISPLAY_OFF; hud_hide();
+            warp_run(aim_beast ? 2100 : 1500, &wr);
+            fade_out(); DISPLAY_OFF;
+            shx = aim_x << 4; shy = ((aim_y + (aim_beast ? 150 : 50)) & 4095) << 4; vx = 0; vy = -16; dir = 0;
+            for(i = 0; i < NLAS; i++) las[i].life = 0;
+            for(i = 0; i < NPIR; i++) pir[i].st = 0;
+            for(i = 0; i < NORB; i++) orb[i].life = 0;
+            for(i = 0; i < NSPARK; i++) spark[i].life = 0;
+            puff[0].life = puff[1].life = 0; b_fight = 0; inv = 0; spawn_t = 200;
+            gfx();
+            warp_report(&wr);
+            shown = 253;
+            continue;
+        }
         if(HIT(J_START)){
             if(sysmenu_run(redraw) == SYS_TITLE){ k = SP_TITLE; goto out; }
             shown = 253;
@@ -483,4 +508,5 @@ out:
     return k;
 }
 
+void space_pals_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED { set_sprite_palette(dst, n, &sp_spr_pal[src * 4]); }
 void title_pal_load(UINT8 pal) BANKED { set_sprite_palette(pal, 1, sp_spr_pal); }   /* for the title: the ship's colours */

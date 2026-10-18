@@ -28,7 +28,8 @@ typedef struct {                 /* one save slot: 96 bytes on the cartridge (ve
     UINT8  cores;                /* Bolt's data cores won back, 0..8: one per world freed (step 10) */
     UINT8  story;                /* ST_* flags */
     UINT8  freed[8];             /* the stars whose worlds gave a core, in order */
-    UINT8  rsv[9];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
+    UINT16 warp_best;            /* the most gold earned in one warp (the rail shooter) */
+    UINT8  rsv[7];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 

@@ -199,6 +199,7 @@ def main():
     g.append("static const UINT8 sp_bg[SP_NMT * 64] = {" + ",".join("0x%02X" % b for b in bg) + "};")
     g.append("static const UINT8 sp_spr[SP_NSPR * 16] = {" + ",".join("0x%02X" % b for b in st) + "};")
     g.append("void space_tiles_load(UINT8 bg0, UINT8 spr0) BANKED { set_bkg_data(bg0, SP_NMT * 4, sp_bg); set_sprite_data(spr0, SP_NSPR, sp_spr); }")
+    g.append("void space_spr_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED { set_sprite_data(dst, n, &sp_spr[(UINT16)src * 16]); }")
     g.append("void title_ship_load(UINT8 tile0) BANKED { set_sprite_data(tile0, 4, &sp_spr[SP_T_SHIP(2) * 16]); }")
     open(os.path.join(ROOT, "src", "space_gfx.c"), "w").write("\n".join(g) + "\n")
     c.append("const palette_color_t sp_space_pal[4] = {" + ",".join("RGB(%d,%d,%d)" % col for col in SPACE_PAL) + "};")
@@ -223,6 +224,7 @@ def main():
          "#define SP_NSPR        %d" % (len(st) // 16),
          "void space_tiles_load(UINT8 bg0, UINT8 spr0) BANKED;   /* (space_gfx.c, bank 8) the tiles into VRAM, whichever VRAM bank is selected */",
          "void title_ship_load(UINT8 tile0) BANKED;              /* just the ship facing right, 4 tiles, for the title */",
+         "void space_spr_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED;   /* n sprite tiles from SP_T_... src to VRAM tile dst (the warp borrows some) */",
          "extern const palette_color_t sp_space_pal[4];",
          "extern const palette_color_t sp_kind_pal[6 * 4];",
          "extern const palette_color_t sp_spr_pal[24];   /* sprite palettes 0..5 */",

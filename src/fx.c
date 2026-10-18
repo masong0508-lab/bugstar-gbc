@@ -50,7 +50,7 @@ void fade_out(void) BANKED {
     }
 }
 
-static const char *const title_txt[2] = { "THE TECHNOBEAST", "THE SPIDER QUEEN" };
+static const char *const title_txt[3] = { "THE TECHNOBEAST", "THE SPIDER QUEEN", "HYPERSPACE ATTACK" };
 void banner(UINT8 id) BANKED {
     UINT8 t, i, had = hud_is_on(); char tape[21];
     txt_win(1);

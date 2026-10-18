@@ -55,3 +55,11 @@ Each step ends with a ROM that boots in an emulator.
   hazard tape before the queen and the Technobeast, screen shake (OPTIONS: SHAKE), pirates that shoot, engine puffs when boosting.
 - Pass 2 DONE: the dungeon: gold damage numbers that float up, a burst in the monster's colours when it dies, hit-stop on bites
   (3 frames, 6 on a kill). Test build: -DTEST_PLANET starts on the planet (add -DTEST_DOOR -DTEST_BOSS for the queen).
+- Pass 3 DONE: title (waving logo by HBlank raster, glint, shooting stars, Bolt flies by); space darts and mines, debris, sky
+  flashes; dungeon spider lunges, slime splits, queen spiderlings. Space tiles moved to bank 8; tools/check_banks.py fails the
+  build when a bank is over 16 KB.
+- The warp DONE (src/warp.c, bank 9, art tools/make_warp.py): SELECT in space jumps to where the arrow points, as a 3D rail
+  shooter down a hyperspace tunnel. A small 3D engine: points (x, y, z), perspective by a 4096/z table; the tunnel is one picture
+  of depth rings (quarter stored, mirrored by flip bits, fog palettes by distance) whose colours step to fly at you, and it slides
+  as you steer. Meteors (shoot them) and star shards (dodge them) are aimed where you are; about one warp in three a hyperspace
+  attack (3 pirates that strafe and shoot orbs). Gold, XP, a clean-run bonus and the save's best (warp_best). Test: -DTEST_ATTACK.

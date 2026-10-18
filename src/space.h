@@ -7,4 +7,5 @@
 #define SP_END   3               /* the Technobeast is beaten: play the ending */
 int space_run(void) BANKED;      /* fly from the world of sv.star; returns SP_LAND (sv.star = where you came down), SP_TITLE or SP_END */
 void title_pal_load(UINT8 pal) BANKED;    /* the title borrows the ship sprite: its colours (tiles: title_ship_load in space_art.h) */
+void space_pals_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED;   /* sprite palettes src.. of space into dst.. (for the warp) */
 #endif
