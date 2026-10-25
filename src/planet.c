@@ -18,6 +18,7 @@
 #include "hud.h"
 #include "dialog.h"
 #include "sysmenu.h"
+#include "wram.h"
 #include "menus.h"
 #include "bug.h"
 #include "bugspr.h"
@@ -25,7 +26,7 @@
 #include "planet.h"
 #include "dungeon.h"
 
-#define SHIP_TILE0 64            /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..43) */
+#define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
 #define SHIP_OAM0  20
 #define SHIP_PAL   0
 #define VIEW_W     11            /* metatiles drawn across (160 px + one for scrolling) */
@@ -86,27 +87,52 @@ static UINT8 ground(UINT8 x, UINT8 y){                          /* the metatile 
 static UINT8 solid(UINT8 mt){ return mt == MT_DEEP || mt == MT_TREE || mt == MT_ROCK; }
 
 /* ------------------------------------------------------------ drawing */
+/* The ground is blended (planet_art.h): each quarter of a metatile looks at its cell and the three cells towards that corner.
+   If they are all the same kind of ground the quarter is a plain texture; otherwise it is one of the blend tiles for the two
+   kinds that meet, flipped to face the right corner. The kinds of ground of the cells on screen (and one ring around them) are
+   kept in a small ring buffer so that each cell is worked out once. */
+#define MTC WRAM_AT(WRAM_STARS, UINT8)                         /* 16 x 16 ring: the metatile at (x & 15, y & 15) (wram.h; space makes its own again) */
+static UINT8 cell(UINT8 x, UINT8 y){ return MTC[((y & 15) << 4) | (x & 15)]; }
+static void cell_fill(UINT8 x, UINT8 y){ MTC[((y & 15) << 4) | (x & 15)] = ground(x, y); }
+static void cache_col(UINT8 x){ UINT8 j; for(j = 0; j < VIEW_H + 3; j++) cell_fill(x, top_mt - 1 + j); }
+static void cache_row(UINT8 y){ UINT8 i; for(i = 0; i < VIEW_W + 2; i++) cell_fill(left_mt - 1 + i, y); }
 static void draw_mt(UINT8 x, UINT8 y){                          /* metatile (x, y) into the BG map, where it falls */
-    UINT8 mt = ground(x, y), t[4], a[4], bx2 = (x & 15) << 1, by2 = (y & 15) << 1, p = 0x08 | (4 + planet_mtpal[mt]);   /* 0x08: tiles from VRAM bank 1 */
-    t[0] = mt * 4; t[1] = mt * 4 + 1; t[2] = mt * 4 + 2; t[3] = mt * 4 + 3;
-    a[0] = a[1] = a[2] = a[3] = p;
+    UINT8 mt = cell(x, y), t[4], a[4], bx2 = (x & 15) << 1, by2 = (y & 15) << 1, q, lo, hi, l0, l1, l2, l3, pat, sx, sy;
+    if(planet_mtlvl[mt] >= 4){                                   /* a tree, a rock, a bush, the door, the pad: drawn as they are */
+        t[0] = mt * 4; t[1] = mt * 4 + 1; t[2] = mt * 4 + 2; t[3] = mt * 4 + 3;
+        a[0] = a[1] = a[2] = a[3] = 0x08 | (4 + planet_mtpal[mt]);
+    } else {
+        l0 = planet_mtlvl[mt] & 3;
+        for(q = 0; q < 4; q++){
+            sx = (q & 1) ? x + 1 : x - 1; sy = (q & 2) ? y + 1 : y - 1;
+            l1 = planet_mtlvl[cell(sx, y)] & 3; l2 = planet_mtlvl[cell(x, sy)] & 3; l3 = planet_mtlvl[cell(sx, sy)] & 3;
+            lo = l0; if(l1 < lo) lo = l1; if(l2 < lo) lo = l2; if(l3 < lo) lo = l3;
+            if(l0 == l1 && l0 == l2 && l0 == l3){ t[q] = mt * 4 + q; a[q] = 0x08 | (4 + planet_mtpal[mt]); }
+            else {
+                pat = (l0 > lo) | ((l1 > lo) << 1) | ((l2 > lo) << 2) | ((l3 > lo) << 3);
+                t[q] = PL_NMT * 4 + lo * 14 + pat - 1;
+                a[q] = 0x08 | (4 + lo) | ((q & 1) ? 0x20 : 0) | ((q & 2) ? 0x40 : 0);   /* bank 1 tiles, the pair's palette, flipped towards the corner */
+            }
+        }
+    }
     VBK_REG = VBK_BANK_1; set_bkg_tiles(bx2, by2, 2, 2, a);
     VBK_REG = VBK_BANK_0; set_bkg_tiles(bx2, by2, 2, 2, t);
 }
 static void draw_all(void){
     UINT8 i, j;
     left_mt = (UINT8)(cam_x >> 4); top_mt = (UINT8)(cam_y >> 4);
+    for(j = 0; j < VIEW_H + 3; j++) for(i = 0; i < VIEW_W + 2; i++) cell_fill(left_mt - 1 + i, top_mt - 1 + j);
     for(j = 0; j < VIEW_H + 1; j++) for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + j);
 }
 static void scroll_fill(void){                                   /* draw the column or row that has just come into view */
     UINT8 l = (UINT8)(cam_x >> 4), t = (UINT8)(cam_y >> 4), i;
     while(l != left_mt){
-        if((UINT8)(l - left_mt) < 128){ left_mt++; for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt + VIEW_W - 1, top_mt + i); }
-        else { left_mt--; for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt, top_mt + i); }
+        if((UINT8)(l - left_mt) < 128){ left_mt++; cache_col(left_mt + VIEW_W); for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt + VIEW_W - 1, top_mt + i); }
+        else { left_mt--; cache_col(left_mt - 1); for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt, top_mt + i); }
     }
     while(t != top_mt){
-        if((UINT8)(t - top_mt) < 128){ top_mt++; for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + VIEW_H); }
-        else { top_mt--; for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt); }
+        if((UINT8)(t - top_mt) < 128){ top_mt++; cache_row(top_mt + VIEW_H + 1); for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + VIEW_H); }
+        else { top_mt--; cache_row(top_mt - 1); for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt); }
     }
 }
 static void ship_show(void){                                   /* the ship sprite, if it is near the screen */
@@ -155,7 +181,7 @@ static void world_setup(void){
 static void load_gfx(void){
     UINT8 i;
     VBK_REG = VBK_BANK_1;
-    set_bkg_data(0, PL_NMT * 4, planet_tiles);
+    set_bkg_data(0, PL_NTILES, planet_tiles);
     set_sprite_data(SHIP_TILE0, 16, ship_tiles);
     VBK_REG = VBK_BANK_0;
     set_bkg_palette(4, 4, &planet_pals[wk * 16]);
@@ -173,7 +199,7 @@ static UINT8 blocked(UINT16 x, UINT16 y){                       /* the bug's fee
 static void eat_berry(UINT8 x, UINT8 y){
     if(npicked < 32){ picked[npicked][0] = x; picked[npicked][1] = y; npicked++; }
     else { memmove(picked[0], picked[1], 31 * 2); picked[31][0] = x; picked[31][1] = y; }
-    draw_mt(x, y); sfx(SFX_PICK);
+    cell_fill(x, y); draw_mt(x, y); sfx(SFX_PICK);
     { UINT16 mx = hud_hpmax(sv.level); sv.hp = sv.hp + 3 > mx ? mx : sv.hp + 3; }
     sv.gold += 2; sv.xp += 1;
 }

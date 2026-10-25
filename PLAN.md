@@ -76,3 +76,9 @@ Each step ends with a ROM that boots in an emulator.
 - Code: space.c split into space.c (bank 6) and space_foe.c (bank 10), sharing state through space_int.h.
 - Build: one object per file in build/ (make -j2, only what changed is rebuilt; a full build went from ~8 to ~2.5 minutes).
   Test builds: make DEFS="-DTEST_SPACE" BUILD=build_t OUT=test.gbc
+
+## Update: creator v2, MIRROR, blended ground
+- Bug creator rewritten (bank 3 UI, bank 12 builder/art, bank 13 big preview, bank 14 data): 2x smoothed preview, tabs, name entry, colour mixer, undo, row locks, dice, stage themes.
+- SYSTEM menu has MIRROR (re-opens the creator anywhere; the scene reloads its tiles after it).
+- Planet ground is blended: palettes form a chain (deep|shallow|sand|grass) and 42 blend tiles round every shore and edge (tools/make_planet.py).
+- Still to do: dungeon walls and space planets are still plain tiles; more creator parts (cheek, neck, back), Save v3; use the big ROM for pre-rendered art.

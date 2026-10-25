@@ -46,7 +46,11 @@ void main(void){
     for(;;) wait_vbl_done();
 #endif
 #ifdef TEST_PLANET
-    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.story = ST_INTRO;   /* (test builds: straight onto the planet) */
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.story = ST_INTRO;
+#ifdef TEST_STAR
+    sv.star = TEST_STAR;
+#endif
+      /* (test builds: straight onto the planet) */
     play();
 #endif
 #ifdef TEST_SPACE

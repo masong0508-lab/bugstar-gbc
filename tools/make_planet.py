@@ -4,11 +4,15 @@
 Writes src/planet_art.c + src/planet_art.h and tools/planet_check.png (every ground tile in every kind of world).
 
 The planet is a top-down map of 16x16 "metatiles" (four 8x8 tiles each). Each metatile is a 2-bit picture that uses
-one of the four terrain palettes, BG palettes 4..7 (0..3 belong to the text):
-  4 WATER  deep, mid, light, foam
-  5 GROUND sand dark, sand, sand light, stone
-  6 GRASS  dark, mid, light, flower
-  7 TREE   shadow, leaves, leaves lit, trunk
+one of the four terrain palettes, BG palettes 4..7 (0..3 belong to the text). The palettes are a CHAIN, so that any two
+neighbouring kinds of ground can be blended in one tile: deep water, shallow water, sand, grass.
+  4 PA  deep, deep ripple, shallow, shallow light      (deep | shallow)
+  5 PB  shallow, foam, sand, wet sand                   (shallow | sand)
+  6 PC  sand, pebble, grass, grass shadow               (sand | grass)
+  7 PF  grass, dark, light, flower                      (trees, bushes, flowers, grass itself)
+Each tile that sits on the edge between two kinds is one of 42 BLEND tiles: the top-left quarter of the cell, worked out
+from the cell and its three neighbours on that side (left, up, diagonal); the other three quarters are flips of those.
+That gives rounded shores, a foam line, a shadow along the grass: no square patches.
 Every kind of world (GARDEN, DESERT, ICE, JUNGLE, OCEAN, DUSK) has its own colours for those four palettes, so the
 same tiles become a meadow, a dune field, a snowfield... The tiles live in VRAM bank 1 (the font fills bank 0).
 The ship you land in is a sprite: 32x24, cut into four 8x16 columns (two rows), one sprite palette.
@@ -21,7 +25,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 R = random.Random(7)
 
 MT = ["DEEP", "SHALLOW", "SAND", "GRASS", "GRASS2", "FLOWERS", "TREE", "ROCK", "BERRY", "DOOR", "PAD"]
-PAL = {"DEEP": 0, "SHALLOW": 0, "SAND": 1, "GRASS": 2, "GRASS2": 2, "FLOWERS": 2, "TREE": 3, "ROCK": 1, "BERRY": 2, "DOOR": 1, "PAD": 1}
+PAL = {"DEEP": 0, "SHALLOW": 0, "SAND": 2, "GRASS": 3, "GRASS2": 3, "FLOWERS": 3, "TREE": 3, "ROCK": 2, "BERRY": 3, "DOOR": 2, "PAD": 2}
+LVL = {"DEEP": 0, "SHALLOW": 1, "SAND": 2, "GRASS": 3, "GRASS2": 3, "FLOWERS": 3, "TREE": 3, "ROCK": 2, "BERRY": 3, "DOOR": 2, "PAD": 2}
+OBJ = ("TREE", "ROCK", "BERRY", "DOOR", "PAD")      # drawn as they are, never blended
 
 
 def grid(v=0):
@@ -37,66 +43,64 @@ def disc(g, cx, cy, r, v, sq=1.0):
 
 def art(name):
     g = grid()
-    if name == "DEEP":
+    if name == "DEEP":                                        # PA: 0 deep, 1 ripple
         g = grid(0)
-        for _ in range(5):
-            x, y = R.randrange(14), R.randrange(16)
-            g[y][x] = g[y][x + 1] = 1
-        for _ in range(2):
-            x, y = R.randrange(15), R.randrange(16); g[y][x] = 2
-    elif name == "SHALLOW":
-        g = grid(1)
-        for y in (3, 10):
-            for x in range(16):
-                if (x + y) % 6 < 3: g[y + (x // 3) % 2][x] = 2
-        for _ in range(4):
-            g[R.randrange(16)][R.randrange(16)] = 3
-    elif name == "SAND":
-        g = grid(1)
-        for _ in range(10): g[R.randrange(16)][R.randrange(16)] = 2
-        for _ in range(6): g[R.randrange(16)][R.randrange(16)] = 0
-    elif name in ("GRASS", "GRASS2"):
-        g = grid(1)
+        for _ in range(7):
+            x, y = R.randrange(13), R.randrange(16)
+            for k in range(R.randrange(2, 4)): g[y][x + k] = 1
+    elif name == "SHALLOW":                                   # PA: 2 shallow, 3 light
+        g = grid(2)
+        for _ in range(7):
+            x, y = R.randrange(12), R.randrange(16)
+            for k in range(R.randrange(2, 5)): g[y][x + k] = 3
+    elif name == "SAND":                                      # PC: 0 sand, 1 pebble
+        g = grid(0)
+        for _ in range(9): g[R.randrange(16)][R.randrange(16)] = 1
+    elif name in ("GRASS", "GRASS2"):                         # PF: 0 grass, 1 dark, 2 light
+        g = grid(0)
         n = 9 if name == "GRASS" else 14
         for _ in range(n):
             x, y = R.randrange(16), R.randrange(1, 16)
-            g[y][x] = 0; g[y - 1][x] = 2                     # a blade: dark root, lit tip
+            g[y][x] = 1; g[y - 1][x] = 2                     # a blade: dark root, lit tip
         if name == "GRASS2":
-            for _ in range(6): g[R.randrange(16)][R.randrange(16)] = 2
+            for _ in range(5): g[R.randrange(16)][R.randrange(16)] = 2
     elif name == "FLOWERS":
         g = art("GRASS")
         for (x, y) in ((3, 4), (11, 3), (6, 11), (13, 12)):
             for dx, dy in ((0, -1), (-1, 0), (1, 0), (0, 1)): g[y + dy][x + dx] = 3
             g[y][x] = 2
-    elif name == "TREE":
-        g = grid(0)                                           # a round crown that fills the tile; the trunk peeks out below
-        disc(g, 7.5, 6.5, 7.2, 1)
-        disc(g, 5.5, 4.5, 3.6, 2)
-        for x, y in ((9, 3), (11, 6), (4, 9), (8, 9)): g[y][x] = 2
-        for x, y in ((10, 10), (6, 11), (12, 8)): g[y][x] = 0
-        for y in range(12, 16):
-            for x in range(6, 10): g[y][x] = 3 if (x != 9) else 0
-        for x in range(4, 12): g[15][x] = 0
-    elif name == "ROCK":
+    elif name == "TREE":                                      # PF: a round crown with a dark rim, lit top-left, the trunk below
+        g = grid(0)
+        disc(g, 7.5, 7.0, 7.4, 1)
+        disc(g, 7.5, 7.0, 6.2, 0)
+        disc(g, 6.0, 5.2, 4.0, 2)
+        disc(g, 5.6, 4.8, 2.0, 0)
+        for x, y in ((9, 4), (11, 7), (4, 9), (8, 10), (10, 9)): g[y][x] = 1
+        for y in range(13, 16):
+            for x in range(6, 10): g[y][x] = 1
+    elif name == "ROCK":                                      # PC: 0 sand, 1 stone, 3 shadow
         g = art("SAND")
-        disc(g, 7.5, 9, 6.5, 0, 1.25)
-        disc(g, 7.5, 8.5, 5.5, 3, 1.25)
-        disc(g, 6, 7, 2.2, 2)
-    elif name == "BERRY":
+        disc(g, 7.5, 9.5, 6.8, 3, 1.3)
+        disc(g, 7.5, 8.8, 5.6, 1, 1.3)
+        disc(g, 5.8, 6.8, 2.3, 0)
+        for x, y in ((9, 10), (10, 9), (6, 11), (11, 11)): g[y][x] = 3
+    elif name == "BERRY":                                     # PF: a bush, light, rim dark, berries
         g = art("GRASS")
-        disc(g, 7.5, 8.5, 6.5, 0)
-        disc(g, 7.5, 8.0, 5.5, 1)
-        disc(g, 6, 6, 2.5, 2)
-        for x, y in ((5, 9), (9, 7), (10, 11), (7, 12), (4, 6)): g[y][x] = 3
-    elif name == "DOOR":
+        disc(g, 7.5, 8.5, 6.6, 1)
+        disc(g, 7.5, 8.0, 5.6, 2)
+        disc(g, 5.8, 6.0, 2.0, 0)
+        for x, y in ((5, 9), (9, 7), (10, 11), (7, 12), (4, 6)):
+            g[y][x] = 3; g[y][x + 1] = 3
+    elif name == "DOOR":                                      # PC: a stone slab with stairs going down
+        g = grid(1)
+        for y in range(16):
+            for x in range(16): g[y][x] = 1 if (x in (0, 15) or y in (0, 15)) else 3
+        for k, y in enumerate((3, 6, 9, 12)):
+            for x in range(3 + k, 13 - k): g[y][x] = 1; g[y + 1][x] = 0
+    elif name == "PAD":                                       # PC: sand with grey joints, like paving laid on the ground
         g = art("SAND")
-        for y in range(2, 15):
-            for x in range(2, 14): g[y][x] = 3 if (x in (2, 13) or y == 2) else 0   # a stone frame, dark inside
-        for k, y in enumerate((5, 8, 11)):
-            for x in range(4 + k, 12 - k): g[y][x] = 2                              # steps going down
-    elif name == "PAD":
-        g = art("SAND")
-        for x in range(16): g[0][x] = 2 if x % 4 < 2 else 1
+        for i in range(16):
+            if i % 5 != 4: g[0][i] = 1; g[i][0] = 1
     return g
 
 
@@ -150,24 +154,70 @@ def tile2bpp(g, x0, y0):
     return out
 
 
+BLEND_C, BLEND_P = 40.0, 0.8           # how soft the corners are (inverse-distance weighting between the four cell centres)
+
+
+def hn(a, b, c):
+    return ((a * 73856093) ^ (b * 19349663) ^ (c * 83492791)) & 0xFFFF
+
+
+def blend_quarter(m, pat):
+    """The top-left quarter of a cell: pat bits 0..3 = is the cell / its left / its upper / its diagonal neighbour the
+    higher kind (m + 1). Returns an 8x8 grid of palette indices: 0 low, 1 low detail, 2 high, 3 high detail."""
+    his = [(pat >> b) & 1 for b in range(4)]
+    cs = [(8, 8), (-8, 8), (8, -8), (-8, -8)]
+    g = [[0] * 8 for _ in range(8)]
+    for y in range(8):
+        for x in range(8):
+            X, Y = x + 0.5, y + 0.5
+            num = den = 0.0
+            for h, (cx, cy) in zip(his, cs):
+                w = 1.0 / (((X - cx) ** 2 + (Y - cy) ** 2) + BLEND_C) ** BLEND_P
+                num += w * h; den += w
+            v = num / den
+            j = ((hn(x, y, m * 16 + pat) & 255) / 255 - .5) * 0.12
+            if v + j > 0.5:
+                g[y][x] = 3 if v + j < 0.60 else 2
+            else:
+                if v + j > 0.40 and (m == 1 or (hn(x, y, 77 + pat) & 3) == 0): g[y][x] = 1
+                elif (hn(x, y, 99 + pat) & 255) < 12: g[y][x] = 1 if m != 1 else 0
+                else: g[y][x] = 0
+    return g
+
+
+def world_pals(w):
+    def mix(a, b): return tuple((x + y) // 2 for x, y in zip(a, b))
+    wa, sa, ga, _t = w[1:]
+    return ([wa[0], mix(wa[0], wa[1]), wa[1], wa[2]],      # PA deep | shallow
+            [wa[1], wa[2], sa[1], sa[0]],                  # PB shallow | sand
+            [sa[1], sa[3], ga[1], ga[0]],                  # PC sand | grass
+            [ga[1], ga[0], ga[2], ga[3]])                  # PF grass things
+
+
 def main():
     tiles = []
     arts = {}
     for n in MT:
         g = art(n); arts[n] = g
         for (x0, y0) in ((0, 0), (8, 0), (0, 8), (8, 8)): tiles += tile2bpp(g, x0, y0)
+    nblend = 0
+    for m in range(3):
+        for pat in range(1, 15):
+            q = blend_quarter(m, pat)
+            gg = [[q[y][x] if x < 8 and y < 8 else 0 for x in range(16)] for y in range(16)]
+            tiles += tile2bpp(gg, 0, 0); nblend += 1
     sg = [[".123".index(c) for c in r] for r in SHIP]
     stiles = []
     for col in range(4):                                       # 8x16 sprites: column by column, top row then bottom row
         for row in range(2):
             for half in range(2): stiles += tile2bpp(sg, col * 8, row * 16 + half * 8)
     c = ["#pragma bank 4", "/* generated by tools/make_planet.py: do not edit */", "#include <gb/gb.h>", "#include <gb/cgb.h>", '#include "planet_art.h"']
-    c.append("const UINT8 planet_tiles[PL_NMT * 64] = {" + ",".join("0x%02X" % b for b in tiles) + "};")
+    c.append("const UINT8 planet_tiles[PL_NTILES * 16] = {" + ",".join("0x%02X" % b for b in tiles) + "};")
     c.append("const UINT8 planet_mtpal[PL_NMT] = {" + ",".join(str(PAL[n]) for n in MT) + "};")
+    c.append("const UINT8 planet_mtlvl[PL_NMT] = {" + ",".join(str(LVL[n] + (4 if n in OBJ else 0)) for n in MT) + "};")
     pals = []
     for w in WORLDS:
-        for p in w[1:]:
-            pals += ["RGB(%d,%d,%d)" % col for col in p]
+        for p in world_pals(w): pals += ["RGB(%d,%d,%d)" % col for col in p]
     c.append("const palette_color_t planet_pals[PL_NWORLD * 16] = {" + ",".join(pals) + "};")
     c.append('const char *const planet_world_name[PL_NWORLD] = {' + ",".join('"%s"' % w[0] for w in WORLDS) + "};")
     c.append("const UINT8 ship_tiles[16 * 16] = {" + ",".join("0x%02X" % b for b in stiles) + "};")
@@ -181,9 +231,11 @@ def main():
          "/* generated by tools/make_planet.py: the planet's ground tiles (bank 4) */",
          "enum { " + ", ".join("MT_" + n for n in MT) + ", PL_NMT };",
          "#define PL_NWORLD %d" % len(WORLDS),
+         "#define PL_NTILES (PL_NMT * 4 + 42)       /* the metatile pictures, then the blend tiles (index PL_NMT * 4 + m * 14 + pat - 1) */",
          "enum { " + ", ".join("W_" + w[0] for w in WORLDS) + " };",
-         "extern const UINT8 planet_tiles[PL_NMT * 64];      /* four 8x8 tiles per metatile: top-left, top-right, bottom-left, bottom-right */",
+         "extern const UINT8 planet_tiles[PL_NTILES * 16];      /* four 8x8 tiles per metatile: top-left, top-right, bottom-left, bottom-right */",
          "extern const UINT8 planet_mtpal[PL_NMT];           /* which terrain palette (0..3 = BG palette 4..7) */",
+         "extern const UINT8 planet_mtlvl[PL_NMT];           /* kind of ground: 0 deep, 1 shallow, 2 sand, 3 grass (+4: an object that is drawn as it is) */",
          "extern const palette_color_t planet_pals[PL_NWORLD * 16];",
          "extern const char *const planet_world_name[PL_NWORLD];",
          "extern const UINT8 ship_tiles[16 * 16];            /* 8 sprites of 8x16, column by column */",
@@ -198,7 +250,7 @@ def main():
         im = Image.new("RGB", ((len(MT) * 18) * S, (len(WORLDS) * 18 + 30) * S), (40, 40, 40))
         for wi, w in enumerate(WORLDS):
             for mi, n in enumerate(MT):
-                pal = w[1 + PAL[n]]
+                pal = world_pals(w)[PAL[n]]
                 for y in range(16):
                     for x in range(16):
                         r, g, b = pal[arts[n][y][x]]
