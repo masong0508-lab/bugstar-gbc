@@ -12,3 +12,4 @@ build/
 build_*/
 test*.gbc
 test*.map
+t[mps]*.gbc
