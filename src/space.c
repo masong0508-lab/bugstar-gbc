@@ -60,7 +60,7 @@ static UINT8 sky(UINT8 x, UINT8 y){                           /* the metatile at
     if(dx < 2 && dy < 2){ pal_of = 4 + ((x >> 4) & 1) + (((y >> 4) & 1) << 1); return SP_PL_TL + (dy << 1) + dx; }
     pal_of = 3;
     r = sp_perm[(UINT8)(sp_perm[(UINT8)(x + o1)] + y + o2)];
-    return r < 150 ? SP_STAR0 : r < 222 ? SP_STAR1 : r < 246 ? SP_STAR2 : SP_STAR3;
+    return r < 130 ? SP_STAR0 : r < 190 ? SP_STAR1 : r < 212 ? SP_STAR4 : r < 228 ? SP_STAR5 : r < 236 ? SP_STAR6 : r < 248 ? SP_STAR2 : r < 253 ? SP_STAR7 : SP_STAR3;
 }
 static void draw_mt(UINT8 x, UINT8 y){
     UINT8 mt = sky(x, y), t[4], a[4], bx2 = (x & 15) << 1, by2 = (y & 15) << 1;

@@ -17,6 +17,7 @@
 #include "bugspr.h"
 #include "bugmake.h"
 #include "planet.h"
+#include "dungeon.h"
 #include "space.h"
 #include "ending.h"
 
@@ -52,6 +53,14 @@ void main(void){
 #endif
       /* (test builds: straight onto the planet) */
     play();
+#endif
+#ifdef TEST_DUNGEON
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.story = ST_INTRO;
+#ifdef TEST_STAR
+    sv.star = TEST_STAR;
+#endif
+    cpu_fast(); dungeon_run();
+    for(;;) wait_vbl_done();
 #endif
 #ifdef TEST_SPACE
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0);   /* (test builds: straight into space) */

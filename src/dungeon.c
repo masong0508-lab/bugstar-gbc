@@ -108,9 +108,22 @@ static void make_floor(void){
 }
 
 /* ------------------------------------------------------------ drawing */
+/* Walls and floors are blended like the planet's ground (dungeon_art.h): a quarter whose cell and three neighbours are not all
+   the same (wall or floor) is a blend tile, flipped to face its corner, so rooms get rounded corners with a shadow along the wall. */
+static UINT8 mt_at(UINT8 x, UINT8 y){ return (x < DW && y < DW) ? DM(x, y) : D_WALL; }
 static void draw_mt(UINT8 x, UINT8 y){
-    UINT8 mt = (x < DW && y < DW) ? DM(x, y) : D_WALL, t[4], a[4], bx2 = (x & 15) << 1, by2 = (y & 15) << 1, p = 0x08 | (4 + dg_mtpal[mt]);
-    t[0] = mt * 4; t[1] = mt * 4 + 1; t[2] = mt * 4 + 2; t[3] = mt * 4 + 3; a[0] = a[1] = a[2] = a[3] = p;
+    UINT8 mt = mt_at(x, y), t[4], a[4], bx2 = (x & 15) << 1, by2 = (y & 15) << 1, q, l0, l1, l2, l3, sx, sy;
+    if(dg_mtlvl[mt] >= 4){
+        t[0] = mt * 4; t[1] = mt * 4 + 1; t[2] = mt * 4 + 2; t[3] = mt * 4 + 3; a[0] = a[1] = a[2] = a[3] = 0x08 | (4 + dg_mtpal[mt]);
+    } else {
+        l0 = dg_mtlvl[mt] & 1;
+        for(q = 0; q < 4; q++){
+            sx = (q & 1) ? x + 1 : x - 1; sy = (q & 2) ? y + 1 : y - 1;
+            l1 = dg_mtlvl[mt_at(sx, y)] & 1; l2 = dg_mtlvl[mt_at(x, sy)] & 1; l3 = dg_mtlvl[mt_at(sx, sy)] & 1;
+            if(l0 == l1 && l0 == l2 && l0 == l3){ t[q] = mt * 4 + q; a[q] = 0x08 | (4 + dg_mtpal[mt]); }
+            else { t[q] = DG_NMT * 4 + (l0 | (l1 << 1) | (l2 << 2) | (l3 << 3)) - 1; a[q] = 0x08 | 4 | ((q & 1) ? 0x20 : 0) | ((q & 2) ? 0x40 : 0); }
+        }
+    }
     VBK_REG = VBK_BANK_1; set_bkg_tiles(bx2, by2, 2, 2, a);
     VBK_REG = VBK_BANK_0; set_bkg_tiles(bx2, by2, 2, 2, t);
 }
