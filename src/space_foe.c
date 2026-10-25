@@ -40,6 +40,7 @@ static UINT8 near_planet(UINT16 px, UINT16 py, INT16 r){      /* a planet within
 }
 static void hurt(UINT8 dmg, INT16 dx, INT16 dy, INT8 push){     /* the ship is hit; dx, dy: from what hit it to the ship */
     if(inv) return;
+    { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3; dmg = dmg > a ? dmg - a : 1; }
     sv.hp = sv.hp > dmg ? sv.hp - dmg : 0;
     inv = 60; sfx(SFX_HURT); shake(12);
     vx = dx > 0 ? push : -push; vy = dy > 0 ? push : -push;       /* knocked away */
@@ -109,8 +110,9 @@ UINT8 foes_hit(Laser *l) BANKED {
         if(dx > -10 && dx < 10 && dy > -10 && dy < 10){
             l->life = 0;
             sfx(SFX_HIT);
-            if(!--p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
-                sv.gold += (p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3; gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253; }   /* (a level-up message covers the window: put it back) */
+            { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2; p->hp = p->hp > ld ? p->hp - ld : 0; }
+            if(!p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
+                sv.gold += SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253; }   /* (a level-up message covers the window: put it back) */
             return 1;
         }
     }

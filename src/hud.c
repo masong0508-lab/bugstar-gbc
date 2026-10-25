@@ -19,7 +19,7 @@
 
 static UINT16 l_hp, l_mp, l_lv; static UINT32 l_gold;
 
-UINT16 hud_hpmax(UINT16 level){ return 5 + 5 * level; }
+UINT16 hud_hpmax(UINT16 level){ return 5 + 5 * level + 4 * UPG(SK_GRIT); }
 UINT16 hud_mpmax(UINT16 level){ return 2 + 3 * level; }
 
 static UINT8 on;
@@ -71,11 +71,11 @@ void hud_update(void){
 }
 
 void gain_xp(UINT16 n){
-    char b[32], *d;
+    char b[80], *d;
     sv.xp += n;
     while(sv.xp >= (UINT32)sv.level * 12 && sv.level < 99){
         sv.xp -= (UINT32)sv.level * 12; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
-        sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); u16s(d, sv.level); dlg_say(0, b);
+        sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); d = u16s(d, sv.level); d = scat(d, (sv.level % 5) ? ". +1 SKILL POINT" : ". +3 SKILL POINTS"); scat(d, "! SPEND IT IN SYSTEM > SKILLS."); dlg_say(0, b);
     }
 }
 

@@ -9,13 +9,14 @@
 #include "sysmenu.h"
 #include "bugmake.h"
 #include "bug.h"
+#include "shop.h"
 
 UINT8 sys_gfx_lost;
 
-#define NITEM 5
+#define NITEM 6
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -92,6 +93,12 @@ int sysmenu_run(void (*redraw)(void)){
                   sys_gfx_lost = 0;
                   SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
+            } else if(sel == 4){
+                skills_run();                                        /* (it hides the sprites and brings them back) */
+                txt_win(1); txt_cls(); txt_box(0, 0, SM_W, SM_H);
+                txt_line(1, 1, "SYSTEM", SM_W - 2); txt_color(1, 1, SM_W - 2, 1, TXT_GOLD);
+                txt_win(0);
+                move_win(SM_WX, SM_WY); draw_items(sel); cores();
             } else {
                 if(confirm_title()){ if(opt.autosave) slot_write(cur_slot); result = SYS_TITLE; break; }
                 draw_items(sel);

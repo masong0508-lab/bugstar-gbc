@@ -152,13 +152,19 @@ aim:
       else d = bdx > 0 ? (bdy > 0 ? 3 : 1) : (bdy > 0 ? 5 : 7); }
     spr16(OAM_ARR, SP_T_ARROW(d), SHIP_SX + dir_x[d] * ((d & 1) ? 22 : 30), SHIP_SY + dir_y[d] * ((d & 1) ? 22 : 30));
 }
+/* GUNS level: 0 one shot, 1 faster, 2 twin, 3 twin and faster, 4 triple, 5 triple and faster (shop.c has the names) */
+static const UINT8 gun_n[6]    = { 1, 1, 2, 2, 3, 3 };
+static const UINT8 gun_cool[6] = { 8, 6, 7, 5, 6, 4 };
 static void fire(void){
-    UINT8 i;
-    for(i = 0; i < NLAS; i++) if(!las[i].life){
-        las[i].x = shx >> 4; las[i].y = shy >> 4;
+    UINT8 i, g = UPG(UP_GUNS), n = gun_n[g > 5 ? 5 : g], j = 0;
+    static const INT8 off[3] = { 0, -5, 5 }, off2[2] = { -3, 3 };
+    for(i = 0; i < NLAS && j < n; i++) if(!las[i].life){
+        INT8 o = n == 2 ? off2[j] : off[j];
+        las[i].x = ((shx >> 4) - dir_y[dir] * o) & 4095; las[i].y = ((shy >> 4) + dir_x[dir] * o) & 4095;
         las[i].dx = dir_x[dir] * 5 + (INT8)(vx >> 4); las[i].dy = dir_y[dir] * 5 + (INT8)(vy >> 4);
-        las[i].life = 36; sfx(SFX_LASER); return;
+        las[i].life = n > 1 ? 28 : 36; j++;
     }
+    if(j) sfx(SFX_LASER);
 }
 typedef struct { UINT16 x, y; UINT8 life; } Puff;
 static Puff   puff[2];
@@ -218,7 +224,7 @@ int space_run(void) BANKED {
             else dir = (k & J_RIGHT) ? 2 : 6;
             vx += thr_x[dir]; vy += thr_y[dir];
         } else if(frame & 1){ vx = drag(vx); vy = drag(vy); }
-        { INT16 m = (k & J_B) ? VBOOST : VMAX;
+        { INT16 m = (k & J_B) ? VBOOST + 6 * UPG(UP_TURBO) : VMAX + 3 * UPG(UP_ENGINE);
           if(k & J_B){ vx += thr_x[dir]; vy += thr_y[dir]; }
           if(vx > m) vx = m; if(vx < -m) vx = -m; if(vy > m) vy = m; if(vy < -m) vy = -m; }
         shx += vx; shy += vy;
@@ -271,7 +277,7 @@ int space_run(void) BANKED {
                 if(opt.autosave) slot_write(cur_slot);
                 break;
             }
-            if(!cool){ fire(); cool = 8; }
+            if(!cool){ UINT8 g = UPG(UP_GUNS); fire(); cool = gun_cool[g > 5 ? 5 : g]; }
         }
         if(HIT(J_SELECT) && aim_ok && !b_dead){                      /* hyperspace! */
             WarpResult wr;

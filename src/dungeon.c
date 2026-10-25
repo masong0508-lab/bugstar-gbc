@@ -229,13 +229,14 @@ static UINT8 blocked(UINT16 x, UINT16 y, UINT8 r){                 /* a box 2r w
 static void hurt(UINT8 n, INT8 kx, INT8 ky){
     UINT8 k;
     if(inv) return;
+    { UINT8 a = UPG(UP_SHELL) + UPG(SK_GUARD) / 3; n = n > a ? n - a : 1; }
     sv.hp = sv.hp > n ? sv.hp - n : 0; inv = 50; sfx(SFX_HURT); shake(10);
     for(k = 0; k < 10; k++){ if(!blocked(bx + kx, by + ky, 5)){ bx += kx; by += ky; } }   /* knocked back */
 }
 #ifdef TEST_BOSS
 static UINT8 bite_power(void){ return 30; }
 #else
-static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends); }
+static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static void do_bite(void){
@@ -253,13 +254,13 @@ static void do_bite(void){
             fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
             if(m->kind == K_QUEEN){ fx_add(m->x - 24, m->y - 20, 255, 0); fx_add(m->x + 8, m->y - 22, 255, 3); fx_add(m->x - 8, m->y + 4, 255, 2); }   /* she goes up big */
             if(m->kind == K_SLIME && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(K_SLIME, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(K_SLIME, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
-            if(m->kind == K_QUEEN){ sv.gold += 200 + sv.zone * 100; gain_xp(40 + sv.zone * 20); }
-            else { sv.gold += 3 + m->kind * 2 + depth; gain_xp(3 + m->kind + depth); }
+            if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); }
+            else { sv.gold += LUCKY(3 + m->kind * 2 + depth); gain_xp(3 + m->kind + depth); }
         }
     }
     { UINT8 tx = (UINT8)((UINT16)hx >> 4), ty = (UINT8)((UINT16)(hy + 6) >> 4);    /* biting a chest or a cage opens it */
       if(tx < DW && ty < DW){
-          if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); sv.gold += g; sfx(SFX_COIN);
+          if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); g = LUCKY(g); sv.gold += g; sfx(SFX_COIN);
               if(rndn(3) == 0 && sv.potions < 9){ sv.potions++; dlg_say(0, "THE CHEST HOLDS GOLD AND A HEALTH POTION. (SELECT DRINKS IT)"); }
               else { d = scat(b, "THE CHEST HOLDS "); d = u16s(d, g); scat(d, " GOLD"); dlg_say(0, b); } }
           else if(DM(tx, ty) == D_CAGE){
@@ -344,7 +345,7 @@ static int play_floor(void){                                       /* returns DG
         if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! SELECT DRINKS IT."); } }
         if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
         if(HIT(J_SELECT)){
-            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); sv.hp = sv.hp + mx / 2 > mx ? mx : sv.hp + mx / 2; dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
+            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
         wait_vbl_done();

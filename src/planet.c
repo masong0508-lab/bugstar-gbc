@@ -25,6 +25,7 @@
 #include "planet_art.h"
 #include "planet.h"
 #include "dungeon.h"
+#include "shop.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
 #define SHIP_OAM0  20
@@ -209,21 +210,6 @@ static UINT8 near_ship(void){
     return dx < 28 && dy < 40;
 }
 
-static void ask_draw(UINT8 sel){ txt_win(1); txt_line(1, 2, sel ? " YES  " S_CURSOR "NO" : S_CURSOR "YES   NO", 18); txt_win(0); }
-static UINT8 ask_fly(void){                                    /* a little YES / NO box in the window; 1 = fly */
-    UINT8 sel = 0;
-    txt_win(1); txt_box(0, 0, 20, 4); txt_line(1, 1, "FLY INTO SPACE?", 18); txt_color(1, 1, 18, 1, TXT_GOLD); txt_win(0);
-    ask_draw(sel); move_win(7, 144 - 32); SHOW_WIN;
-    for(;;){
-        wait_vbl_done(); input_poll();
-        if(HIT(J_LEFT) || HIT(J_RIGHT)){ sel ^= 1; ask_draw(sel); sfx(SFX_MOVE); }
-        if(HIT(J_A)) break;
-        if(HIT(J_B)){ sel = 1; break; }
-    }
-    txt_win(1); txt_color(1, 1, 18, 1, TXT_WHITE); txt_win(0);
-    hud_redraw(); hud_pos(HUD_Y);
-    return sel == 0;
-}
 static void leave(void){                                       /* clear the screen for the next scene */
     UINT8 k;
     fade_out(); DISPLAY_OFF;
@@ -289,7 +275,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         if(HIT(J_A) && near_ship()){
             sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); slot_write(cur_slot); sfx(SFX_FANFARE);
             dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
-            if(ask_fly()){ leave(); return PL_LAUNCH; }
+            if(ship_menu()){ leave(); return PL_LAUNCH; }
         }
         if(HIT(J_START)){
             if(sysmenu_run(redraw) == SYS_TITLE){ leave(); return PL_TITLE; }

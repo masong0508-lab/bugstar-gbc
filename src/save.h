@@ -9,7 +9,7 @@
    The GBA game's 64-bit economy and huge galaxy address are gone: a world is one 32-bit seed. */
 #define NSLOT 3
 
-typedef struct {                 /* one save slot: 96 bytes on the cartridge (version 3; versions 1 (64 bytes) and 2 (the bug had 13 parts) are converted on load) */
+typedef struct {                 /* one save slot: 112 bytes on the cartridge (version 4; versions 1 (64 bytes), 2 (the bug had 13 parts) and 3 (no upgrades) are converted on load) */
     UINT32 magic;                /* SAVE_MAGIC */
     UINT16 ver;
     UINT32 seed;                 /* the world: everything is generated from this */
@@ -30,6 +30,7 @@ typedef struct {                 /* one save slot: 96 bytes on the cartridge (ve
     UINT8  freed[8];             /* the stars whose worlds gave a core, in order */
     UINT16 warp_best;            /* the most gold earned in one warp (the rail shooter) */
     UINT8  rsv[4];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
+    UINT8  up[16];               /* upgrades, one byte each (UP_* below): skills bought with level-up points, gear bought with gold (version 4) */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 
@@ -42,6 +43,14 @@ typedef struct {                 /* options, same set as the GBA game */
     UINT8 cam, minimap, nums, hints, arrow;
 } Opts;
 
+/* upgrades: sv.up[UP_x] = the level. Skills (SK_*, max 10) cost one point each: a level gives 1 point, every 5th level 2 more. Gear (max 5) costs gold. */
+enum { SK_MIGHT, SK_GRIT, SK_GUARD, SK_LUCK, SK_VIGOR,                       /* skills of the bug */
+       UP_FANG, UP_SHELL,                                                     /* gear of the bug (dungeon) */
+       UP_LASER, UP_GUNS, UP_ENGINE, UP_TURBO, UP_HULL, UP_MAGNET, UP_N };   /* parts of the ship (space) */
+#define UPG(i) (sv.up[i])
+#define NPERK 5
+#define LUCKY(g)  ((g) + (UINT16)((g) * UPG(SK_LUCK) / 16))                    /* gold with the LUCK skill (6% a rank) */
+#define SP_GOLD(g) ((g) + (UINT16)((g) * (UPG(SK_LUCK) + 2 * UPG(UP_MAGNET)) / 16))   /* and the MAGNET in space (12% a level) */
 #define ST_INTRO 1               /* Bolt has told the story so far */
 #define ST_BEAST 2               /* ...and met the Technobeast */
 #define ST_DONE  4               /* the Technobeast is beaten: the ending was seen */

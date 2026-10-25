@@ -51,6 +51,9 @@ void main(void){
 #ifdef TEST_STAR
     sv.star = TEST_STAR;
 #endif
+#ifdef TEST_RICH
+    sv.gold = 9000; sv.level = 12; sv.up[SK_MIGHT] = 2; sv.up[UP_GUNS] = 2;
+#endif
       /* (test builds: straight onto the planet) */
     play();
 #endif

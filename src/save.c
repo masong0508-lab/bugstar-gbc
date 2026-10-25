@@ -5,7 +5,7 @@
 
 #define SAVE_MAGIC 0x43475542UL      /* "BUGC" */
 #define SET_MAGIC  0x53544553UL      /* "SETS" */
-#define SAVE_VER   3
+#define SAVE_VER   4
 #define SET_BANK   3
 /* MBC5 cart RAM: 0x0A to 0x0000-0x1FFF enables it, the RAM bank number goes to 0x4000-0x5FFF.
    (tests/ overrides these to run the save logic on a PC) */
@@ -30,6 +30,12 @@ typedef struct {                 /* the version 2 slot: the same, but the bug ha
     UINT16 col[BC_N]; UINT8 pt[13];
     UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[7]; UINT32 sum;
 } Save2;
+
+typedef struct {                 /* the version 3 slot: the same as now, without the upgrades (up[]) before the sum */
+    UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
+    BugLook look;
+    UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT32 sum;
+} Save3;
 
 static volatile UINT32 vbl32;
 static UINT32 play_base, play_t0;
@@ -91,10 +97,16 @@ void save_init(void){
 }
 
 UINT8 slot_peek(UINT8 slot, Save *out){
-    Save1 o; Save2 t;
+    Save1 o; Save2 t; Save3 t3;
     if(slot >= NSLOT) return 0;
     sram_read(slot, out, sizeof(Save));
     if(out->magic == SAVE_MAGIC && out->ver == SAVE_VER && out->sum == fnv(out, sizeof(Save) - 4)) return 1;
+    sram_read(slot, &t3, sizeof t3);                                 /* a version 3 save: everything is the same, the upgrades start at zero */
+    if(t3.magic == SAVE_MAGIC && t3.ver == 3 && t3.sum == fnv(&t3, sizeof t3 - 4)){
+        memset(out, 0, sizeof *out);
+        memcpy(out, &t3, sizeof t3 - 4); out->ver = SAVE_VER;
+        return 1;
+    }
     sram_read(slot, &t, sizeof t);                                   /* a version 2 save: the same slot, a bug with 13 parts */
     if(t.magic == SAVE_MAGIC && t.ver == 2 && t.sum == fnv(&t, sizeof t - 4)){
         memset(out, 0, sizeof *out);

@@ -14,7 +14,8 @@
 #include "sysmenu.h"
 #include "bug.h"
 #include "bugmake.h"
-UINT8 bugmake_run(BugLook *look, char *name, UINT8 first){ return 0; }   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
+UINT8 bugmake_run(BugLook *look, char *name, UINT8 first){ return 0; }
+void skills_run(void){ }                                          /* (and the skills page) */   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
 unsigned char sram_buf[4*8192];
 /* ---- stubs */
@@ -59,12 +60,12 @@ static UINT8 pad_dlg(int f){
 static void d_blip(void){ d_blips++; }
 static int snap_is(int pg, int y, const char *want){ for(int i = 0; want[i]; i++) if(d_snap[pg][y][1 + i] != (UINT8)want[i]) return 0; return strlen(want) >= 18 || d_snap[pg][y][1 + (int)strlen(want)] == T_BLANK; }   /* a full 18-column line runs into the frame */
 /* ---- SYSTEM menu test pad: each step is one press then one release; every poll snapshots the window and state */
-static const UINT8 *sq; static int sq_n, sq_calls, sq_win[40], sq_wx[40]; static UINT8 sq_snap[40][9][12];
+static const UINT8 *sq; static int sq_n, sq_calls, sq_win[40], sq_wx[40]; static UINT8 sq_snap[40][10][12];
 static int redraws;
 static UINT8 pad_seq(int f){
     (void)f; int i = sq_n / 2; UINT8 k = sq[i];
     if(k == 0xFF){ fprintf(stderr, "sysmenu script ended\n"); exit(2); }
-    if(sq_n < 40){ for(int y = 0; y < 9; y++) memcpy(sq_snap[sq_n][y], wmap[y], 12); sq_win[sq_n] = stub_win; sq_wx[sq_n] = stub_wx; }
+    if(sq_n < 40){ for(int y = 0; y < 10; y++) memcpy(sq_snap[sq_n][y], wmap[y], 12); sq_win[sq_n] = stub_win; sq_wx[sq_n] = stub_wx; }
     return (sq_n++ & 1) ? 0 : k;
 }
 static void sm_repaint(void){ redraws++; }
@@ -225,14 +226,14 @@ int main(void){
     dlg_set_speed(2);
     /* ---- SYSTEM menu */
     memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1, 0, 0); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv); sv.friends = sv.deepest = sv.potions = 0;
-    CHECK(SM_WX == 71 && SM_WY == 72);
+    CHECK(SM_WX == 71 && SM_WY == 64);
     { /* open with the HUD showing, resume with B: layout, then HUD is back */
       static const UINT8 q1[] = { J_B, 0xFF };
       hud_init(); sv.level = 1; sv.hp = 10; hud_update();
       CHECK(sm_run(q1) == SYS_RESUME);
       CHECK(sq_wx[0] == SM_WX && stub_wx == 7 && stub_wy == HUD_Y && stub_win == 1 && wmap[0][0] == T_HEART && wrow_is(0, 11, "LV 1"));
-      CHECK(sq_snap[0][0][0] == T_BOX_TL && sq_snap[0][0][11] == T_BOX_TR && sq_snap[0][8][0] == T_BOX_BL && sq_snap[0][8][11] == T_BOX_BR);
-      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "SAVE") && sq_is(0, 5, 2, "OPTIONS") && sq_is(0, 6, 2, "MIRROR") && sq_is(0, 7, 2, "TO TITLE"));
+      CHECK(sq_snap[0][0][0] == T_BOX_TL && sq_snap[0][0][11] == T_BOX_TR && sq_snap[0][9][0] == T_BOX_BL && sq_snap[0][9][11] == T_BOX_BR);
+      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "SAVE") && sq_is(0, 5, 2, "OPTIONS") && sq_is(0, 6, 2, "MIRROR") && sq_is(0, 7, 2, "SKILLS") && sq_is(0, 8, 2, "TO TITLE"));
       CHECK(sq_snap[0][3][1] == T_CURSOR && sq_snap[0][4][1] == ' ');
       CHECK(wamap[0][0] == TXT_WHITE);
     }
@@ -254,7 +255,7 @@ int main(void){
     { /* cursor wraps both ways and clears the status line */
       static const UINT8 q4[] = { J_UP, J_DOWN, J_DOWN, J_B, 0xFF };
       CHECK(sm_run(q4) == SYS_RESUME);
-      CHECK(sq_snap[2][7][1] == T_CURSOR && sq_snap[4][3][1] == T_CURSOR && sq_snap[6][4][1] == T_CURSOR);
+      CHECK(sq_snap[2][8][1] == T_CURSOR && sq_snap[4][3][1] == T_CURSOR && sq_snap[6][4][1] == T_CURSOR);
     }
     { /* OPTIONS: overlay hides, options page runs (B inside it), repaint hook fires, overlay returns */
       static const UINT8 q5[] = { J_DOWN, J_DOWN, J_A, J_B, J_B, 0xFF };
@@ -266,7 +267,7 @@ int main(void){
       static const UINT8 q6[] = { J_UP, J_A, J_B, J_B, 0xFF };
       CHECK(sm_run(q6) == SYS_RESUME);
       CHECK(sq_is(4, 4, 1, "SURE?") && sq_is(4, 5, 1, " A: YES") && sq_is(4, 6, 1, " B: NO"));   /* prompt shows while waiting */
-      CHECK(sq_snap[6][7][1] == T_CURSOR && sq_is(6, 7, 2, "TO TITLE") && sq_is(6, 4, 2, "SAVE"));  /* B cancelled: list restored */
+      CHECK(sq_snap[6][8][1] == T_CURSOR && sq_is(6, 8, 2, "TO TITLE") && sq_is(6, 4, 2, "SAVE"));  /* B cancelled: list restored */
       static const UINT8 q7[] = { J_UP, J_A, J_A, 0xFF };
       Save t; opt.autosave = 1; sv.level = 33; hud_hide();
       CHECK(sm_run(q7) == SYS_TITLE);
@@ -283,8 +284,21 @@ int main(void){
       memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 2; o.seed = 777; o.level = 9; o.gold = 1234; strcpy(o.name, "OLDIE"); o.col[0] = 0x1234; o.pt[1] = 3; o.pt[12] = 7; o.cores = 2; o.warp_best = 55;
       for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
       memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
-      CHECK(slot_peek(1, &t) && t.ver == 3 && t.seed == 777 && t.level == 9 && t.gold == 1234 && !strcmp(t.name, "OLDIE") && t.look.col[0] == 0x1234 && t.look.pt[1] == 3 && t.look.pt[12] == 7
+      CHECK(slot_peek(1, &t) && t.ver == 4 && t.seed == 777 && t.level == 9 && t.gold == 1234 && !strcmp(t.name, "OLDIE") && t.look.col[0] == 0x1234 && t.look.pt[1] == 3 && t.look.pt[12] == 7
             && t.look.pt[BP_CHEEK] == 0 && t.look.pt[BP_NECK] == 0 && t.look.pt[BP_BACK] == 0 && t.cores == 2 && t.warp_best == 55);
+    }
+    /* ---- a version 3 save (no upgrades) is converted, and a version 4 save keeps its upgrades */
+    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
+        BugLook look; UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT32 sum; } S3;
+      S3 o; Save t; UINT32 h = 2166136261UL; UINT8 *b = (UINT8 *)&o; UINT16 i;
+      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 3; o.seed = 4242; o.level = 12; o.gold = 99; strcpy(o.name, "THREE"); o.look.pt[BP_NECK] = 2; o.potions = 4;
+      for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
+      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
+      CHECK(slot_peek(1, &t) && t.ver == 4 && t.seed == 4242 && t.level == 12 && t.gold == 99 && !strcmp(t.name, "THREE") && t.look.pt[BP_NECK] == 2 && t.potions == 4);
+      { UINT8 k, z = 1; for(k = 0; k < sizeof t.up; k++) if(t.up[k]) z = 0; CHECK(z); }
+      new_game(1, 5, 0, 0); cur_slot = 1; sv.up[SK_MIGHT] = 7; sv.up[UP_HULL] = 3; slot_write(1);
+      CHECK(slot_peek(1, &t) && t.up[SK_MIGHT] == 7 && t.up[UP_HULL] == 3 && t.up[SK_GRIT] == 0);
+      CHECK(hud_hpmax(1) == 10); sv.up[SK_GRIT] = 5; CHECK(hud_hpmax(1) == 30); sv.up[SK_GRIT] = 0;
     }
     /* ---- the bug builder: nothing may need more than the sprite budget on one scanline, whatever the parts */
     { BugLook l; UINT8 i, k, v, ok = 1;
