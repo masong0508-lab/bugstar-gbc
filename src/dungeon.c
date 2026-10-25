@@ -320,7 +320,7 @@ contact:
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
     { UINT8 i; for(i = 0; i < NFX; i++) fxs[i].t = 0; }
-    fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
+    fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
     show_bug(); fade_in();
     if(depth == floors) banner(BN_QUEEN);
     if(depth > sv.deepest) sv.deepest = depth;

@@ -1,6 +1,6 @@
 #pragma bank 7
 /* BUGSTAR GBC - step 9: the sound player, once a frame from the VBL interrupt (sound.c maps this bank first).
-   A track is 64 steps; every `tempo` frames one step plays: the tune on channel 2, the bass on the wave channel 3, the tune again
+   A track is 64 or 256 steps; every `tempo` frames one step plays: the tune on channel 2, the bass on the wave channel 3, the tune again
    three steps late and quieter on channel 1 (an echo, right speaker only, so it sounds wide), and a drum on the noise channel 4.
    An effect takes channel 1 and/or 4 for a few frames; the tune leaves them alone until it is done. */
 #include <gb/gb.h>
@@ -66,7 +66,7 @@ void snd_tick(void){
     if(m == 0) NR32_REG = 0;
     else if(m > 1){ f = snd_wv[m]; NR30_REG = 0x80; NR32_REG = opt.music == 1 ? 0x40 : 0x20; NR33_REG = (UINT8)f; NR34_REG = 0x80 | (UINT8)(f >> 8); }
     if(!busy1){                                        /* the echo */
-        m = t->mel[(UINT8)(step - 3) & 63];
+        m = t->mel[(UINT8)(step - 3) & t->mask];
         if(m == 0) NR12_REG = 0;
         else if(m > 1){ f = snd_sq[m]; NR10_REG = 0; NR11_REG = 0x40; NR12_REG = ((v / 3 + 1) << 4) | 3; NR13_REG = (UINT8)f; NR14_REG = 0x80 | (UINT8)(f >> 8); }
     }
@@ -76,5 +76,5 @@ void snd_tick(void){
         else if(m == 2){ NR41_REG = 0; NR42_REG = opt.music == 1 ? 0x52 : 0x92; NR43_REG = 0x42; NR44_REG = 0x80; }
         else if(m == 3){ NR41_REG = 0; NR42_REG = opt.music == 1 ? 0x21 : 0x41; NR43_REG = 0x10; NR44_REG = 0x80; }
     }
-    step = (step + 1) & 63;
+    step = (step + 1) & t->mask;
 }

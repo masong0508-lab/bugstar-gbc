@@ -238,7 +238,7 @@ static void enter(void){                                       /* the planet ont
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
     hud_init();
     bugspr_load(&sv.look);
-    music(MUS_PLANET);
+    music(MUS_PLANET_K(wk));
     SHOW_BKG; SHOW_SPRITES;
     fade_in();
 }
