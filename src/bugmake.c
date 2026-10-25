@@ -34,8 +34,8 @@ enum { R_COL0 = 32, R_MATCH = 48, R_NAME, R_LOOKS, R_DICE, R_STAGE, R_END = 255 
 static const char *const tab_nm[NTAB] = { "BODY", "HEAD", "GEAR", "PAINT", "ME" };
 static const UINT8 tab_rows[NTAB][11] = {
     { BP_LENGTH, BP_SHAPE, BP_FINISH, BP_PAT, BP_LEGS, BP_LEGST, R_END },
-    { BP_EYE, BP_MOUTH, BP_ANT, BP_HORN, R_END },
-    { BP_HAT, BP_WING, BP_TAIL, R_END },
+    { BP_EYE, BP_MOUTH, BP_CHEEK, BP_ANT, BP_HORN, R_END },
+    { BP_HAT, BP_NECK, BP_BACK, BP_WING, BP_TAIL, R_END },
     { R_COL0 + BC_SHELL, R_COL0 + BC_MARK, R_COL0 + BC_HEAD, R_COL0 + BC_EYE, R_COL0 + BC_HORN, R_COL0 + BC_WING, R_COL0 + BC_HAT, R_COL0 + BC_LINE, R_MATCH, R_END },
     { R_NAME, R_LOOKS, R_DICE, R_STAGE, R_END } };
 static const char *const stage_nm[STAGE_N] = { "SKY", "MIDNIGHT", "DUSK", "MEADOW", "CAVE", "CANDY" };

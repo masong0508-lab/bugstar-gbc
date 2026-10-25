@@ -51,6 +51,16 @@ static void draw_shell(const BugLook *l, UINT8 x0, UINT8 W){
         if(on) PX(x0 + x, 16 + y) = 3;
     }
 }
+static void draw_back(const BugLook *l, UINT8 x0, UINT8 W){      /* gear on the back: in the wing cell, with a stem down to the shell */
+    const BugPart *b = &bp_back[l->pt[BP_BACK]];
+    UINT8 cx = x0 + (W >> 1) - 4, x, y, top;
+    if(!b->w) return;
+    stamp(b, cx, 0);
+    for(x = cx; x < cx + 8; x++) if(PX(x, 15)){
+        for(top = 16; top < 28 && !PX(x, top); top++) ;
+        if(top < 28) for(y = 16; y < top; y++) PX(x, y) = 1;       /* (index 1 is the outline in the shell's palette) */
+    }
+}
 static void draw_legs(const BugLook *l, UINT8 x0, UINT8 W, UINT8 f){
     UINT8 n = 2 + l->pt[BP_LEGS], i, lx, by, y, len, lift, k, st = l->pt[BP_LEGST];
     for(i = 0; i < n; i++){
@@ -79,10 +89,13 @@ static void draw_canvas(const BugLook *l, UINT8 f, UINT8 tc, UINT8 hc, UINT8 W){
     if(l->pt[BP_WING]) stamp(&bp_wings[l->pt[BP_WING] * 3 + l->pt[BP_LENGTH]], tc * 8, 0);
     if(tc) stamp(&bp_tail[l->pt[BP_TAIL]], 0, 16);
     draw_shell(l, tc * 8, W);
+    draw_back(l, tc * 8, W);
     draw_legs(l, tc * 8, W, f);
     stamp(&bp_head[0], hc * 8, HEAD_LO);
+    stamp(&bp_neck[l->pt[BP_NECK]], hc * 8, HEAD_LO);
     stamp(&bp_eye[l->pt[BP_EYE]], hc * 8, HEAD_LO);
     stamp(&bp_mouth[l->pt[BP_MOUTH]], hc * 8, HEAD_LO);
+    stamp(&bp_cheek[l->pt[BP_CHEEK]], hc * 8, HEAD_LO);
     stamp(&bp_ant[l->pt[BP_ANT]], hc * 8, HEAD_UP);
     stamp(&bp_horn[l->pt[BP_HORN]], hc * 8, HEAD_UP);
     stamp(&bp_hat[l->pt[BP_HAT]], hc * 8, HEAD_UP);

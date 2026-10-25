@@ -9,7 +9,7 @@
    The GBA game's 64-bit economy and huge galaxy address are gone: a world is one 32-bit seed. */
 #define NSLOT 3
 
-typedef struct {                 /* one save slot: 96 bytes on the cartridge (version 2; version 1 was 64 and is converted on load) */
+typedef struct {                 /* one save slot: 96 bytes on the cartridge (version 3; versions 1 (64 bytes) and 2 (the bug had 13 parts) are converted on load) */
     UINT32 magic;                /* SAVE_MAGIC */
     UINT16 ver;
     UINT32 seed;                 /* the world: everything is generated from this */
@@ -29,7 +29,7 @@ typedef struct {                 /* one save slot: 96 bytes on the cartridge (ve
     UINT8  story;                /* ST_* flags */
     UINT8  freed[8];             /* the stars whose worlds gave a core, in order */
     UINT16 warp_best;            /* the most gold earned in one warp (the rail shooter) */
-    UINT8  rsv[7];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
+    UINT8  rsv[4];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 

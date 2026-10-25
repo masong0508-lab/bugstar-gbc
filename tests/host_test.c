@@ -276,6 +276,27 @@ int main(void){
       slot_peek(0, &t); CHECK(t.level == 33);                                  /* autosave off: not written */
       CHECK(stub_win == 0);
     }
+    /* ---- a version 2 save (13-part bug) is converted */
+    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
+        UINT16 col[BC_N]; UINT8 pt[13]; UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[7]; UINT32 sum; } S2;
+      S2 o; Save t; UINT32 h = 2166136261UL; UINT8 *b = (UINT8 *)&o; UINT16 i;
+      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 2; o.seed = 777; o.level = 9; o.gold = 1234; strcpy(o.name, "OLDIE"); o.col[0] = 0x1234; o.pt[1] = 3; o.pt[12] = 7; o.cores = 2; o.warp_best = 55;
+      for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
+      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
+      CHECK(slot_peek(1, &t) && t.ver == 3 && t.seed == 777 && t.level == 9 && t.gold == 1234 && !strcmp(t.name, "OLDIE") && t.look.col[0] == 0x1234 && t.look.pt[1] == 3 && t.look.pt[12] == 7
+            && t.look.pt[BP_CHEEK] == 0 && t.look.pt[BP_NECK] == 0 && t.look.pt[BP_BACK] == 0 && t.cores == 2 && t.warp_best == 55);
+    }
+    /* ---- the bug builder: nothing may need more than the sprite budget on one scanline, whatever the parts */
+    { BugLook l; UINT8 i, k, v, ok = 1;
+      for(i = 0; i < BUG_NPRESET; i++){ bug_default(&l); bug_preset(&l, i, 0, 0); bug_clamp(&l); bug_build(&l); if(bug_peak() > BUG_BUDGET || !bug_set.n) ok = 0; }
+      CHECK(ok);
+      ok = 1;
+      for(k = 0; k < BP_N; k++) for(v = 0; v < bug_part_cnt(k); v++){
+          bug_default(&l); l.pt[BP_LENGTH] = 2; l.pt[BP_TAIL] = 1; l.pt[k] = v; bug_build(&l);
+          if(bug_peak() > BUG_BUDGET || bug_set.n > BUG_MAXCELL) ok = 0; }
+      CHECK(ok);
+      bug_default(&l); l.pt[BP_BACK] = 2; bug_build(&l); { UINT8 any = 0, x, y; for(y = 0; y < 16; y++) for(x = 0; x < BUG_BW; x++) if(bug_pixel(x, y)) any = 1; CHECK(any); }   /* the back gear is up in the wing cells */
+    }
     fprintf(stdout, "%s\n", fails ? "FAILED" : "ALL OK");
     return fails;
 }
