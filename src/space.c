@@ -335,7 +335,11 @@ static int space2d(void) {
             continue; }
         }
         if(HIT(J_START)){
-            if(sysmenu_run(redraw) == SYS_TITLE){ k = SP_TITLE; goto out; }
+            int sr;
+            sys_space = 1; sr = sysmenu_run(redraw); sys_space = 0;
+            if(sr == SYS_TITLE){ k = SP_TITLE; goto out; }
+            if(sr == SYS_FLIP){ k = SP_FLIP; goto out; }
+            if(sr == SYS_ARENA){ arena_run(); k = SP_FLIP; goto out; }
             shown = 253;
         }
     }

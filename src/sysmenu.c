@@ -10,13 +10,15 @@
 #include "bugmake.h"
 #include "bug.h"
 #include "shop.h"
+#include "space3d.h"
 
 UINT8 sys_gfx_lost;
+UINT8 sys_space;
 
-#define NITEM 6
+#define NITEM 7
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -99,6 +101,19 @@ int sysmenu_run(void (*redraw)(void)){
                 txt_line(1, 1, "SYSTEM", SM_W - 2); txt_color(1, 1, SM_W - 2, 1, TXT_GOLD);
                 txt_win(0);
                 move_win(SM_WX, SM_WY); draw_items(sel); cores();
+            } else if(sel == 5){
+                UINT8 r;
+                HIDE_WIN;
+                { UINT8 sx = SCX_REG, sy = SCY_REG;                    /* a full page of its own, like MIRROR: the scene repaints afterwards */
+                  DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_cls();
+                  sys_gfx_lost = 1;
+                  r = extras_run(sys_space);
+                  DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy;
+                  if(redraw) redraw();
+                  sys_gfx_lost = 0;
+                  SHOW_SPRITES; DISPLAY_ON; }
+                SHOW_WIN; cores();
+                if(r){ result = r == 1 ? SYS_FLIP : SYS_ARENA; break; }
             } else {
                 if(confirm_title()){ if(opt.autosave) slot_write(cur_slot); result = SYS_TITLE; break; }
                 draw_items(sel);

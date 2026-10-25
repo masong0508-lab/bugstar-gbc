@@ -89,22 +89,26 @@ static void norm_step(INT16 dx, INT16 dy, INT16 dz, UINT8 speed, INT16 *ox, INT1
     if(m < 1){ *ox = *oy = *oz = 0; return; }
     *ox = (dx * speed) / m; *oy = (dy * speed) / m; *oz = (dz * speed) / m;
 }
-static void pirate_spawn(UINT8 n){
+static P3 *pirate_spawn(UINT8 n){
     UINT8 i, a = rnd();
     for(i = 0; i < NP3; i++) if(!pir[i].st){
         P3 *p = &pir[i];
         p->x = shx + (INT16)s3_sin[a] * 64; p->y = shy + (INT16)s3_sin[(UINT8)(a + 64)] * 64;      /* 64 * 64 = 4096 = 256 units away */
         p->z = sz + (INT16)(INT8)rnd() * 4;
         p->st = 1; p->t = rnd(); p->hp = 2 + sv.zone / 2 + (sv.level > 8 ? 1 : 0); p->kind = n;
-        return;
+        return p;
     }
+    return 0;
 }
-static void orb_fire(P3 *p){
+static UINT8 ar_wave, ar_left, ar_bombs, ar_gap, ar_pause, ar_boss;       /* the Arena: wave, pirates still to come, bombs, spawn gap, pause, the next one is the flagship */
+static UINT16 ar_gold, ar_kills;
+static UINT8 lvl3(void){ UINT8 l = arena_on ? ar_wave : sv.zone; return l > 8 ? 8 : l; }   /* how hard the pirates are */
+static void orb_fire(P3 *p, INT8 sp){
     UINT8 i;
     for(i = 0; i < NO3; i++) if(!orb[i].life){
         B3 *o = &orb[i];
         INT16 dx = unit(shx, p->x), dy = unit(shy, p->y), dz = (sz - p->z) >> 4, vx_, vy_, vz_;
-        norm_step(dx, dy, dz, 34, &vx_, &vy_, &vz_);
+        norm_step(dx, dy, dz, 34, &vx_, &vy_, &vz_); vx_ += sp; vy_ -= sp;
         o->x = p->x; o->y = p->y; o->z = p->z; o->dx = vx_; o->dy = vy_; o->dz = vz_; o->life = 140;
         sfx(SFX_FIRE); return;
     }
@@ -128,6 +132,7 @@ static void fly(UINT8 k, UINT8 frame){
     else if(k & J_DOWN){ if(pit16 > -40 * 256) pit16 -= 200; }
     else if(!(frame & 3)){ if(pit16 > 100) pit16 -= 100; else if(pit16 < -100) pit16 += 100; else pit16 = 0; }
     basis();
+    if(arena_on){ vel = 0; return; }                                       /* the Arena: the ship hovers */
     want = (k & J_B) ? 56 + 6 * UPG(UP_TURBO) : 24 + 2 * UPG(UP_ENGINE);
     if(near_pl != 255 || near_st != 255) want = 14;                        /* gentle near a world: easy to dock */
     if(vel < want) vel += 2; else if(vel > want) vel -= 3;
@@ -144,6 +149,12 @@ static void shoot(void){                                                    /* a
         cool = gun_cool3[UPG(UP_GUNS) > 5 ? 5 : UPG(UP_GUNS)]; sfx(SFX_LASER); return;
     }
 }
+static void pirate_hit(P3 *p, UINT8 dmg){
+    if(p->hp > dmg){ p->hp -= dmg; shake(3); return; }
+    p->st = 2; sfx(SFX_BOOM); shake(8); pod_drop(p);
+    if(arena_on){ ar_kills++; ar_gold += p->kind ? 80 + 15 * ar_wave : 12 + 4 * ar_wave; elite_kill(1); }
+    else if(elite_kill(1)) say3("JOB DONE! DOCK TO GET PAID");
+}
 static void step_bolts(void){
     UINT8 i, j;
     for(i = 0; i < NB3; i++){ B3 *b = &bolt[i];
@@ -156,11 +167,7 @@ static void step_bolts(void){
             if(aabs(dx) < 22 && aabs(dy) < 22 && aabs(dz) < 22){
                 UINT8 dmg = 1 + UPG(UP_LASER) / 2;
                 b->life = 0; sfx(SFX_HIT);
-                if(p->hp > dmg){ p->hp -= dmg; shake(3); }
-                else {
-                    p->st = 2; sfx(SFX_BOOM); shake(8); pod_drop(p);
-                    if(elite_kill(1)) say3("JOB DONE! DOCK TO GET PAID");
-                }
+                pirate_hit(p, dmg);
                 break;
             }
         }
@@ -174,11 +181,11 @@ static void step_pirates(void){                                             /* t
         if(p->st >= 2){ if(++p->st > 24) p->st = 0; continue; }
         dx = unit(shx, p->x); dy = unit(shy, p->y); dz = (sz - p->z) >> 4;
         dist = aabs(dx) > aabs(dy) ? aabs(dx) + aabs(dy) / 2 : aabs(dy) + aabs(dx) / 2;
-        if(dist > 700){ p->st = 0; continue; }                              /* lost interest */
-        if(dist > 130) norm_step(dx, dy, dz, 21 + sv.zone, &ax, &ay, &az);
+        if(dist > 700 && !arena_on){ p->st = 0; continue; }                              /* lost interest */
+        if(dist > 130) norm_step(dx, dy, dz, 21 + lvl3(), &ax, &ay, &az);
         else { norm_step(-dy, dx, dz / 2, 19, &ax, &ay, &az); if(p->t & 64){ ax = -ax; ay = -ay; } }     /* circle */
         p->x += ax; p->y += ay; p->z += az; p->t++;
-        if(p->t % (84 - (sv.zone > 8 ? 8 : sv.zone) * 4) == 0 && dist < 330 && dist > 50) orb_fire(p);
+        if(p->t % (84 - lvl3() * 4) == 0 && dist < 330 && dist > 50){ orb_fire(p, 0); if(p->kind){ orb_fire(p, 7); orb_fire(p, -7); } }
     }
 }
 static void step_orbs(void){
@@ -188,7 +195,7 @@ static void step_orbs(void){
         if(!o->life) continue;
         o->life--; o->x += o->dx; o->y += o->dy; o->z += o->dz;
         dx = unit(o->x, shx); dy = unit(o->y, shy); dz = (o->z - sz) >> 4;
-        if(aabs(dx) < 11 && aabs(dy) < 11 && aabs(dz) < 11){ o->life = 0; hurt3(2 + sv.zone / 2); }
+        if(aabs(dx) < 11 && aabs(dy) < 11 && aabs(dz) < 11){ o->life = 0; hurt3(2 + lvl3() / 2); }
     }
 }
 static void step_pods(void){                                                /* fly into a crate */
@@ -259,6 +266,172 @@ static void land(UINT8 s){
     if(opt.autosave) slot_write(cur_slot);
 }
 
+
+/* ================================================================ the Arena
+   A hovering ship, waves of pirates from all round, every 4th wave a flagship that fires three orbs at once. B drops a bomb (clears the
+   orbs, hurts every pirate). Gold for every kill and every wave; a wreck halves the pay. The best wave is kept in the save. */
+static void wave_start(void){
+    char b[16], *d = scat(b, "WAVE "); d = u16s(d, ar_wave); *d = 0;
+    ar_boss = !(ar_wave & 3);
+    ar_left = ar_boss ? 3 : (ar_wave / 2 + 2 > 8 ? 8 : ar_wave / 2 + 2);
+    ar_pause = 100; ar_gap = 0; say3(b);
+}
+static void ar_spawn(void){
+    UINT8 i, alive = 0, cap = 1 + ar_wave / 2;
+    if(cap > NP3) cap = NP3;
+    if(ar_pause){ ar_pause--; return; }
+    for(i = 0; i < NP3; i++) if(pir[i].st) alive++;
+    if(ar_gap) ar_gap--;
+    if(ar_left && alive < cap && !ar_gap){
+        P3 *p = pirate_spawn(ar_boss);
+        if(p){
+            if(ar_boss){ p->hp = 10 + 2 * ar_wave; ar_boss = 0; }
+            else { p->hp = 2 + ar_wave / 3 + (sv.level > 8 ? 1 : 0); }
+            ar_left--; ar_gap = 45;
+        }
+    } else if(!ar_left && !alive){
+        ar_gold += 20 + 8 * ar_wave; sfx(SFX_FANFARE);
+        if(!(ar_wave & 3) && ar_bombs < 3) ar_bombs++;
+        if(ar_wave < 99) ar_wave++;
+        wave_start();
+    }
+}
+static void ar_bomb(void){
+    UINT8 i;
+    ar_bombs--; sfx(SFX_BOOM); shake(14);
+    for(i = 0; i < NO3; i++) orb[i].life = 0;
+    for(i = 0; i < NP3; i++) if(pir[i].st == 1) pirate_hit(&pir[i], 6 + UPG(UP_LASER));
+}
+static void ar_arrow(void){                                                 /* an arrow to the nearest pirate when it is off the screen */
+    UINT8 i, best = 255; INT16 bd = 32000;
+    for(i = 0; i < NP3; i++) if(pir[i].st == 1){
+        INT16 d = aabs(unit(pir[i].x, shx)) + aabs(unit(pir[i].y, shy));
+        if(d < bd){ bd = d; best = i; }
+    }
+    edge_on = best != 255;
+    if(edge_on){ ed_x = unit(pir[best].x, shx); ed_y = unit(pir[best].y, shy); ed_z = (pir[best].z - sz) >> 4; }
+}
+static void ar_line(void){
+    char b[24], *d = scat(b, "WAVE "); d = u16s(d, ar_wave); d = scat(d, " BOMB "); d = u16s(d, ar_bombs); d = scat(d, " +"); d = u16s(d, ar_gold); *d = 0;
+    txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, TXT_WHITE); txt_win(0);
+}
+static void page_start(void){ fade_out(); DISPLAY_OFF; HIDE_SPRITES; HIDE_WIN; hud_hide(); SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); txt_cls(); }
+static void page_wait(const char *foot){ txt_line(2, 16, foot, 16); DISPLAY_ON; }
+static UINT8 ar_intro(void){
+    char b[24], *d;
+    page_start();
+    txt_line(5, 2, "THE ARENA", 10); txt_color(5, 2, 10, 1, TXT_GOLD);
+    txt_line(1, 4, "WAVES OF PIRATES", 18); txt_line(1, 5, "FLY AT YOU. HOVER.", 18);
+    txt_line(1, 7, "D-PAD  AIM", 18); txt_line(1, 8, "A      FIRE", 18); txt_line(1, 9, "B      BOMB ALL", 18); txt_line(1, 10, "START  CASH OUT", 18);
+    txt_line(1, 12, "EVERY 4TH WAVE HAS", 18); txt_line(1, 13, "A BOSS. BIG PAY!", 18);
+    d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0;
+    txt_line(1, 15, b, 18); txt_color(1, 15, 18, 1, TXT_GOLD);
+    page_wait("A: GO   B: BACK");
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A)) return 1; if(HIT(J_B)) return 0; }
+}
+static UINT8 ar_cash(void){                                                 /* START: cash out? */
+    say3("A:CASH OUT B:FIGHT");
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A)) return 1; if(HIT(J_B) || HIT(J_START)){ msg_t = 1; return 0; } }
+}
+static void ar_results(UINT8 wreck, UINT8 cleared){
+    char b[24], *d;
+    page_start();
+    txt_line(4, 2, wreck ? "SHIP WRECKED!" : "CASHED OUT", 12); txt_color(4, 2, 12, 1, wreck ? TXT_RED : TXT_GOLD);
+    d = scat(b, "WAVES CLEARED "); d = u16s(d, cleared); *d = 0; txt_line(2, 5, b, 18);
+    d = scat(b, "PIRATES SHOT "); d = u16s(d, ar_kills); *d = 0; txt_line(2, 6, b, 18);
+    d = scat(b, "GOLD EARNED "); d = u16s(d, ar_gold); *d = 0; txt_line(2, 8, b, 18); txt_color(2, 8, 18, 1, TXT_GOLD);
+    if(wreck) txt_line(2, 9, "HALF LOST IN WRECK", 18);
+    if(cleared > ARENA_BEST){ txt_line(2, 11, "NEW BEST WAVE!", 14); txt_color(2, 11, 14, 1, TXT_GOLD); }
+    else { d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(2, 11, b, 18); }
+    page_wait("A: CONTINUE");
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
+}
+void arena_run(void) BANKED {
+    UINT16 sx = shx, sy = shy; INT16 s_z = sz, s_p = pit16, s_v = vel; UINT16 s_yaw = yaw;
+    UINT8 k, frame = 0, i, wreck = 0, cleared;
+    if(!ar_intro()){ fade_out(); DISPLAY_OFF; return; }
+    fade_out(); DISPLAY_OFF;
+    cpu_fast(); space_tables();
+    if(!rng) rng = 0xA5A5;
+    rng ^= DIV_REG; if(!rng) rng = 1;
+    arena_on = 1; edge_on = 0;
+    yaw = 0; pit16 = 0; vel = 0; inv = 0; cool = 0; turn_h = 0; regen = 0;
+    ar_wave = 1; ar_bombs = 2; ar_gold = 0; ar_kills = 0;
+    objects_clear(); basis();
+    gfx3();
+    wave_start(); ar_line(); msg_t = 90;
+    for(;;){
+        input_poll(); k = keys; frame++;
+        fly(k, frame);
+        if(cool) cool--;
+        if(inv) inv--;
+        if((k & J_A) && !cool) shoot();
+        if(HIT(J_B) && ar_bombs) ar_bomb();
+        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); step_dust(); ar_arrow();
+        s3_render(frame);
+        wait_vbl_done();
+        s3_flush(frame);
+        if(msg_t){ if(!--msg_t){ lab_t = 99; } }
+        else if(++lab_t >= 8){ lab_t = 0; ar_line(); }
+        hud_update();
+        if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
+        if(!sv.hp){ wreck = 1; break; }
+        if(HIT(J_START) && ar_cash()) break;
+    }
+    for(i = 0; i < 40; i++) move_sprite(i, 0, 0);
+    cleared = ar_wave - 1;
+    if(wreck){ ar_gold >>= 1; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; }
+    sv.gold += ar_gold;
+    ar_results(wreck, cleared);
+    if(cleared > ARENA_BEST) ARENA_BEST = cleared;
+    if(opt.autosave) slot_write(cur_slot);
+    arena_on = 0; edge_on = 0; objects_clear();
+    shx = sx; shy = sy; sz = s_z; pit16 = s_p; vel = s_v; yaw = s_yaw;
+    fade_out(); DISPLAY_OFF;
+    hud_hide(); SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); txt_cls();
+}
+
+/* ================================================================ EXTRAS: what you have unlocked */
+static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
+    char b[24], *d;
+    txt_cls();
+    txt_line(6, 1, "EXTRAS", 8); txt_color(6, 1, 8, 1, TXT_GOLD);
+    txt_line(1, 3, sel == 0 ? S_CURSOR "3D VIEW" : " 3D VIEW", 18);
+    if(V3_OPEN){ txt_line(3, 4, V3_ON ? "ON    A: TURN OFF" : "OFF   A: TURN ON", 17); txt_color(3, 4, 17, 1, TXT_GOLD); }
+    else { txt_line(3, 4, "LOCKED", 17); txt_color(3, 4, 17, 1, TXT_RED); txt_line(3, 5, "NEED RANK POOR", 17); }
+    txt_line(1, 7, sel == 1 ? S_CURSOR "ARENA" : " ARENA", 18);
+    if(ARENA_OPEN){
+        d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(3, 8, b, 17); txt_color(3, 8, 17, 1, TXT_GOLD);
+        txt_line(3, 9, in_space ? "A: PLAY" : "PLAY FROM SPACE", 17);
+    } else { txt_line(3, 8, "LOCKED", 17); txt_color(3, 8, 17, 1, TXT_RED); txt_line(3, 9, "NEED RANK AVERAGE", 17); }
+    txt_line(1, 12, "SHOOT PIRATES TO", 18); txt_line(1, 13, "RANK UP.", 18);
+    txt_line(1, 15, msg, 18); txt_color(1, 15, 18, 1, TXT_GOLD);
+    txt_line(2, 16, "B: BACK", 16);
+}
+UINT8 extras_run(UINT8 in_space) BANKED {
+    UINT8 sel = 0, on = 0, d = 1;
+    const char *msg = "";
+    unlocks_update();
+    for(;;){
+        if(d){ ex_draw(sel, in_space, msg); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
+        wait_vbl_done(); input_poll();
+        if(HIT(J_B) || HIT(J_START)) return 0;
+        if(HIT(J_UP) || HIT(J_DOWN)){ sel ^= 1; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_A)){
+            d = 1; msg = "";
+            if(sel == 0){
+                if(!V3_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
+                else { sv.el.rsv[0] ^= 2; sfx(SFX_OK); if(in_space) return 1; }
+            } else {
+                if(!ARENA_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
+                else if(!in_space){ msg = "FLY TO PLAY IT"; sfx(SFX_HURT); }
+                else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "REPAIR FIRST"; sfx(SFX_HURT); }
+                else return 2;
+            }
+        }
+    }
+}
+
 int space3d_run(UINT8 keep) BANKED {
     UINT8 k, frame = 0, out = SP_LAND, i;
     fade_out(); DISPLAY_OFF;
@@ -306,7 +479,11 @@ int space3d_run(UINT8 keep) BANKED {
         }
         if(HIT(J_SELECT)){ chart(); continue; }
         if(HIT(J_START)){
-            if(sysmenu_run(redraw3) == SYS_TITLE){ out = SP_TITLE; break; }
+            int sr;
+            sys_space = 1; sr = sysmenu_run(redraw3); sys_space = 0;
+            if(sr == SYS_TITLE){ out = SP_TITLE; break; }
+            if(sr == SYS_FLIP){ out = SP_FLIP; break; }
+            if(sr == SYS_ARENA){ arena_run(); out = SP_FLIP; break; }
             hud_back();
         }
     }
