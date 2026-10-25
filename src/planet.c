@@ -273,7 +273,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         ship_show();
         hud_update();
         if(HIT(J_A) && near_ship()){
-            sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); slot_write(cur_slot); sfx(SFX_FANFARE);
+            sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); if(sv.el.fuel < 6) sv.el.fuel = 6; slot_write(cur_slot); sfx(SFX_FANFARE);
             dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
             if(ship_menu()){ leave(); return PL_LAUNCH; }
         }

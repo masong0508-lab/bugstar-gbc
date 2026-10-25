@@ -53,6 +53,9 @@ static void spr16(UINT8 oam, UINT8 tile, INT16 sx, INT16 sy){  /* a 16x16 sprite
 }
 static void hide2(UINT8 oam){ move_sprite(oam, 0, 0); move_sprite(oam + 1, 0, 0); }
 
+extern UINT8 toast_t;
+void toast(const char *t1, const char *t2);   /* (space_foe.c, same bank as its callers) two lines over the HUD for a moment */
+
 /* space_foe.c (bank 10) */
 void  foes_reset(void) BANKED;                  /* a fresh flight: no pirates, orbs, debris; the beast if 8 cores and not beaten */
 void  foes_clear(void) BANKED;                  /* after a warp: everything gone, the beast keeps its wounds */

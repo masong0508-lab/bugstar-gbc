@@ -20,7 +20,7 @@
 static UINT16 l_hp, l_mp, l_lv; static UINT32 l_gold;
 
 UINT16 hud_hpmax(UINT16 level){ return 5 + 5 * level + 4 * UPG(SK_GRIT); }
-UINT16 hud_mpmax(UINT16 level){ return 2 + 3 * level; }
+UINT16 hud_mpmax(UINT16 level){ return 2 + 3 * level + 8 * UPG(UP_SHIELD); }   /* (in space the MP bar is the ship's shield) */
 
 static UINT8 on;
 void hud_pos(UINT8 y){ move_win(7, y); }

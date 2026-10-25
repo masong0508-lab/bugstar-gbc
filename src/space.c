@@ -26,6 +26,8 @@
 #include "space_art.h"
 #include "space.h"
 #include "warp.h"
+#include "econ.h"
+#include "elite.h"
 #include "space_int.h"
 
 #define VIEW_W    11
@@ -59,6 +61,7 @@ static UINT8 sky(UINT8 x, UINT8 y){                           /* the metatile at
     UINT8 s = (y & 0xF0) | (x >> 4), j = star_j[s], dx = (x & 15) - (j & 15), dy = (y & 15) - (j >> 4), r;
     if(dx < 2 && dy < 2){ pal_of = 4 + ((x >> 4) & 1) + (((y >> 4) & 1) << 1); return SP_PL_TL + (dy << 1) + dx; }
     pal_of = 3;
+    if(dx == 3 && dy == 0) return SP_STATION;                  /* the station, one metatile right of the planet */
     r = sp_perm[(UINT8)(sp_perm[(UINT8)(x + o1)] + y + o2)];
     return r < 130 ? SP_STAR0 : r < 190 ? SP_STAR1 : r < 212 ? SP_STAR4 : r < 228 ? SP_STAR5 : r < 236 ? SP_STAR6 : r < 248 ? SP_STAR2 : r < 253 ? SP_STAR7 : SP_STAR3;
 }
@@ -118,6 +121,27 @@ static void label(UINT8 s){
     txt_win(0);
 }
 
+/* ------------------------------------------------------------ the stations: one beside every planet */
+static UINT8 near_station(void){                                 /* the star whose station the ship is at, or 255 */
+    UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j;
+    for(j = 0; j < 3; j++) for(i = 0; i < 3; i++){
+        UINT8 s = (UINT8)((((cy + j - 1) & 15) << 4) | ((cx + i - 1) & 15)), q = star_j[s];
+        INT16 dx = wrapd(px, ((UINT16)(s & 15) << 8) + (((q & 15) + 3) << 4) + 8), dy = wrapd(py, ((UINT16)(s >> 4) << 8) + ((q >> 4) << 4) + 8);
+        if(dx > -22 && dx < 22 && dy > -22 && dy < 22) return s;
+    }
+    return 255;
+}
+UINT8 toast_t;                                                  /* frames a message from toast() stays up (set in space_foe.c) */
+static void dock_label(UINT8 s){
+    char b[24], *d;
+    if(shown == 251) return;
+    shown = 251;
+    txt_win(1);
+    d = world_name(b, world_seed(s)); d = scat(d, " STATION"); txt_line(0, 0, " ", 1); txt_line(1, 0, b, 19); txt_color(0, 0, 20, 1, TXT_GOLD);
+    txt_line(0, 1, " A: DOCK AND TRADE", 20); txt_color(0, 1, 20, 1, TXT_WHITE);
+    txt_win(0);
+}
+
 /* ------------------------------------------------------------ flying */
 static UINT8 over_star(void){                                   /* the star whose planet is under the ship, or 255 */
     UINT16 px = shx >> 4, py = shy >> 4; UINT8 s = (UINT8)(((py >> 8) << 4) | (px >> 8));
@@ -141,6 +165,7 @@ static void arrow(void){                                         /* point at the
         INT16 dx = wrapd(star_px(s), px), dy = wrapd(star_py(s), py);
         UINT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, m = ax > ay ? ax + ay / 2 : ay + ax / 2;
         if(world_freed(s)) m += 300;                                /* freed worlds only if nothing else is near */
+        if(sv.el.jk == J_SEND && s == sv.el.jd) m = 41;             /* the job's world first */
         if(m > 40 && m < bd){ bd = m; best = s; bdx = dx; bdy = dy; }
     }
 aim:
@@ -191,7 +216,7 @@ static void gfx(void){                                           /* everything o
 }
 
 int space_run(void) BANKED {
-    UINT8 k, i, frame = 0, cool = 0;
+    UINT8 k, i, frame = 0, cool = 0, regen = 0;
     UINT32 ws = sv.seed;
     fade_out(); DISPLAY_OFF;
     cpu_fast();
@@ -205,6 +230,10 @@ int space_run(void) BANKED {
       } }
     o1 = (UINT8)sv.seed; o2 = (UINT8)(sv.seed >> 24); rng = (UINT16)sv.seed | 1;
     shx = star_px(sv.star) << 4; shy = (star_py(sv.star) - 36) << 4; vx = 0; vy = -24; dir = 0;
+#ifdef TEST_DOCK
+    shx = (((UINT16)(sv.star & 15) << 8) + (((star_j[sv.star] & 15) + 3) << 4) + 8) << 4; shy = (((UINT16)(sv.star >> 4) << 8) + ((star_j[sv.star] >> 4) << 4) + 28) << 4;   /* (test builds: right at the station) */
+    told = 1;
+#endif
 #ifdef TEST_BEAST
     sv.cores = 8; told = 1; sv.level = 30; sv.hp = hud_hpmax(30); shx = (UINT16)BEAST_X << 4; shy = (UINT16)(BEAST_Y + 72) << 4;   /* (test builds: just below the beast) */
 #endif
@@ -256,8 +285,12 @@ int space_run(void) BANKED {
             else hide2(i * 2);
         }
         arrow();
-        label(over_star());
+        { UINT8 o = over_star(), t = o == 255 ? near_station() : 255;
+          if(toast_t){ if(!--toast_t) shown = 253; }
+          else if(t != 255) dock_label(t);
+          else label(o); }
         if(shown == 255) hud_update();
+        if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
         if(!sv.hp){
             UINT8 n; char b[96], *d;
             for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
@@ -277,10 +310,20 @@ int space_run(void) BANKED {
                 if(opt.autosave) slot_write(cur_slot);
                 break;
             }
+            { UINT8 t = near_station();
+              if(t != 255){ elite_dock(t); hud_redraw(); hud_pos(HUD_Y); shown = 255; toast_t = 0; inv = 40; continue; } }
             if(!cool){ UINT8 g = UPG(UP_GUNS); fire(); cool = gun_cool[g > 5 ? 5 : g]; }
         }
-        if(HIT(J_SELECT) && aim_ok && !b_dead){                      /* hyperspace! */
-            WarpResult wr;
+        if(HIT(J_SELECT) && !b_dead){                                /* the galaxy chart: pick a world, jump there */
+            UINT16 r; UINT8 cell = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8)), sp = LCDC_REG & LCDCF_OBJON;
+            HIDE_SPRITES;
+            r = galaxy_run(cell, b_on);
+            if(sp) SHOW_SPRITES;
+            hud_redraw(); hud_pos(HUD_Y); shown = 255; toast_t = 0;
+            if(r == GAL_NONE) continue;
+            if(r == GAL_BEAST){ aim_beast = 1; aim_x = b_x; aim_y = b_y; }
+            else { aim_beast = 0; aim_x = star_px((UINT8)r); aim_y = star_py((UINT8)r); }
+            { WarpResult wr;
             fade_out(); DISPLAY_OFF; hud_hide();
             warp_run(aim_beast ? 2100 : 1500, &wr);
             fade_out(); DISPLAY_OFF;
@@ -290,7 +333,8 @@ int space_run(void) BANKED {
             gfx();
             warp_report(&wr);
             shown = 253;
-            continue;
+            if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");
+            continue; }
         }
         if(HIT(J_START)){
             if(sysmenu_run(redraw) == SYS_TITLE){ k = SP_TITLE; goto out; }

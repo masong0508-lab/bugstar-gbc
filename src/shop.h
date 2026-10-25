@@ -6,4 +6,5 @@
 UINT8 ship_menu(void) BANKED;
 void  skills_run(void) BANKED;
 UINT8 skills_free(void) BANKED;
+void  shop_run(UINT8 mode) BANKED;   /* 0: the planet shop (potions, bug gear); 1: a station's shipyard (ship parts, fame discount) */
 #endif

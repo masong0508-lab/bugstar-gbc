@@ -11,6 +11,16 @@
 #include "sound.h"
 #include "warp.h"
 #include "space.h"
+#include "econ.h"
+#include "menus.h"
+#include "text.h"
+void toast(const char *t1, const char *t2) {              /* two lines over the HUD for a moment (from the foes, bank 10) */
+    shown = 252; toast_t = 110;
+    txt_win(1);
+    txt_line(0, 0, " ", 1); txt_line(1, 0, t1, 19); txt_color(0, 0, 20, 1, TXT_GOLD);
+    txt_line(0, 1, " ", 1); txt_line(1, 1, t2, 19); txt_color(0, 1, 20, 1, TXT_WHITE);
+    txt_win(0);
+}
 
 typedef struct { UINT16 x, y; UINT8 st, hp, kind, ph, t, d; } Pirate;   /* st: 0 none, 1 flying, 2.. exploding (counts up) */
 enum { PK_DRONE, PK_DART, PK_MINE };
@@ -21,6 +31,10 @@ typedef struct { UINT16 x, y; INT8 dx, dy; UINT8 life; } Spark;
 static Pirate pir[NPIR];
 static Orb    orb[NORB];
 static Spark  spark[NSPARK];
+#define NPOD 2                                                    /* cargo crates pirates drop: sprites 12 and 13 (not while the beast is about) */
+typedef struct { UINT16 x, y; UINT8 g, life; } Pod;
+static Pod    pod[NPOD];
+static const UINT8 pod_goods[3][4] = { { G_FOOD, G_ORE, G_SILK, G_AMBER }, { G_ORE, G_TECH, G_MEDS, G_ORE }, { G_CRYSTAL, G_NECTAR, G_TECH, G_CRYSTAL } };
 static UINT8  flash_t, spawn_t;
 static UINT8  b_hp, b_flash, b_t, b_ang;
 static const INT8 dir_x[8] = { 0, 1, 1, 1, 0, -1, -1, -1 };
@@ -41,6 +55,11 @@ static UINT8 near_planet(UINT16 px, UINT16 py, INT16 r){      /* a planet within
 static void hurt(UINT8 dmg, INT16 dx, INT16 dy, INT8 push){     /* the ship is hit; dx, dy: from what hit it to the ship */
     if(inv) return;
     { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3; dmg = dmg > a ? dmg - a : 1; }
+    if(UPG(UP_SHIELD) && sv.mp){                                 /* the shield soaks it up: 2 MP for every point of damage */
+        UINT8 soak = sv.mp / 2 > dmg ? dmg : (UINT8)(sv.mp / 2);
+        sv.mp -= soak * 2; dmg -= soak;
+        if(!dmg){ inv = 45; sfx(SFX_SPARK); shake(5); return; }
+    }
     sv.hp = sv.hp > dmg ? sv.hp - dmg : 0;
     inv = 60; sfx(SFX_HURT); shake(12);
     vx = dx > 0 ? push : -push; vy = dy > 0 ? push : -push;       /* knocked away */
@@ -72,8 +91,29 @@ static void spawn(void){
     }
 }
 
+static void pod_drop(UINT16 x, UINT16 y, UINT8 kind){
+    UINT8 i;
+    if(b_on || (rnd() & 127) >= 52) return;                         /* about 4 in 10 */
+    for(i = 0; i < NPOD; i++) if(!pod[i].life){ pod[i].x = x; pod[i].y = y; pod[i].g = pod_goods[kind > 2 ? 0 : kind][rnd() & 3]; pod[i].life = 255; return; }
+}
+static void pods_step(UINT8 frame){
+    UINT8 i;
+    for(i = 0; i < NPOD; i++){ Pod *p = &pod[i]; INT16 dx, dy;
+        if(!p->life) continue;
+        if(!(frame & 3)) p->life--;
+        dx = wrapd(shx >> 4, p->x); dy = wrapd(shy >> 4, p->y);
+        if(dx > -12 && dx < 12 && dy > -12 && dy < 12){
+            UINT8 n = 1 + (rnd() % 3), room = HOLD_CAP() > econ_load() ? HOLD_CAP() - econ_load() : 0;
+            if(!room){ if(!(frame & 31)) toast("THE HOLD IS FULL", "SELL SOMETHING FIRST"); continue; }
+            if(n > room) n = room;
+            sv.el.cargo[p->g] += n; p->life = 0; sfx(SFX_PICK);
+            { char b[20], *d = u16s(b, n); d = scat(d, " "); good_label(p->g, d); toast(b, "ADDED TO THE HOLD"); }
+        }
+    }
+}
 void foes_clear(void) BANKED {
     UINT8 i;
+    for(i = 0; i < NPOD; i++) pod[i].life = 0;
     for(i = 0; i < NPIR; i++) pir[i].st = 0;
     for(i = 0; i < NORB; i++) orb[i].life = 0;
     for(i = 0; i < NSPARK; i++) spark[i].life = 0;
@@ -91,6 +131,7 @@ void foes_gfx(void) BANKED {
     for(i = 0; i < NORB; i++) set_sprite_tile(ORB_OAM(i), SPR0 + SP_T_ORB);
     for(i = 0; i < 18; i++) set_sprite_tile(OAM_BODY + i, SPR0 + SP_T_BEAST(i / 3, i % 3));
     for(i = 0; i < 2; i++) set_sprite_prop(OAM_ORB + i, 3 | 0x08);
+    for(i = 0; i < NPOD; i++){ set_sprite_tile(12 + i, SPR0 + SP_T_POD); set_sprite_prop(12 + i, 2 | 0x08); }
     for(i = 0; i < NPIR * 2; i++) set_sprite_prop(OAM_PIR + i, 1 | 0x08);
 }
 
@@ -112,7 +153,8 @@ UINT8 foes_hit(Laser *l) BANKED {
             sfx(SFX_HIT);
             { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2; p->hp = p->hp > ld ? p->hp - ld : 0; }
             if(!p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
-                sv.gold += SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253; }   /* (a level-up message covers the window: put it back) */
+                sv.gold += SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253;   /* (a level-up message covers the window: put it back) */
+                pod_drop(p->x, p->y, p->kind); if(elite_kill(p->kind)) toast("JOB COMPLETE!", "DOCK TO GET PAID"); }
             return 1;
         }
     }
@@ -133,7 +175,7 @@ static UINT8 beast_step(void){                                   /* 1 when it ha
         if(!(b_dead & 7)){ Pirate *p = &pir[(b_dead >> 3) % NPIR]; p->st = 2; p->x = b_x - 20 + (rnd() & 39); p->y = b_y - 20 + (rnd() & 39); sfx(SFX_BOOM); flash_t = 2; }
         if(!--b_dead){
             UINT8 n; for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
-            sv.story |= ST_DONE; sv.gold += 5000; b_on = 0;
+            sv.story |= ST_DONE; sv.gold += 5000; fame_add(300); b_on = 0;
             space_say(SAY_DAWN);
             gain_xp(200);
             return 1;
@@ -149,6 +191,7 @@ UINT8 foes_step(UINT8 frame) BANKED {
     UINT8 i;
     if(!--spawn_t){ spawn(); spawn_t = b_fight ? 70 + (rnd() & 63) : 120 + (rnd() & 127); }
     if(b_on && beast_step()) return 1;
+    pods_step(frame);
     for(i = 0; i < NSPARK; i++) if(spark[i].life){ spark[i].life--; spark[i].x = (spark[i].x + spark[i].dx) & 4095; spark[i].y = (spark[i].y + spark[i].dy) & 4095; }
     for(i = 0; i < NORB; i++){ Orb *o = &orb[i]; INT16 dx, dy;
         if(!o->life) continue;
@@ -213,6 +256,8 @@ void foes_draw(UINT8 frame) BANKED {
           spr16(OAM_PIR + i * 2, t, wrapd(p->x, cam_x), wrapd(p->y, cam_y)); }
     }
     if(b_on) beast_show(frame);
+    else for(i = 0; i < NPOD; i++){ Pod *p = &pod[i]; INT16 x = wrapd(p->x, cam_x), y = wrapd(p->y, cam_y);
+        if(!p->life || (p->life < 60 && (frame & 4)) || x < -4 || x > 164 || y < -4 || y > 132) move_sprite(12 + i, 0, 0); else move_sprite(12 + i, (UINT8)(x + 4), (UINT8)(y + 12)); }
     for(i = 0; i < NORB; i++){
         INT16 x = wrapd(orb[i].x, cam_x), y = wrapd(orb[i].y, cam_y);
         if(i >= 2 && b_on) break;

@@ -14,6 +14,7 @@
 #include "sysmenu.h"
 #include "bug.h"
 #include "bugmake.h"
+#include "econ.h"
 UINT8 bugmake_run(BugLook *look, char *name, UINT8 first){ return 0; }
 void skills_run(void){ }                                          /* (and the skills page) */   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
@@ -284,7 +285,7 @@ int main(void){
       memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 2; o.seed = 777; o.level = 9; o.gold = 1234; strcpy(o.name, "OLDIE"); o.col[0] = 0x1234; o.pt[1] = 3; o.pt[12] = 7; o.cores = 2; o.warp_best = 55;
       for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
       memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
-      CHECK(slot_peek(1, &t) && t.ver == 4 && t.seed == 777 && t.level == 9 && t.gold == 1234 && !strcmp(t.name, "OLDIE") && t.look.col[0] == 0x1234 && t.look.pt[1] == 3 && t.look.pt[12] == 7
+      CHECK(slot_peek(1, &t) && t.ver == 5 && t.seed == 777 && t.level == 9 && t.gold == 1234 && !strcmp(t.name, "OLDIE") && t.look.col[0] == 0x1234 && t.look.pt[1] == 3 && t.look.pt[12] == 7
             && t.look.pt[BP_CHEEK] == 0 && t.look.pt[BP_NECK] == 0 && t.look.pt[BP_BACK] == 0 && t.cores == 2 && t.warp_best == 55);
     }
     /* ---- a version 3 save (no upgrades) is converted, and a version 4 save keeps its upgrades */
@@ -294,11 +295,53 @@ int main(void){
       memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 3; o.seed = 4242; o.level = 12; o.gold = 99; strcpy(o.name, "THREE"); o.look.pt[BP_NECK] = 2; o.potions = 4;
       for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
       memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
-      CHECK(slot_peek(1, &t) && t.ver == 4 && t.seed == 4242 && t.level == 12 && t.gold == 99 && !strcmp(t.name, "THREE") && t.look.pt[BP_NECK] == 2 && t.potions == 4);
+      CHECK(slot_peek(1, &t) && t.ver == 5 && t.seed == 4242 && t.level == 12 && t.gold == 99 && !strcmp(t.name, "THREE") && t.look.pt[BP_NECK] == 2 && t.potions == 4);
       { UINT8 k, z = 1; for(k = 0; k < sizeof t.up; k++) if(t.up[k]) z = 0; CHECK(z); }
       new_game(1, 5, 0, 0); cur_slot = 1; sv.up[SK_MIGHT] = 7; sv.up[UP_HULL] = 3; slot_write(1);
       CHECK(slot_peek(1, &t) && t.up[SK_MIGHT] == 7 && t.up[UP_HULL] == 3 && t.up[SK_GRIT] == 0);
       CHECK(hud_hpmax(1) == 10); sv.up[SK_GRIT] = 5; CHECK(hud_hpmax(1) == 30); sv.up[SK_GRIT] = 0;
+    }
+    /* ---- the Elite layer: prices, trading, fame, jobs, saves */
+    { UINT8 g, k, s, ok = 1; Save t;
+      new_game(1, 5, 0, 0); cur_slot = 1;
+      CHECK(sv.el.fuel == tank_tab[0] && HOLD_CAP() == 10 && TANK_CAP() == 14);
+      for(s = 0; s < 255 && ok; s += 7) for(k = 0; k < 6; k++) for(g = 0; g < G_N; g++){
+          UINT16 p = econ_price(s, k, g), q = econ_sell(s, k, g);
+          if(!p || !q || q > p || p > econ_base(g) * 2 || p * 3 < econ_base(g)) ok = 0;       /* never free, the station pays less than it asks, and within reason */
+          if(p != econ_price(s, k, g)) ok = 0;                                                   /* the same twice */
+      }
+      CHECK(ok);
+      CHECK(econ_price(3, 0, G_FOOD) < econ_price(3, 1, G_FOOD) && econ_price(3, 1, G_ORE) < econ_price(3, 0, G_ORE));   /* food is cheap on a garden, ore in the desert */
+      { UINT16 p0 = econ_price(9, 2, G_TECH); sv.el.jumps = 3; CHECK(1); sv.el.jumps = 0; CHECK(econ_price(9, 2, G_TECH) == p0); }
+      { UINT32 g0; UINT8 n;
+        sv.gold = 1000; memset(sv.el.cargo, 0, 8);
+        g0 = sv.gold; n = econ_buy(4, 1, G_ORE, 5); CHECK(n == 5 && sv.el.cargo[G_ORE] == 5 && g0 - sv.gold == (UINT32)n * econ_price(4, 1, G_ORE));
+        n = econ_buy(4, 1, G_ORE, 50); CHECK(econ_load() == 10 && n == 5);                       /* the hold holds 10 */
+        n = econ_buy(4, 1, G_ORE, 1); CHECK(n == 0);
+        sv.gold = 0; sv.el.cargo[G_ORE] = 4; n = econ_buy(4, 1, G_FOOD, 1); CHECK(n == 0);       /* no gold */
+        g0 = sv.gold; n = econ_sell_n(4, 1, G_ORE, 255); CHECK(n == 4 && sv.el.cargo[G_ORE] == 0 && sv.gold - g0 == (UINT32)n * econ_sell(4, 1, G_ORE));
+        sv.up[UP_HOLD] = 5; CHECK(HOLD_CAP() == 99);
+        sv.up[UP_HOLD] = 0;
+      }
+      sv.el.fame = 0; CHECK(fame_rank() == 0 && fame_disc() == 0);
+      fame_add(10); CHECK(fame_rank() == 1); fame_add(60); CHECK(fame_rank() == 3 && fame_disc() == 6); fame_add(60000); fame_add(60000); CHECK(sv.el.fame == 65535 && fame_rank() == 8);
+      sv.el.fame = 0;
+      { UINT8 kd, n, d; UINT16 r; job_offer(0x35, &kd, &n, &d, &r); CHECK((kd == J_HUNT && n >= 3 && !d && r) || (kd == J_SEND && d != 0x35 && r > 50));
+        job_take(J_HUNT, 2, 0, 100); CHECK(!job_done(0x10)); CHECK(!elite_kill(0) && sv.el.jp == 1); CHECK(elite_kill(2) && job_done(0x10) && !elite_kill(0));
+        sv.gold = 0; CHECK(job_pay() == 100 && sv.gold == 100 && sv.el.jk == J_NONE && sv.el.jobs == 1 && sv.el.fame > 0);
+        job_take(J_SEND, 0, 0x22, 90); CHECK(!job_done(0x21) && job_done(0x22)); CHECK(job_pay() >= 90); }
+      CHECK(cells_between(0x00, 0xFF) == 1 && cells_between(0x08, 0x00) == 8 && cells_between(0x00, 0x44) == 4 && jump_fuel(0x11, 0x11) == 1);
+      sv.el.cargo[G_TECH] = 7; sv.el.fuel = 9; sv.el.fame = 33; sv.el.jk = J_SEND; sv.el.jd = 0x66; slot_write(1);
+      CHECK(slot_peek(1, &t) && t.ver == 5 && t.el.cargo[G_TECH] == 7 && t.el.fuel == 9 && t.el.fame == 33 && t.el.jk == J_SEND && t.el.jd == 0x66);
+    }
+    /* ---- a version 4 save gets a full tank and an empty hold */
+    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
+        BugLook look; UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT8 up[16]; UINT32 sum; } S4;
+      S4 o; Save t; UINT32 h = 2166136261UL; UINT8 *b = (UINT8 *)&o; UINT16 i;
+      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 4; o.seed = 99; o.level = 20; o.gold = 5; strcpy(o.name, "FOUR"); o.up[UP_LASER] = 3; o.up[SK_MIGHT] = 6;
+      for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
+      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
+      CHECK(slot_peek(1, &t) && t.ver == 5 && t.seed == 99 && t.level == 20 && !strcmp(t.name, "FOUR") && t.up[UP_LASER] == 3 && t.up[SK_MIGHT] == 6 && t.el.fuel == 14 && t.el.cargo[0] == 0 && t.el.fame == 0);
     }
     /* ---- the bug builder: nothing may need more than the sprite budget on one scanline, whatever the parts */
     { BugLook l; UINT8 i, k, v, ok = 1;

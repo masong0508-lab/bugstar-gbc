@@ -5,7 +5,7 @@
 
 #define SAVE_MAGIC 0x43475542UL      /* "BUGC" */
 #define SET_MAGIC  0x53544553UL      /* "SETS" */
-#define SAVE_VER   4
+#define SAVE_VER   5
 #define SET_BANK   3
 /* MBC5 cart RAM: 0x0A to 0x0000-0x1FFF enables it, the RAM bank number goes to 0x4000-0x5FFF.
    (tests/ overrides these to run the save logic on a PC) */
@@ -31,11 +31,19 @@ typedef struct {                 /* the version 2 slot: the same, but the bug ha
     UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[7]; UINT32 sum;
 } Save2;
 
-typedef struct {                 /* the version 3 slot: the same as now, without the upgrades (up[]) before the sum */
+typedef struct {                 /* the version 4 slot: as now, without the Elite layer (el) before the sum */
+    UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
+    BugLook look;
+    UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT8 up[16]; UINT32 sum;
+} Save4;
+typedef struct {                 /* the version 3 slot: as version 4, without the upgrades (up[]) */
     UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
     BugLook look;
     UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT32 sum;
 } Save3;
+
+const UINT8 hold_tab[6] = { 10, 20, 30, 45, 65, 99 };
+const UINT8 tank_tab[6] = { 14, 20, 26, 34, 44, 60 };
 
 static volatile UINT32 vbl32;
 static UINT32 play_base, play_t0;
@@ -97,14 +105,20 @@ void save_init(void){
 }
 
 UINT8 slot_peek(UINT8 slot, Save *out){
-    Save1 o; Save2 t; Save3 t3;
+    Save1 o; Save2 t; Save3 t3; Save4 t4;
     if(slot >= NSLOT) return 0;
     sram_read(slot, out, sizeof(Save));
     if(out->magic == SAVE_MAGIC && out->ver == SAVE_VER && out->sum == fnv(out, sizeof(Save) - 4)) return 1;
+    sram_read(slot, &t4, sizeof t4);                                 /* a version 4 save: no Elite layer yet (a full tank, an empty hold) */
+    if(t4.magic == SAVE_MAGIC && t4.ver == 4 && t4.sum == fnv(&t4, sizeof t4 - 4)){
+        memset(out, 0, sizeof *out);
+        memcpy(out, &t4, sizeof t4 - 4); out->ver = SAVE_VER; memset(&out->el, 0, sizeof out->el); out->el.fuel = tank_tab[0];
+        return 1;
+    }
     sram_read(slot, &t3, sizeof t3);                                 /* a version 3 save: everything is the same, the upgrades start at zero */
     if(t3.magic == SAVE_MAGIC && t3.ver == 3 && t3.sum == fnv(&t3, sizeof t3 - 4)){
         memset(out, 0, sizeof *out);
-        memcpy(out, &t3, sizeof t3 - 4); out->ver = SAVE_VER;
+        memcpy(out, &t3, sizeof t3 - 4); out->ver = SAVE_VER; memset(&out->el, 0, sizeof out->el); memset(out->up, 0, sizeof out->up); out->el.fuel = tank_tab[0];
         return 1;
     }
     sram_read(slot, &t, sizeof t);                                   /* a version 2 save: the same slot, a bug with 13 parts */
@@ -114,7 +128,7 @@ UINT8 slot_peek(UINT8 slot, Save *out){
         out->gold = t.gold; out->xp = t.xp; out->secs = t.secs; out->saves = t.saves; memcpy(out->name, t.name, 9);
         memcpy(out->look.col, t.col, sizeof t.col); memcpy(out->look.pt, t.pt, 13);
         out->friends = t.friends; out->deepest = t.deepest; out->potions = t.potions; out->star = t.star; out->cores = t.cores; out->story = t.story;
-        memcpy(out->freed, t.freed, 8); out->warp_best = t.warp_best;
+        memcpy(out->freed, t.freed, 8); out->warp_best = t.warp_best; out->el.fuel = tank_tab[0];
         return 1;
     }
     sram_read(slot, &o, sizeof o);                                   /* an old step 3-4 save: keep it, give the bug the CLASSIC look */
@@ -122,7 +136,7 @@ UINT8 slot_peek(UINT8 slot, Save *out){
     memset(out, 0, sizeof *out);
     out->magic = SAVE_MAGIC; out->ver = SAVE_VER; out->seed = o.seed; out->zone = o.zone; out->level = o.level; out->hp = o.hp; out->mp = o.mp;
     out->gold = o.gold; out->xp = o.xp; out->secs = o.secs; out->saves = o.saves; memcpy(out->name, o.name, 9);
-    bug_default(&out->look);
+    bug_default(&out->look); out->el.fuel = tank_tab[0];
     return 1;
 }
 UINT8 slot_read(UINT8 slot){
@@ -148,7 +162,7 @@ void slot_erase(UINT8 slot){
 }
 void new_game(UINT8 slot, UINT32 seed, const BugLook *look, const char *name){
     memset(&sv, 0, sizeof sv);
-    sv.seed = seed; sv.level = 1; sv.hp = 10; sv.mp = 5;
+    sv.seed = seed; sv.level = 1; sv.hp = 10; sv.mp = 5; sv.el.fuel = tank_tab[0];
     strcpy(sv.name, name ? name : "BUG");
     if(look) sv.look = *look; else bug_default(&sv.look);
     bug_clamp(&sv.look);

@@ -11,6 +11,7 @@
 #include "hud.h"
 #include "menus.h"
 #include "shop.h"
+#include "econ.h"
 
 #define POTION_COST 40
 
@@ -88,9 +89,9 @@ void skills_run(void) BANKED {
 }
 
 /* ---------------------------------------------------------------- shop */
-enum { I_POTION, I_FANG, I_SHELL, I_LASER, I_GUNS, I_ENGINE, I_TURBO, I_HULL, I_MAGNET, I_N };
-static const char *const it_name[I_N] = { "POTION", "FANG", "SHELL", "LASER", "GUNS", "ENGINE", "TURBO", "HULL", "MAGNET" };
-static const UINT8  it_up[I_N] = { 0, UP_FANG, UP_SHELL, UP_LASER, UP_GUNS, UP_ENGINE, UP_TURBO, UP_HULL, UP_MAGNET };
+enum { I_POTION, I_FANG, I_SHELL, I_LASER, I_GUNS, I_ENGINE, I_TURBO, I_HULL, I_MAGNET, I_SHIELD, I_HOLD, I_TANK, I_N };
+static const char *const it_name[I_N] = { "POTION", "FANG", "SHELL", "LASER", "GUNS", "ENGINE", "TURBO", "HULL", "MAGNET", "SHIELD", "HOLD", "TANK" };
+static const UINT8  it_up[I_N] = { 0, UP_FANG, UP_SHELL, UP_LASER, UP_GUNS, UP_ENGINE, UP_TURBO, UP_HULL, UP_MAGNET, UP_SHIELD, UP_HOLD, UP_TANK };
 static const UINT16 it_cost[I_N][5] = {
     { POTION_COST, 0, 0, 0, 0 },
     { 150, 300, 600, 1200, 2400 },     /* FANG */
@@ -101,9 +102,12 @@ static const UINT16 it_cost[I_N][5] = {
     { 150, 350, 700, 1400, 2800 },     /* TURBO */
     { 200, 450, 900, 1800, 3600 },     /* HULL */
     { 200, 400, 800, 1600, 3200 },     /* MAGNET */
+    { 250, 500, 1000, 2000, 4000 },    /* SHIELD */
+    { 200, 400, 800, 1600, 3200 },     /* HOLD */
+    { 150, 300, 600, 1200, 2400 },     /* TANK */
 };
 static const char *const gun_name[6] = { "ONE SHOT", "RAPID FIRE", "TWIN SHOTS", "TWIN RAPID", "TRIPLE SHOT", "TRIPLE RAPID" };
-static const char *const it_what[I_N] = { "HEALS HALF YOUR HP", "BITES HIT HARDER", "TOUGHER SHELL", "SHIP LASER POWER", "MORE LASERS", "FASTER CRUISING", "FASTER BOOSTING", "TOUGHER SHIP", "MORE GOLD IN SPACE" };
+static const char *const it_what[I_N] = { "HEALS HALF YOUR HP", "BITES HIT HARDER", "TOUGHER SHELL", "SHIP LASER POWER", "MORE LASERS", "FASTER CRUISING", "FASTER BOOSTING", "TOUGHER SHIP", "MORE GOLD IN SPACE", "ABSORBS DAMAGE", "BIGGER CARGO BAY", "BIGGER FUEL TANK" };
 static void it_effect(UINT8 it, UINT8 lv, char *out){
     switch(it){
     case I_FANG:   num(out, "BITE +", lv * 2, ""); break;
@@ -113,57 +117,59 @@ static void it_effect(UINT8 it, UINT8 lv, char *out){
     case I_ENGINE: num(out, "SPEED +", lv * 9, "%"); break;
     case I_TURBO:  num(out, "TURBO +", lv * 11, "%"); break;
     case I_HULL:   num(out, "ARMOR -", lv, ""); break;
-    default:       num(out, "GOLD +", lv * 12, "%"); break;
+    case I_MAGNET: num(out, "GOLD +", lv * 12, "%"); break;
+    case I_SHIELD: num(out, "SHIELD ", lv * 8, " MP"); break;
+    case I_HOLD:   num(out, "HOLD ", hold_tab[lv > 5 ? 5 : lv], " UNITS"); break;
+    default:       num(out, "TANK ", tank_tab[lv > 5 ? 5 : lv], " FUEL"); break;
     }
 }
 #define SHOP_MAXLV 5
-static UINT8 shop_item(UINT8 tab, UINT8 cur){ return tab ? I_LASER + cur : cur; }
-static void shop_draw(UINT8 tab, UINT8 cur, const char *msg){
-    UINT8 i, n = tab ? 6 : 3, it = shop_item(tab, cur), lv; char b[24], *d;
+static UINT8 s_mode, s_n, s_first, s_disc;                   /* 0 the planet's shop (potions, bug gear), 1 the shipyard of a station (ship parts) */
+static UINT16 s_price(UINT8 it, UINT8 lv){ return (UINT16)((UINT32)it_cost[it][it ? lv : 0] * (100 - s_disc) / 100); }
+static void shop_draw(UINT8 cur, const char *msg){
+    UINT8 i, it = s_first + cur, lv, r = 4 + s_n; char b[24], *d;
     txt_win(1);
-    d = scat(b, "SHOP  GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    txt_line(1, 2, " BUG GEAR  SHIP", 18); txt_color(1, 2, 18, 1, TXT_GREY); txt_color(tab ? 12 : 2, 2, tab ? 4 : 8, 1, TXT_GOLD);
-    for(i = 0; i < 6; i++){
-        if(i >= n){ txt_line(1, 3 + i, "", 18); continue; }
-        it = shop_item(tab, i); lv = it ? sv.up[it_up[it]] : sv.potions;
+    d = scat(b, s_mode ? "YARD  GOLD " : "SHOP  GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
+    for(i = 0; i < s_n; i++){
+        it = s_first + i; lv = it ? sv.up[it_up[it]] : sv.potions;
         d = scat(b, i == cur ? S_CURSOR : " "); d = scat(d, it_name[it]); d = pad(d, b, 8);
         if(it == I_POTION){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= 9) scat(d, "FULL"); else num(d, "", POTION_COST, ""); }
-        else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", it_cost[it][lv], ""); else scat(d, "MAX"); }
+        else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", s_price(it, lv), ""); else scat(d, "MAX"); }
         txt_line(1, 3 + i, b, 18);
     }
-    it = shop_item(tab, cur);
-    txt_line(1, 9, it_what[it], 18); txt_color(1, 9, 18, 1, TXT_GOLD);
-    if(it == I_POTION){ txt_line(1, 10, "SELECT DRINKS ONE", 18); txt_line(1, 11, "", 18); }
+    it = s_first + cur;
+    txt_line(1, r, it_what[it], 18); txt_color(1, r, 18, 1, TXT_GOLD);
+    if(it == I_POTION){ txt_line(1, r + 1, "SELECT DRINKS ONE", 18); txt_line(1, r + 2, "", 18); }
     else {
         lv = sv.up[it_up[it]];
-        d = scat(b, "NOW  "); it_effect(it, lv, d); txt_line(1, 10, b, 18);
+        d = scat(b, "NOW  "); it_effect(it, lv, d); txt_line(1, r + 1, b, 18);
         if(lv < SHOP_MAXLV){ d = scat(b, "NEXT "); it_effect(it, lv + 1, d); } else scat(b, "FULLY UPGRADED");
-        txt_line(1, 11, b, 18);
+        txt_line(1, r + 2, b, 18);
     }
-    txt_line(1, 12, msg ? msg : "", 18); txt_color(1, 12, 18, 1, TXT_RED);
+    txt_line(1, r + 3, msg ? msg : "", 18); txt_color(1, r + 3, 18, 1, TXT_RED);
     txt_win(0);
 }
-static void shop_run(void){
-    UINT8 tab = 0, cur = 0, sprites = LCDC_REG & LCDCF_OBJON; const char *msg = 0;
+void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a station's shipyard */
+    UINT8 cur = 0, sprites = LCDC_REG & LCDCF_OBJON, h; const char *msg = 0;
+    s_mode = mode; s_n = mode ? 9 : 3; s_first = mode ? I_LASER : I_POTION; s_disc = mode ? fame_disc() : 0; h = 9 + s_n;
     HIDE_SPRITES;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 14); txt_win(0);
-    shop_draw(tab, cur, msg); move_win(7, 144 - 14 * 8); SHOW_WIN;
+    txt_win(1); txt_cls(); txt_box(0, 0, 20, h); txt_win(0);
+    shop_draw(cur, msg); move_win(7, 144 - h * 8); SHOW_WIN;
     for(;;){
-        UINT8 n = tab ? 6 : 3;
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { cur = cur ? cur - 1 : n - 1; msg = 0; sfx(SFX_MOVE); shop_draw(tab, cur, msg); }
-        if(HIT(J_DOWN)) { cur = cur < n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); shop_draw(tab, cur, msg); }
-        if(HIT(J_LEFT) || HIT(J_RIGHT) || HIT(J_SELECT)){ tab ^= 1; cur = 0; msg = 0; sfx(SFX_MOVE); shop_draw(tab, cur, msg); }
+        if(HIT(J_UP))   { cur = cur ? cur - 1 : s_n - 1; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
+        if(HIT(J_DOWN)) { cur = cur < s_n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
-            UINT8 it = shop_item(tab, cur), lv = it ? sv.up[it_up[it]] : sv.potions, mx = it ? SHOP_MAXLV : 9;
+            UINT8 it = s_first + cur, lv = it ? sv.up[it_up[it]] : sv.potions, mx = it ? SHOP_MAXLV : 9;
             if(lv >= mx){ msg = it ? "ALREADY THE BEST!" : "POCKETS FULL!"; sfx(SFX_BACK); }
-            else if(sv.gold < it_cost[it][it ? lv : 0]){ msg = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
+            else if(sv.gold < s_price(it, lv)){ msg = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
             else {
-                sv.gold -= it_cost[it][it ? lv : 0]; msg = "THANK YOU!"; sfx(SFX_COIN);
+                sv.gold -= s_price(it, lv); msg = "THANK YOU!"; sfx(SFX_COIN);
                 if(!it) sv.potions++; else sv.up[it_up[it]]++;
+                if(it == I_SHIELD) sv.mp = hud_mpmax(sv.level);
             }
-            shop_draw(tab, cur, msg);
+            shop_draw(cur, msg);
         }
     }
     sfx(SFX_BACK);
@@ -194,7 +200,7 @@ UINT8 ship_menu(void) BANKED {                                 /* 1 = fly into s
             sfx(SFX_OK);
             if(sel == 0){ out = 1; break; }
             if(sel == 3) break;
-            if(sel == 1) shop_run(); else skills_run();
+            if(sel == 1) shop_run(0); else skills_run();
             menu_frame(sel);
         }
     }
