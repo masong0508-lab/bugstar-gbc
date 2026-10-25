@@ -40,7 +40,7 @@ static void sk_draw(UINT8 sel, const char *msg){
     UINT8 i; char b[24], *d;
     txt_win(1);
     txt_line(1, 1, "SKILLS", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    d = num(b, "LEVEL ", sv.level, "   POINTS "); d = u16s(d, skills_free()); pad(d, b, 18); txt_line(1, 2, b, 18);
+    d = num(b, "LV ", sv.level, "  POINTS "); d = u16s(d, skills_free()); pad(d, b, 18); txt_line(1, 2, b, 18);
     for(i = 0; i < NPERK; i++){
         d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, sk_name[i]); d = pad(d, b, 8); pips(d, sv.up[i], 10);
         txt_line(1, 4 + i, b, 18);
@@ -67,7 +67,7 @@ void skills_run(void) BANKED {
         if(HIT(J_SELECT)){
             UINT8 spent = 0, i; for(i = 0; i < NPERK; i++) spent += sv.up[i];
             if(!spent){ msg = "NOTHING TO RESET"; sfx(SFX_BACK); }
-            else { ask = 1; num(m, "RESET: ", (UINT16)sv.level * 20, "G? A:YES"); msg = m; sfx(SFX_MOVE); }
+            else { ask = 1; num(m, "RESET FOR ", (UINT16)sv.level * 20, "? A:YES"); msg = m; sfx(SFX_MOVE); }
             sk_draw(sel, msg);
         }
         if(HIT(J_A)){
@@ -103,7 +103,7 @@ static const UINT16 it_cost[I_N][5] = {
     { 200, 400, 800, 1600, 3200 },     /* MAGNET */
 };
 static const char *const gun_name[6] = { "ONE SHOT", "RAPID FIRE", "TWIN SHOTS", "TWIN RAPID", "TRIPLE SHOT", "TRIPLE RAPID" };
-static const char *const it_what[I_N] = { "HEALS HALF YOUR HP", "BITES HIT HARDER", "BUG TAKES LESS DAMAGE", "SHIP LASER POWER", "MORE LASER SHOTS", "FASTER CRUISING", "FASTER BOOSTING", "SHIP TAKES LESS DAMAGE", "MORE GOLD IN SPACE" };
+static const char *const it_what[I_N] = { "HEALS HALF YOUR HP", "BITES HIT HARDER", "TOUGHER SHELL", "SHIP LASER POWER", "MORE LASERS", "FASTER CRUISING", "FASTER BOOSTING", "TOUGHER SHIP", "MORE GOLD IN SPACE" };
 static void it_effect(UINT8 it, UINT8 lv, char *out){
     switch(it){
     case I_FANG:   num(out, "BITE +", lv * 2, ""); break;
@@ -127,8 +127,8 @@ static void shop_draw(UINT8 tab, UINT8 cur, const char *msg){
         if(i >= n){ txt_line(1, 3 + i, "", 18); continue; }
         it = shop_item(tab, i); lv = it ? sv.up[it_up[it]] : sv.potions;
         d = scat(b, i == cur ? S_CURSOR : " "); d = scat(d, it_name[it]); d = pad(d, b, 8);
-        if(it == I_POTION){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= 9) scat(d, "FULL"); else num(d, "", POTION_COST, "G"); }
-        else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", it_cost[it][lv], "G"); else scat(d, "MAX"); }
+        if(it == I_POTION){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= 9) scat(d, "FULL"); else num(d, "", POTION_COST, ""); }
+        else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", it_cost[it][lv], ""); else scat(d, "MAX"); }
         txt_line(1, 3 + i, b, 18);
     }
     it = shop_item(tab, cur);
@@ -144,7 +144,8 @@ static void shop_draw(UINT8 tab, UINT8 cur, const char *msg){
     txt_win(0);
 }
 static void shop_run(void){
-    UINT8 tab = 0, cur = 0; const char *msg = 0;
+    UINT8 tab = 0, cur = 0, sprites = LCDC_REG & LCDCF_OBJON; const char *msg = 0;
+    HIDE_SPRITES;
     txt_win(1); txt_cls(); txt_box(0, 0, 20, 14); txt_win(0);
     shop_draw(tab, cur, msg); move_win(7, 144 - 14 * 8); SHOW_WIN;
     for(;;){
@@ -166,6 +167,7 @@ static void shop_run(void){
         }
     }
     sfx(SFX_BACK);
+    if(sprites) SHOW_SPRITES;
 }
 
 /* ---------------------------------------------------------------- the ship's menu */
