@@ -55,6 +55,12 @@ void rank_label(UINT8 r, char *out) BANKED { scat(out, rank_name[r]); }
 UINT8 fame_rank(void) BANKED { UINT8 r = 0; while(r < NRANK - 1 && sv.el.fame >= rank_at[r + 1]) r++; return r; }
 UINT8 fame_disc(void) BANKED { return fame_rank() * 2; }
 void fame_add(UINT16 n) BANKED { UINT16 f = sv.el.fame; sv.el.fame = n > (UINT16)(65535U - f) ? 65535U : (UINT16)(f + n); }
+UINT8 unlocks_update(void) BANKED {
+    UINT8 r = fame_rank(), now = 0;
+    if(r >= RANK_3D && !(sv.el.rsv[0] & 1)){ sv.el.rsv[0] |= 1; now |= 1; }
+    if(r >= RANK_ARENA && !(sv.el.rsv[0] & 4)){ sv.el.rsv[0] |= 4; now |= 4; }
+    return now;
+}
 UINT8 elite_kill(UINT8 kind) BANKED {
     if(sv.el.kills < 65535) sv.el.kills++;
     fame_add(kind == 2 ? 2 : 1);

@@ -18,6 +18,9 @@ void   rank_label(UINT8 r, char *out) BANKED;                      /* HARMLESS .
 UINT8  fame_rank(void) BANKED;                                     /* 0..8 from sv.el.fame (8 = ELITE) */
 UINT8  fame_disc(void) BANKED;                                     /* percent off at stations: 2 a rank */
 void   fame_add(UINT16 n) BANKED;
+#define RANK_3D    2                                              /* fame rank (POOR) that opens the 3D view */
+#define RANK_ARENA 3                                              /* fame rank (AVERAGE) that opens the Arena */
+UINT8  unlocks_update(void) BANKED;                               /* opens what the fame rank allows (bits in sv.el.rsv[0]: 1 the 3D view, 4 the Arena); returns the bits that opened just now */
 UINT8  elite_kill(UINT8 kind) BANKED;                              /* a pirate shot down: kills, fame, the hunt job; 1 when that finished the job */
 
 /* jobs */

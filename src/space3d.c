@@ -77,14 +77,24 @@ static UINT8 proj(INT16 dx, INT16 dy, INT16 dz, INT16 *sx, INT16 *sy, INT16 *dep
 }
 
 /* ---------------------------------------------------------------- the sprite list */
+static UINT8 ld[20];                                                        /* sprites per 8-line band: the hardware shows only 10 on a line, the rest vanish (that cut planets) */
+static UINT8 band_lo(INT16 y){ return (UINT8)((y < 0 ? 0 : y) >> 3); }
+static UINT8 band_hi(INT16 y){ INT16 h = (y + 15) >> 3; return (UINT8)(h > 19 ? 19 : (h < 0 ? 0 : h)); }
 static void spr(UINT8 tile, INT16 x, INT16 y, UINT8 pal){                  /* x, y: the sprite's top left on the screen */
+    UINT8 b, h;
     if(dn >= 40 || x < -7 || x > 159 || y < -15 || y > 119) return;
+    h = band_hi(y);
+    for(b = band_lo(y); b <= h; b++) if(ld[b] >= 10) return;
+    for(b = band_lo(y); b <= h; b++) ld[b]++;
     dl_t[dn] = tile; dl_x[dn] = (UINT8)(x + 8); dl_y[dn] = (UINT8)(y + 16); dl_p[dn] = pal | 0x08; dn++;
 }
 static UINT8 blit(UINT8 tile, UINT8 cols, UINT8 rows, INT16 cx, INT16 cy, UINT8 pal){     /* cols x rows of 8x16 sprites, middle at (cx, cy) */
     UINT8 r, c;
     INT16 x0 = cx - cols * 4, y0 = cy - rows * 8;
+    UINT8 k, h;
     if(dn + cols * rows > 40) return 0;
+    h = band_hi(y0 + rows * 16 - 16);
+    for(k = band_lo(y0); k <= h; k++) if(ld[k] + cols > 10) return 0;      /* would lose some of it: use a smaller picture */
     for(r = 0; r < rows; r++) for(c = 0; c < cols; c++) spr(tile + 2 * (r * cols + c), x0 + c * 8, y0 + r * 16, pal);
     return 1;
 }
@@ -234,7 +244,8 @@ void s3_flush(UINT8 frame) BANKED {                                             
 }
 
 void s3_render(UINT8 frame) BANKED {
-    dn = 0;
+    UINT8 q;
+    dn = 0; for(q = 0; q < 20; q++) ld[q] = 0;
     spr(TS(CROSS), 76, 52, PAL_MISC);
     if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); } else target_mark();
     list_things(frame);

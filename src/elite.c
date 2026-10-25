@@ -242,7 +242,8 @@ UINT8 elite_dock(UINT8 star) BANKED {
     HIDE_SPRITES; sfx(SFX_STAIRS);
     sv.mp = hud_mpmax(sv.level);                                     /* the shield recharges on the dock */
     if(job_done(here)){ UINT16 g = job_pay(); d = num(b, "JOB DONE! +", g, " GOLD"); msg = b; sfx(SFX_FANFARE); }
-    if(!V3_OPEN && fame_rank() >= 2){ sv.el.rsv[0] |= 1; msg = "3D VIEW UNLOCKED!"; sfx(SFX_FANFARE); }   /* fly in 3D: see the view row below */
+    { UINT8 u = unlocks_update();                                    /* new at this rank? */
+      if(u){ msg = (u & 4) ? "ARENA OPEN! (EXTRAS)" : "3D VIEW UNLOCKED!"; sfx(SFX_FANFARE); } }
     frame_clear(); dock_draw(sel, msg);
     for(;;){
         wait_vbl_done(); input_poll();
