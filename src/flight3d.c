@@ -1,0 +1,318 @@
+#pragma bank 19
+/* BUGSTAR GBC - the 3D view of space (see space3d.h).
+   The galaxy is the flat view's: 16x16 cells of 256 units, one star (a planet and its station) in each, wrapping at 4096. Here every
+   star also has a height, and you fly a ship with a heading (yaw) and a climb (pitch). Everything you see is a point in space:
+   its offset from the ship (dx, dy, dz) is turned into camera coordinates with the ship's three axes (forward, right, up: sin / cos
+   from a table, 64 = 1.0) and drawn at 80 + right * 80 / forward, 60 - up * 80 / forward. Bigger as it comes near: a world is a shaded
+   ball drawn from 4 pre-rendered sizes (art: tools/make_space3d.py), a pirate is a 16x16 ship or a dot, and 5 specks of dust fly past
+   to show your speed. The star background is one picture that slides as you turn (it is infinitely far, so it only turns).
+   Positions of things that move are in 1/16 units (65536 = 4096 units, so subtracting two of them is the short way round for free);
+   stars are in units. The ship is shx, shy (shared with the flat view), sz here, yaw (8.8, 256 = a full turn) and pit (-40..40).
+   All the maths is done before the VBlank, then the sprites are written from a list.
+   Sprites are 8x16 in VRAM bank 1, tile 16 on (S0): ours, then the flat view's pirate, explosion, orb and crate. */
+#include <gb/gb.h>
+#include <gb/cgb.h>
+#include "wram.h"
+#include "fx.h"
+#include "sound.h"
+#include "input.h"
+#include "save.h"
+#include "text.h"
+#include "hud.h"
+#include "dialog.h"
+#include "sysmenu.h"
+#include "menus.h"
+#include "space_art.h"
+#include "space.h"
+#include "warp.h"
+#include "econ.h"
+#include "elite.h"
+#include "space_int.h"
+#include "space3d_art.h"
+#include "space3d.h"
+#include "space3d_int.h"
+
+static UINT8 msg_t, told3, lab_t;           /* the message timer, the how-to-fly talk (once), frames since the target line was drawn */
+#define basis s3_basis
+#define dust_born s3_dust_born
+#define scan s3_scan
+
+/* ---------------------------------------------------------------- messages on the window's third row */
+static void say3(const char *s){ txt_win(1); txt_line(0, 2, s, 20); txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0); msg_t = 90; }
+static void line3(void){                                                    /* "<target> <distance>   A: LAND" */
+    char b[24], *d;
+    UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
+    d = world_name(b, world_seed(s)); *d++ = ' ';
+    if(near_pl != 255) d = scat(d, "A:LAND"); else if(near_st != 255) d = scat(d, "A:DOCK STN"); else d = u16s(d, tgt_d);
+    *d = 0;
+    txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
+}
+
+static void gfx3(void){                                                     /* LCD off: everything on the screen, then it fades in */
+    s3_load();
+    hud_init(); hud_pos(HUD3_Y);
+    txt_win(1); txt_line(0, 2, "", 20); txt_win(0);
+    music(MUS_SPACE);
+    SHOW_BKG; SHOW_SPRITES;
+    msg_t = 0; lab_t = 99;
+    fade_in();
+}
+static void redraw3(void){ if(sys_gfx_lost) s3_load(); txt_pal_reset(); space3_pals(); SPRITES_8x16; }
+static void hud_back(void){ hud_redraw(); hud_pos(HUD3_Y); txt_win(1); txt_line(0, 2, "", 20); txt_win(0); msg_t = 0; lab_t = 99; }
+
+static void objects_clear(void){
+    UINT8 i;
+    for(i = 0; i < NP3; i++) pir[i].st = 0;
+    for(i = 0; i < NB3; i++) bolt[i].life = 0;
+    for(i = 0; i < NO3; i++) orb[i].life = 0;
+    for(i = 0; i < NPOD3; i++) pod[i].life = 0;
+    for(i = 0; i < NDUST; i++) dust_born(i, 0);
+}
+
+/* ---------------------------------------------------------------- the ship is hit */
+static void hurt3(UINT8 dmg){
+    if(inv) return;
+    { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3; dmg = dmg > a ? dmg - a : 1; }
+    if(UPG(UP_SHIELD) && sv.mp){                                           /* the shield soaks it up: 2 MP for every point */
+        UINT8 soak = sv.mp / 2 > dmg ? dmg : (UINT8)(sv.mp / 2);
+        sv.mp -= soak * 2; dmg -= soak;
+        if(!dmg){ inv = 45; sfx(SFX_SPARK); shake(5); return; }
+    }
+    sv.hp = sv.hp > dmg ? sv.hp - dmg : 0;
+    inv = 60; sfx(SFX_HURT); shake(12);
+}
+
+/* ---------------------------------------------------------------- pirates */
+static void norm_step(INT16 dx, INT16 dy, INT16 dz, UINT8 speed, INT16 *ox, INT16 *oy, INT16 *oz){   /* a step of `speed` (1/16 unit) along (dx, dy, dz) */
+    INT16 m = aabs(dx), t;
+    t = aabs(dy); if(t > m) m = t; t = aabs(dz); if(t > m) m = t;
+    if(m < 1){ *ox = *oy = *oz = 0; return; }
+    *ox = (dx * speed) / m; *oy = (dy * speed) / m; *oz = (dz * speed) / m;
+}
+static void pirate_spawn(UINT8 n){
+    UINT8 i, a = rnd();
+    for(i = 0; i < NP3; i++) if(!pir[i].st){
+        P3 *p = &pir[i];
+        p->x = shx + (INT16)s3_sin[a] * 64; p->y = shy + (INT16)s3_sin[(UINT8)(a + 64)] * 64;      /* 64 * 64 = 4096 = 256 units away */
+        p->z = sz + (INT16)(INT8)rnd() * 4;
+        p->st = 1; p->t = rnd(); p->hp = 2 + sv.zone / 2 + (sv.level > 8 ? 1 : 0); p->kind = n;
+        return;
+    }
+}
+static void orb_fire(P3 *p){
+    UINT8 i;
+    for(i = 0; i < NO3; i++) if(!orb[i].life){
+        B3 *o = &orb[i];
+        INT16 dx = unit(shx, p->x), dy = unit(shy, p->y), dz = (sz - p->z) >> 4, vx_, vy_, vz_;
+        norm_step(dx, dy, dz, 34, &vx_, &vy_, &vz_);
+        o->x = p->x; o->y = p->y; o->z = p->z; o->dx = vx_; o->dy = vy_; o->dz = vz_; o->life = 140;
+        sfx(SFX_FIRE); return;
+    }
+}
+static void pod_drop(P3 *p){
+    UINT8 i;
+    if((rnd() & 127) >= 60) return;                                        /* about half */
+    for(i = 0; i < NPOD3; i++) if(!pod[i].life){ pod[i].x = p->x; pod[i].y = p->y; pod[i].z = p->z; pod[i].g = rnd() & 7; pod[i].life = 250; return; }
+}
+
+/* ---------------------------------------------------------------- the flight (many small functions: one big one makes SDCC crawl) */
+static UINT8 cool, turn_h, spawn_t, regen;
+static const UINT8 gun_cool3[6] = { 16, 13, 11, 9, 8, 7 };
+
+static void fly(UINT8 k, UINT8 frame){
+    INT16 want;
+    if(k & J_LEFT){ if(turn_h < 20) turn_h++; yaw -= 280 + turn_h * 12; }
+    else if(k & J_RIGHT){ if(turn_h < 20) turn_h++; yaw += 280 + turn_h * 12; }
+    else turn_h = 0;
+    if(k & J_UP){ if(pit16 < 40 * 256) pit16 += 200; }
+    else if(k & J_DOWN){ if(pit16 > -40 * 256) pit16 -= 200; }
+    else if(!(frame & 3)){ if(pit16 > 100) pit16 -= 100; else if(pit16 < -100) pit16 += 100; else pit16 = 0; }
+    basis();
+    want = (k & J_B) ? 56 + 6 * UPG(UP_TURBO) : 24 + 2 * UPG(UP_ENGINE);
+    if(near_pl != 255 || near_st != 255) want = 14;                        /* gentle near a world: easy to dock */
+    if(vel < want) vel += 2; else if(vel > want) vel -= 3;
+    shx += (vfx * vel) >> 6; shy += (vfy * vel) >> 6; sz += (vfz * vel) >> 6;
+    if(sz > 3000) sz = 3000;
+    if(sz < -3000) sz = -3000;
+}
+static void shoot(void){                                                    /* along the nose */
+    UINT8 i;
+    for(i = 0; i < NB3; i++) if(!bolt[i].life){
+        B3 *b = &bolt[i];
+        b->x = shx; b->y = shy; b->z = sz;
+        b->dx = (vfx * 112) >> 6; b->dy = (vfy * 112) >> 6; b->dz = (vfz * 112) >> 6; b->life = 34;
+        cool = gun_cool3[UPG(UP_GUNS) > 5 ? 5 : UPG(UP_GUNS)]; sfx(SFX_LASER); return;
+    }
+}
+static void step_bolts(void){
+    UINT8 i, j;
+    for(i = 0; i < NB3; i++){ B3 *b = &bolt[i];
+        if(!b->life) continue;
+        b->life--; b->x += b->dx; b->y += b->dy; b->z += b->dz;
+        for(j = 0; j < NP3; j++){ P3 *p = &pir[j];
+            INT16 dx, dy, dz;
+            if(p->st != 1) continue;
+            dx = unit(b->x, p->x); dy = unit(b->y, p->y); dz = (b->z - p->z) >> 4;
+            if(aabs(dx) < 22 && aabs(dy) < 22 && aabs(dz) < 22){
+                UINT8 dmg = 1 + UPG(UP_LASER) / 2;
+                b->life = 0; sfx(SFX_HIT);
+                if(p->hp > dmg){ p->hp -= dmg; shake(3); }
+                else {
+                    p->st = 2; sfx(SFX_BOOM); shake(8); pod_drop(p);
+                    if(elite_kill(1)) say3("JOB DONE! DOCK TO GET PAID");
+                }
+                break;
+            }
+        }
+    }
+}
+static void step_pirates(void){                                             /* they come at you, circle, shoot */
+    UINT8 i;
+    for(i = 0; i < NP3; i++){ P3 *p = &pir[i];
+        INT16 dx, dy, dz, ax, ay, az, dist;
+        if(!p->st) continue;
+        if(p->st >= 2){ if(++p->st > 24) p->st = 0; continue; }
+        dx = unit(shx, p->x); dy = unit(shy, p->y); dz = (sz - p->z) >> 4;
+        dist = aabs(dx) > aabs(dy) ? aabs(dx) + aabs(dy) / 2 : aabs(dy) + aabs(dx) / 2;
+        if(dist > 700){ p->st = 0; continue; }                              /* lost interest */
+        if(dist > 130) norm_step(dx, dy, dz, 21 + sv.zone, &ax, &ay, &az);
+        else { norm_step(-dy, dx, dz / 2, 19, &ax, &ay, &az); if(p->t & 64){ ax = -ax; ay = -ay; } }     /* circle */
+        p->x += ax; p->y += ay; p->z += az; p->t++;
+        if(p->t % (84 - (sv.zone > 8 ? 8 : sv.zone) * 4) == 0 && dist < 330 && dist > 50) orb_fire(p);
+    }
+}
+static void step_orbs(void){
+    UINT8 i;
+    for(i = 0; i < NO3; i++){ B3 *o = &orb[i];
+        INT16 dx, dy, dz;
+        if(!o->life) continue;
+        o->life--; o->x += o->dx; o->y += o->dy; o->z += o->dz;
+        dx = unit(o->x, shx); dy = unit(o->y, shy); dz = (o->z - sz) >> 4;
+        if(aabs(dx) < 11 && aabs(dy) < 11 && aabs(dz) < 11){ o->life = 0; hurt3(2 + sv.zone / 2); }
+    }
+}
+static void step_pods(void){                                                /* fly into a crate */
+    UINT8 i;
+    for(i = 0; i < NPOD3; i++){ Pod3 *q = &pod[i];
+        INT16 dx, dy, dz, r = 22 + 6 * UPG(UP_MAGNET);
+        if(!q->life) continue;
+        q->life--;
+        dx = unit(q->x, shx); dy = unit(q->y, shy); dz = (q->z - sz) >> 4;
+        if(aabs(dx) < r && aabs(dy) < r && aabs(dz) < r){
+            UINT8 n = 1 + (rnd() % 3), room = HOLD_CAP() > econ_load() ? HOLD_CAP() - econ_load() : 0;
+            q->life = 0;
+            if(!room) say3("THE HOLD IS FULL");
+            else {
+                char b[24], *d;
+                if(n > room) n = room;
+                sv.el.cargo[q->g] += n; sfx(SFX_PICK);
+                d = u16s(b, n); d = scat(d, " "); good_label(q->g, d); while(*d) d++;
+                scat(d, " ADDED"); say3(b);
+            }
+        }
+    }
+}
+static void step_spawn(void){                                               /* new pirates now and then (not at a world or station) */
+    UINT8 i, alive = 0, maxp = 1 + (sv.zone > 3 ? 1 : 0) + (sv.level > 10 ? 1 : 0);
+    if(spawn_t){ spawn_t--; return; }
+    for(i = 0; i < NP3; i++) if(pir[i].st) alive++;
+    if(alive < maxp && near_st == 255 && near_pl == 255) pirate_spawn(0);
+    spawn_t = 260 + (rnd() & 127);
+}
+static void step_dust(void){
+    UINT8 i, sp = (UINT8)(vel >> 2);
+    if(sp < 3) sp = 3;
+    for(i = 0; i < NDUST; i++){ if(dust_z[i] <= 8 + sp) dust_born(i, 1); else dust_z[i] -= sp; }
+}
+
+/* the sprite list: the cross and the target mark, shots, pirates, crates, dust, then worlds and stations nearest first */
+static UINT8 chart(void){                                                   /* SELECT: the galaxy chart, then the warp; 1 if we jumped */
+    UINT16 r; UINT8 cell = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8));
+    WarpResult wr;
+    HIDE_SPRITES;
+    r = galaxy_run(cell, 0);
+    SHOW_SPRITES;
+    hud_back();
+    if(r == GAL_NONE) return 0;
+    fade_out(); DISPLAY_OFF; hud_hide();
+    warp_run(1500, &wr);
+    fade_out(); DISPLAY_OFF;
+    shx = star_px((UINT8)r) << 4; shy = (star_py((UINT8)r) + 120) << 4; sz = star_z((UINT8)r) * 16; yaw = 0x8000; pit16 = 0; vel = 24; inv = 0;
+    objects_clear(); basis();
+    gfx3();
+    warp_report(&wr);
+    if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");
+    return 1;
+}
+static void wrecked(void){
+    UINT8 n; char b[96], *d;
+    for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
+    sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1;
+    d = scat(b, "OUCH! THE PIRATES WRECKED THE SHIP. I LIMPED BACK TO "); d = world_name(d, world_seed(sv.star)); scat(d, ". SOME GOLD FELL OUT.");
+    dlg_say("BOLT", b);
+}
+static void land(UINT8 s){
+    char b[64], *d;
+    sv.star = s;
+    d = scat(b, "LANDING ON "); d = world_name(d, world_seed(s)); d = scat(d, ", A "); d = scat(d, kind_name[star_k[s]]); scat(d, " WORLD.");
+    sfx(SFX_STAIRS); dlg_say("BOLT", b);
+    if(opt.autosave) slot_write(cur_slot);
+}
+
+int space3d_run(UINT8 keep) BANKED {
+    UINT8 k, frame = 0, out = SP_LAND, i;
+    fade_out(); DISPLAY_OFF;
+    cpu_fast();
+    space_tables();
+    if(!rng) rng = 0xA5A5;
+    rng ^= DIV_REG; if(!rng) rng = 1;
+    if(!keep){                                                              /* start beside the home world, facing it */
+        shx = star_px(sv.star) << 4; shy = (star_py(sv.star) + 110) << 4; sz = star_z(sv.star) * 16; yaw = 0x8000; pit16 = 0;
+    }
+#ifdef TEST_DOCK
+    shx = (star_px(sv.star) - 60) << 4; shy = (star_py(sv.star) + 60) << 4; sz = (star_z(sv.star) + 8) * 16; yaw = 0x5200; told3 = 1;     /* (test builds: just short of the station) */
+#endif
+    vel = 24; inv = 0; tgt = sv.star; cool = 0; turn_h = 0; spawn_t = 200; regen = 0;
+    objects_clear();
+    basis();
+    gfx3();
+    if(!told3){ told3 = 1; space_say(SAY_HOW3); }
+    if(sv.cores >= 8 && !(sv.story & ST_DONE) && !keep) space_say(SAY_BEAST3);
+    for(;;){
+        input_poll(); k = keys; frame++;
+        fly(k, frame);
+        scan();
+        if(cool) cool--;
+        if(inv) inv--;
+        if((k & J_A) && !cool) shoot();
+        step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); step_dust();
+        s3_render(frame);
+        wait_vbl_done();
+        s3_flush(frame);
+        if(msg_t){ if(!--msg_t){ lab_t = 99; txt_win(1); txt_line(0, 2, "", 20); txt_win(0); } }
+        else if(++lab_t >= 8){ lab_t = 0; line3(); }
+        hud_update();
+        if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
+        if(!sv.hp){ wrecked(); break; }
+        if(HIT(J_A)){
+            if(near_pl != 255){ land(near_pl); break; }
+            if(near_st != 255){
+                if(elite_dock(near_st)){ out = SP_FLIP; break; }
+                hud_back(); inv = 60;
+                shx -= (vfx * 70) >> 2; shy -= (vfy * 70) >> 2; vel = 24;     /* back away so A does not dock again at once */
+                objects_clear();
+                continue;
+            }
+        }
+        if(HIT(J_SELECT)){ chart(); continue; }
+        if(HIT(J_START)){
+            if(sysmenu_run(redraw3) == SYS_TITLE){ out = SP_TITLE; break; }
+            hud_back();
+        }
+    }
+    fade_out(); DISPLAY_OFF;
+    for(i = 0; i < 40; i++) move_sprite(i, 0, 0);
+    hud_hide(); SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); txt_cls();
+    DISPLAY_ON;
+    return out;
+}

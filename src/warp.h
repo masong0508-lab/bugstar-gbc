@@ -16,6 +16,6 @@ typedef struct {
 } WarpResult;
 void warp_run(UINT16 frames, WarpResult *res) BANKED;
 void warp_report(WarpResult *r) BANKED;   /* Bolt tells how the warp went (and XP for what you shot) */
-enum { SAY_HOWTO, SAY_BEAST, SAY_DAWN };
+enum { SAY_HOWTO, SAY_BEAST, SAY_DAWN, SAY_HOW3, SAY_BEAST3 };
 void space_say(UINT8 id) BANKED;          /* space's longer talk, kept here in bank 9 (bank 6 is full) */
 #endif

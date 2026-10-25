@@ -65,6 +65,8 @@ enum { SK_MIGHT, SK_GRIT, SK_GUARD, SK_LUCK, SK_VIGOR,                       /* 
 #define UPG(i) (sv.up[i])
 #define NPERK 5
 extern const UINT8 hold_tab[6], tank_tab[6];                                   /* hold size and fuel tank size by upgrade level */
+#define V3_OPEN  (sv.el.rsv[0] & 1)        /* the 3D view of space is unlocked (fame rank POOR) */
+#define V3_ON    (sv.el.rsv[0] & 2)        /* ... and switched on for this save */
 #define HOLD_CAP() (hold_tab[UPG(UP_HOLD) > 5 ? 5 : UPG(UP_HOLD)])
 #define TANK_CAP() (tank_tab[UPG(UP_TANK) > 5 ? 5 : UPG(UP_TANK)])
 #define LUCKY(g)  ((g) + (UINT16)((g) * UPG(SK_LUCK) / 16))                    /* gold with the LUCK skill (6% a rank) */

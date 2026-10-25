@@ -68,10 +68,13 @@ void main(void){
 #ifdef TEST_SPACE
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0);   /* (test builds: straight into space) */
 #ifdef TEST_RICH
-    sv.gold = 9000; sv.level = 12; sv.up[UP_GUNS] = 4; sv.up[UP_ENGINE] = 5; sv.up[UP_LASER] = 4; sv.hp = hud_hpmax(12);
+    sv.gold = 9000; sv.level = 12; sv.up[UP_GUNS] = 4; sv.up[UP_ENGINE] = 5; sv.up[UP_LASER] = 4; sv.el.fame = 500; sv.hp = hud_hpmax(12); sv.mp = hud_mpmax(12);
 #endif
 #ifdef TEST_ZONE
     sv.zone = TEST_ZONE; sv.level = 12; sv.hp = hud_hpmax(12);
+#endif
+#ifdef TEST_3D
+    sv.el.rsv[0] = 3;
 #endif
     { int r = space_run(); if(r == SP_LAND) play(); else if(r == SP_END) ending_run(); }
 #endif

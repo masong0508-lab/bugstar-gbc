@@ -28,6 +28,7 @@
 #include "warp.h"
 #include "econ.h"
 #include "elite.h"
+#include "space3d.h"
 #include "space_int.h"
 
 #define VIEW_W    11
@@ -215,21 +216,16 @@ static void gfx(void){                                           /* everything o
     fade_in();
 }
 
-int space_run(void) BANKED {
+static UINT8 keep_pos;                                           /* 1 after a view switch: carry on from where the ship is */
+static int space2d(void) {
     UINT8 k, i, frame = 0, cool = 0, regen = 0;
-    UINT32 ws = sv.seed;
     fade_out(); DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);
-    { UINT32 mul = 0;                                             /* where every star is, and its kind: world_seed(i) without 256 multiplies */
-      for(i = 0;; i++){
-        ws = sv.seed ^ mul; mul += 0x9E3779B1UL;
-        star_j[i] = (UINT8)((2 + (UINT8)(ws >> 16) % 11) | ((2 + (UINT8)(ws >> 20) % 11) << 4));
-        star_k[i] = world_kind(ws);
-        if(i == 255) break;
-      } }
+    space_tables();
     o1 = (UINT8)sv.seed; o2 = (UINT8)(sv.seed >> 24); rng = (UINT16)sv.seed | 1;
-    shx = star_px(sv.star) << 4; shy = (star_py(sv.star) - 36) << 4; vx = 0; vy = -24; dir = 0;
+    if(!keep_pos){ shx = star_px(sv.star) << 4; shy = (star_py(sv.star) - 36) << 4; }
+    vx = 0; vy = -24; dir = 0;
 #ifdef TEST_DOCK
     shx = (((UINT16)(sv.star & 15) << 8) + (((star_j[sv.star] & 15) + 3) << 4) + 8) << 4; shy = (((UINT16)(sv.star >> 4) << 8) + ((star_j[sv.star] >> 4) << 4) + 28) << 4;   /* (test builds: right at the station) */
     told = 1;
@@ -311,7 +307,9 @@ int space_run(void) BANKED {
                 break;
             }
             { UINT8 t = near_station();
-              if(t != 255){ elite_dock(t); hud_redraw(); hud_pos(HUD_Y); shown = 255; toast_t = 0; inv = 40; continue; } }
+              if(t != 255){
+                  if(elite_dock(t)){ k = SP_FLIP; goto out; }                  /* the person switched the view to 3D */
+                  hud_redraw(); hud_pos(HUD_Y); shown = 255; toast_t = 0; inv = 40; continue; } }
             if(!cool){ UINT8 g = UPG(UP_GUNS); fire(); cool = gun_cool[g > 5 ? 5 : g]; }
         }
         if(HIT(J_SELECT) && !b_dead){                                /* the galaxy chart: pick a world, jump there */
@@ -352,3 +350,23 @@ out:
 
 void space_pals_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED { set_sprite_palette(dst, n, &sp_spr_pal[src * 4]); }
 void title_pal_load(UINT8 pal) BANKED { set_sprite_palette(pal, 1, sp_spr_pal); }   /* for the title: the ship's colours */
+void space_tables(void) BANKED {                                 /* where every star is, and its kind: world_seed(i) without 256 multiplies */
+    UINT32 ws, mul = 0; UINT8 i;
+    for(i = 0;; i++){
+        ws = sv.seed ^ mul; mul += 0x9E3779B1UL;
+        star_j[i] = (UINT8)((2 + (UINT8)(ws >> 16) % 11) | ((2 + (UINT8)(ws >> 20) % 11) << 4));
+        star_k[i] = world_kind(ws);
+        if(i == 255) break;
+    }
+}
+void space3_pals(void) BANKED { set_bkg_palette(3, 1, sp_space_pal); set_sprite_palette(0, 6, sp_spr_pal); }
+void space_kind_pal(UINT8 slot, UINT8 kind) BANKED { set_sprite_palette(slot, 1, &sp_kind_pal[kind * 4]); }
+int space_run(void) BANKED {                                     /* the 2D or the 3D view, whichever this save has switched on */
+    int r;
+    keep_pos = 0;
+    for(;;){
+        r = V3_ON ? space3d_run(keep_pos) : space2d();
+        if(r != SP_FLIP) return r;
+        keep_pos = 1;
+    }
+}
