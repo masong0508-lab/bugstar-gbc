@@ -163,7 +163,7 @@ static void load_gfx(void){
     for(i = 0; i < 8; i++){ set_sprite_tile(SHIP_OAM0 + i, SHIP_TILE0 + i * 2); set_sprite_prop(SHIP_OAM0 + i, SHIP_PAL | 0x08); }
 }
 static void camera(void){ cam_x = (bx - BUG_SX) & 4095; cam_y = (by - BUG_SY) & 4095; }
-static void redraw(void){ SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &planet_pals[wk * 16]); draw_all(); }
+static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &planet_pals[wk * 16]); draw_all(); }
 
 /* ------------------------------------------------------------ walking */
 static UINT8 at(UINT16 x, UINT16 y){ return ground((UINT8)((x & 4095) >> 4), (UINT8)((y & 4095) >> 4)); }

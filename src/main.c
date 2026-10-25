@@ -41,6 +41,10 @@ void main(void){
     save_init();
     sound_init(); dlg_set_blip(sfx_type);
     DISPLAY_ON;
+#ifdef TEST_MAKE
+    DISPLAY_OFF; txt_init(); DISPLAY_ON; { BugLook l; char nm[9]; bug_default(&l); strcpy(nm, "PIP"); bugmake_run(&l, nm, 1); }
+    for(;;) wait_vbl_done();
+#endif
 #ifdef TEST_PLANET
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.story = ST_INTRO;   /* (test builds: straight onto the planet) */
     play();

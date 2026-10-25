@@ -29,29 +29,32 @@ typedef struct {
     UINT8  pt[BP_N];             /* part choices, each below bug_part_n[] */
 } BugLook;
 
-extern const UINT8 bug_part_n[BP_N];                        /* how many choices each part has */
-extern const char *const bug_part_label[BP_N];              /* "LENGTH", "SHAPE" ... (9 characters at most) */
-extern const char *const *const bug_part_names[BP_N];       /* the names of the choices (8 characters at most) */
-extern const char *const bug_col_label[BC_N];               /* "SHELL", "MARKINGS" ... */
+/* The look data lives in bug.c (bank 14), so other banks reach it through these calls (they copy strings into your buffer). */
+UINT8  bug_part_cnt(UINT8 part) BANKED;                      /* how many choices that part has */
+void   bug_part_label(UINT8 part, char *out) BANKED;         /* "LENGTH", "SHAPE" ... (8 characters at most) */
+void   bug_part_name(UINT8 part, UINT8 choice, char *out) BANKED;   /* "NORMAL", "ROUND" ... (8 characters at most) */
+void   bug_col_label(UINT8 c, char *out) BANKED;             /* "SHELL", "MARKINGS" ... */
+UINT8  bug_col_on(const BugLook *l, UINT8 c) BANKED;         /* 0 when the part that colour paints is switched off */
 
 #define BUG_NPRESET 18
-extern const char *bug_preset_name(UINT8 i);
-void   bug_preset(BugLook *l, UINT8 i, UINT16 lock_parts, UINT8 lock_cols);   /* ready-made look i; a locked part (bit BP_x) or colour (bit BC_x) keeps what it has */
-void   bug_default(BugLook *l) BANKED;                              /* the CLASSIC look */
-void   bug_clamp(BugLook *l) BANKED;                                /* force every part into range (damaged save) */
-UINT8  bug_col_on(const BugLook *l, UINT8 c);                /* 0 when the part that colour paints is switched off */
+void   bug_preset_name(UINT8 i, char *out) BANKED;
+void   bug_preset(BugLook *l, UINT8 i, UINT16 lock_parts, UINT8 lock_cols) BANKED;   /* ready-made look i; a locked part (bit BP_x) or colour (bit BC_x) keeps what it has */
+void   bug_default(BugLook *l) BANKED;                       /* the CLASSIC look */
+void   bug_clamp(BugLook *l) BANKED;                         /* force every part into range (damaged save) */
 
-/* 16 ready-made colours, a colour scheme maker, the mixer's helpers */
+/* the swatches, a colour scheme maker, the mixer's helpers */
 #define BUG_NSWATCH 16
-extern const UINT16 bug_swatch[BUG_NSWATCH];
-extern const char *const bug_swatch_name[BUG_NSWATCH];
+UINT16 bug_swatch(UINT8 i) BANKED;
+void   bug_swatch_name(UINT8 i, char *out) BANKED;
+UINT8  bug_swatch_of(UINT16 c) BANKED;                       /* which swatch has exactly that colour, or 255 */
 #define BUG_NSCHEME 9
-extern const char *const bug_scheme_name[BUG_NSCHEME];
-void   bug_scheme(BugLook *l, UINT8 anchor, UINT8 lock_cols, UINT8 scheme);   /* every unlocked colour but `anchor` is made to go with it */
+void   bug_scheme_name(UINT8 i, char *out) BANKED;
+void   bug_scheme(BugLook *l, UINT8 anchor, UINT8 lock_cols, UINT8 scheme) BANKED;   /* every unlocked colour but `anchor` is made to go with it */
 UINT16 bug_hsv(UINT16 h, UINT16 s, UINT16 v);                /* hue 0..359, saturation and value 0..255 -> 5-5-5 */
-void   bug_rand_seed(UINT16 s);
-UINT8  bug_rand(UINT8 n);                                    /* 0..n-1 */
-void   bug_surprise(BugLook *l, UINT16 lock_parts, UINT8 lock_cols);
+void   bug_rand_seed(UINT16 s) BANKED;
+void   bug_random_name(char *out) BANKED;                    /* a bug-sounding name of 8 letters at most */
+UINT8  bug_rand(UINT8 n) BANKED;                             /* 0..n-1 */
+void   bug_surprise(BugLook *l, UINT16 lock_parts, UINT8 lock_cols) BANKED;
 
 /* ---- sprites */
 typedef struct { UINT8 w, h, ox, oy; const unsigned char *px; } BugPart;   /* 2 bits per pixel, 4 to a byte, row by row */
@@ -73,6 +76,8 @@ typedef struct {
 extern BugSet bug_set;
 void   bug_build(const BugLook *l) BANKED;                          /* draw both frames, cut them into bug_set */
 void   bug_palettes(const BugLook *l, UINT16 *out16) BANKED;        /* 4 palettes x 4 colours (entry 0 of each is clear) */
+void   bug_canvas(const BugLook *l, UINT8 f) BANKED;                /* frame f of the picture in the canvas, each pixel = region * 4 + colour (regions 0 shell, 1 face, 2 hat, 3 wings) */
+UINT8  bug_hc(const BugLook *l) BANKED;                             /* the head's column (the bug is (hc + 1) * 8 pixels wide) */
 UINT8  bug_peak(void);                                       /* the most sprites that any one scanline of the canvas holds */
 UINT8  bug_pixel(UINT8 x, UINT8 y);                          /* the 2-bit picture of the last bug_build (frame 0), for tests and previews */
 UINT8  bug_cell_pal(UINT8 cell);                             /* which palette cell c uses */

@@ -207,7 +207,7 @@ static void enter_gfx(void){                                       /* everything
     set_sprite_palette(0, 4, mon_pals);
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
 }
-static void redraw(void){ SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &dg_pals[kind * 16]); draw_all(); }
+static void redraw(void){ if(sys_gfx_lost){ enter_gfx(); return; } SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &dg_pals[kind * 16]); draw_all(); }
 
 /* ------------------------------------------------------------ moving and fighting */
 static UINT8 blocked(UINT16 x, UINT16 y, UINT8 r){                 /* a box 2r wide and 4 tall at the feet */

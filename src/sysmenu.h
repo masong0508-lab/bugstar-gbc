@@ -6,9 +6,10 @@
    SAVE writes the current slot and shows SAVED!. OPTIONS hides the overlay, runs the full-screen options page, then
    calls redraw() so the caller can repaint the scene behind the menu. TO TITLE asks first (autosaves if that option is on). */
 #define SM_W   12
-#define SM_H   8
+#define SM_H   9
 #define SM_WX  (167 - SM_W * 8)            /* window X register value when fully in */
 #define SM_WY  (144 - SM_H * 8)
+extern UINT8 sys_gfx_lost;               /* 1 while redraw() must also reload the scene's tiles (after MIRROR) */
 enum { SYS_RESUME, SYS_TITLE };
 int sysmenu_run(void (*redraw)(void));     /* returns SYS_RESUME or SYS_TITLE; redraw may be 0 */
 #endif

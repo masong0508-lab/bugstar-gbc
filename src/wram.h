@@ -8,7 +8,7 @@
      D720  the fades' palette copies (fx.c)   256
      D820  a dungeon floor map (dungeon.c)   1024
      DC20  the stars of space (space.c)       512
-     DE20  ...free to DFFF                    480
+     DE20  the bug creator's second scratch   480  (WRAM_MAKE2)
    WRAM banks 2..7 (24 KB) are free for later: switch with wram_bank(n), and switch back to 1 before anything above is used.
    Nothing in an interrupt touches these. */
 #ifdef __SDCC
@@ -21,7 +21,9 @@ static unsigned char wram_host[4096];                    /* (the PC host tests: 
 #define wram_bank(n)
 #endif
 #define WRAM_BPX   0xD000
+#define WRAM_MAKE  0xD720   /* the bug creator's scratch (bigbug.c, bugmake.c): shares the fades' copies, which are never in use while it runs */
 #define WRAM_FADE  0xD720
 #define WRAM_DMAP  0xD820
 #define WRAM_STARS 0xDC20
+#define WRAM_MAKE2 0xDE20
 #endif

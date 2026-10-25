@@ -1,4 +1,5 @@
 #include <gb/gb.h>
+#include <string.h>
 #include "sound.h"
 #include "input.h"
 #include "save.h"
@@ -6,11 +7,15 @@
 #include "hud.h"
 #include "menus.h"
 #include "sysmenu.h"
+#include "bugmake.h"
+#include "bug.h"
 
-#define NITEM 4
+UINT8 sys_gfx_lost;
+
+#define NITEM 5
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -74,6 +79,18 @@ int sysmenu_run(void (*redraw)(void)){
                 { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;   /* the options page is drawn unscrolled, without sprites over it */
                   SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; txt_cls(); options_screen(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
                 if(redraw) redraw();
+                SHOW_WIN; cores();
+            } else if(sel == 3){
+                HIDE_WIN;
+                { UINT8 sx = SCX_REG, sy = SCY_REG; BugLook l = sv.look; char nm[9];
+                  strcpy(nm, sv.name);
+                  DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_cls();
+                  sys_gfx_lost = 1;                                  /* the creator reuses the tile memory: the scene reloads its pictures */
+                  if(bugmake_run(&l, nm, 0)){ sv.look = l; strcpy(sv.name, nm); slot_write(cur_slot); }
+                  DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy;
+                  if(redraw) redraw();
+                  sys_gfx_lost = 0;
+                  SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
             } else {
                 if(confirm_title()){ if(opt.autosave) slot_write(cur_slot); result = SYS_TITLE; break; }

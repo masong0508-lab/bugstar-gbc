@@ -99,7 +99,8 @@ static void pals(void){
     pk[0] = pk[1] = pk[2] = pk[3] = 255;
     planet_pals();
 }
-static void redraw(void){ SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); pals(); draw_all(); SPRITES_8x16; }
+static void gfx_tiles(void);
+static void redraw(void){ if(sys_gfx_lost) gfx_tiles(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); pals(); draw_all(); SPRITES_8x16; }
 
 static void sprite_pals(UINT8 oam, UINT8 n, UINT8 pal){ while(n--){ set_sprite_prop(oam, pal | 0x08); oam++; } }
 
@@ -162,14 +163,17 @@ static void fire(void){
 typedef struct { UINT16 x, y; UINT8 life; } Puff;
 static Puff   puff[2];
 
-static void gfx(void){                                           /* everything onto the screen (LCD off): it fades in */
-    UINT8 i;
+static void gfx_tiles(void){                                     /* the pictures and palettes (after the creator reused the tile memory) */
     VBK_REG = VBK_BANK_1;
     space_tiles_load(0, SPR0);
     VBK_REG = VBK_BANK_0;
     set_sprite_palette(0, 6, sp_spr_pal);
     sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2); sprite_pals(OAM_ORB, 2, 3);
     foes_gfx();
+}
+static void gfx(void){                                           /* everything onto the screen (LCD off): it fades in */
+    UINT8 i;
+    gfx_tiles();
     SPRITES_8x16;
     txt_pal_reset(); pals();
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
