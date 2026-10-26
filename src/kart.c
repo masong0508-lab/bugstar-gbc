@@ -14,8 +14,7 @@
 #include "kart_art.h"          /* the road, sky, sprites: made by tools/make_kart.py */
 
 /* KART WORLD: a 3D race. 3 laps, 3 rivals. Units: a lap is 2048 "metres"; positions keep 8 more bits (so 1 metre = 256). */
-#define LAPM   2048UL
-#define LAPF   (LAPM << 8)
+#define LAPM   2048U
 #define VMAX   256
 #define NLAPS  3
 #define NRIV   3
@@ -27,7 +26,8 @@ static const INT8 wob[8] = { 0, 10, 18, 10, 0, -10, -18, -10 };
 static const INT8 lane[NRIV] = { -70, 0, 70 };
 static const UINT8 vrv[NRIV] = { 232, 224, 214 };
 
-static UINT32 tot[1 + NRIV];                   /* distance driven (1/256 m); 0 is you */
+static UINT16 tm[1 + NRIV];                     /* distance driven, whole metres; 0 is you */
+static UINT8  tf[1 + NRIV];                     /* ...and the 1/256 of a metre that goes with it */
 static INT16  vel[1 + NRIV], lx[1 + NRIV];     /* speed (1/256 m a frame) and the sideways spot (128 = the road's edge) */
 static INT8   bend[80];
 static UINT8  tab[144];
@@ -35,9 +35,14 @@ static UINT8  stripe, sky_x;
 static UINT16 stripe_acc, tot_t, lap_t, best_run, frame;
 static INT16  head;
 static UINT8  lapn, bump_cd;
+static UINT16 nextlap;
 
-static INT16 curve_at(UINT32 p){
-    UINT8 i = (UINT8)(p >> 15) & 15, f = (UINT8)(p >> 7);
+static void add_pos(UINT8 k, INT16 v){
+    UINT16 s = (UINT16)tf[k] + ((UINT16)v & 255);
+    tf[k] = (UINT8)s; tm[k] += (UINT16)(v >> 8) + (s >> 8);
+}
+static INT16 curve_at(UINT16 m, UINT8 fr){
+    UINT8 i = (UINT8)(m >> 7) & 15, f = (UINT8)((m << 1) | (fr >> 7));
     INT8 a = seg[i], b = seg[(i + 1) & 15];
     return a + (INT16)((((INT16)b - a) * (INT16)f) >> 8);
 }
@@ -77,13 +82,13 @@ static void hud(UINT8 place){
 
 static UINT8 place_now(void){
     UINT8 k, p = 1;
-    for(k = 1; k <= NRIV; k++) if(tot[k] > tot[0]) p++;
+    for(k = 1; k <= NRIV; k++) if(tm[k] > tm[0]) p++;
     return p;
 }
 
 /* one frame of the race: you, then the three rivals */
 static void drive(UINT8 go){
-    INT16 v = vel[0], cur = curve_at(tot[0]), cap = (lx[0] > 150 || lx[0] < -150) ? 70 : VMAX;
+    INT16 v = vel[0], cur = curve_at(tm[0], tf[0]), cap = (lx[0] > 150 || lx[0] < -150) ? 70 : VMAX;
     INT8 dir = 0; UINT8 k;
     if(go){
         if(HELD(J_A)) v += 4; else v -= 2;
@@ -95,39 +100,46 @@ static void drive(UINT8 go){
     if(v < 0) v = 0;
     lx[0] += dir * ((v >> 6) + (v > 0 ? 1 : 0));
     lx[0] -= (cur * v) >> 12;
-    if(lx[0] > 210) lx[0] = 210; if(lx[0] < -210) lx[0] = -210;
-    vel[0] = v; tot[0] += (UINT16)v;
+    if(lx[0] > 200) lx[0] = 200; if(lx[0] < -200) lx[0] = -200;
+    vel[0] = v; add_pos(0, v);
     head += (cur * v) >> 10;
     stripe_acc += (UINT16)v;
     if(stripe_acc >= 1536){ stripe_acc -= 1536; stripe ^= 1; }
     for(k = 1; k <= NRIV; k++){
-        INT16 gap = (INT16)((INT32)(tot[k] - tot[0]) >> 8), want = vrv[k - 1] - (curve_at(tot[k]) < 0 ? -curve_at(tot[k]) : curve_at(tot[k])) / 2;
-        INT16 tl = lane[k - 1] + wob[(UINT8)(tot[k] >> 14) & 7];
+        INT16 gap = (INT16)(tm[k] - tm[0]), cv = curve_at(tm[k], tf[k]), want, tl;
+        if(cv < 0) cv = -cv;
+        want = vrv[k - 1] - (cv >> 1);
+        tl = lane[k - 1] + wob[(UINT8)(tm[k] >> 4) & 7];
         if(gap > 120) want -= 24; else if(gap < -120) want += 20;
         if(!go) want = 0;
         if(vel[k] < want) vel[k] += 3; else if(vel[k] > want) vel[k] -= 3;
-        tot[k] += (UINT16)vel[k];
+        add_pos(k, vel[k]);
         if(lx[k] < tl) lx[k] += 2; else if(lx[k] > tl) lx[k] -= 2;
-        { INT16 dx = lx[k] - lx[0];                                         /* a bump */
-          if(gap > -7 && gap < 7 && dx > -26 && dx < 26){
-              if(gap >= 0){ if(vel[0] > vel[k] - 30) vel[0] = vel[k] > 30 ? vel[k] - 30 : 0; } else if(vel[k] > 40) vel[k] -= 40;
-              lx[0] += dx > 0 ? -3 : 3;
-              if(!bump_cd){ bump_cd = 20; sfx(SFX_HURT); } } }
+        if(gap > -7 && gap < 7){                                            /* a bump */
+            INT16 dx = lx[k] - lx[0];
+            if(dx > -26 && dx < 26){
+                if(gap >= 0){ if(vel[0] > vel[k] - 30) vel[0] = vel[k] > 30 ? vel[k] - 30 : 0; } else if(vel[k] > 40) vel[k] -= 40;
+                lx[0] += dx > 0 ? -3 : 3;
+                if(!bump_cd){ bump_cd = 20; sfx(SFX_HURT); } } }
     }
     if(bump_cd) bump_cd--;
 }
 
-/* the picture: the sideways slide of every road line, then the sprites */
+/* the picture: the sideways slide of every road line, then the sprites. (No multiplies in the per-line loops: they only add.) */
 static void scene(void){
-    UINT8 i, k, n = 12; INT16 cur = curve_at(tot[0] + 24UL * 256UL), px = lx[0];
-    UINT32 pm = tot[0] >> 8;
-    for(i = 0; i < 80; i++){
-        bend[i] = (INT8)((cur * kt_qa[i]) >> 6);
-        tab[HZ + i] = (UINT8)(((px * kt_hw[i]) >> 7) - bend[i]);
+    UINT8 i, k, n = 12; INT16 cur = curve_at(tm[0] + 24, tf[0]), px = lx[0];
+    UINT16 pm = tm[0] & (LAPM - 1);
+    INT16 sh = px * 6, sh_d = (INT16)(((INT32)px * 466L) >> 7);              /* the sideways shift of the road (8.8): px * hw / 128, two lines at a time */
+    for(i = 0; i < 80; i += 2){
+        INT16 bv = (INT16)(((INT16)cur * (INT16)kt_qa[i]) >> 6);
+        UINT8 t = (UINT8)((sh >> 8) - bv);
+        bend[i] = bend[i + 1] = (INT8)bv;
+        tab[HZ + i] = tab[HZ + i + 1] = t;
+        sh += sh_d;
     }
     memset(tab, 0, 16); memset(&tab[16], sky_x = (UINT8)(head >> 4), HZ - 16);
     for(k = 1; k <= NRIV; k++){                                             /* the rivals ahead of you, bigger as they near */
-        INT16 dz = (INT16)((INT32)(tot[k] - tot[0]) >> 8);
+        INT16 dz = (INT16)(tm[k] - tm[0]);
         UINT8 y, o = 3 * (k - 1) + 3;
         if(dz < 1 || dz > 90){ for(i = 0; i < 3; i++) move_sprite(o + i, 0, 0); continue; }
         y = kt_y[dz]; i = y - HZ;
@@ -136,17 +148,18 @@ static void scene(void){
           else if(dz < 44){ put_obj(o, KU_AI1, 2, 1, 1 + k, x, y); move_sprite(o + 2, 0, 0); }
           else { put_obj(o, KU_AI0, 1, 1, 1 + k, x, y); move_sprite(o + 1, 0, 0); move_sprite(o + 2, 0, 0); } }
     }
-    for(k = 0; k < NSCEN && n < 38; k++){                                   /* trees and rocks along the road */
-        INT16 dz = (INT16)(((UINT32)k * 40UL + LAPM - (pm & (LAPM - 1))) & (LAPM - 1));
-        UINT8 y, rk = (k % 3) == 0;
-        INT16 lat = (k & 1) ? 150 + ((k * 37) & 31) : -150 - ((k * 37) & 31);
+    { INT16 base = 0, dz; UINT8 r5 = 0, r3 = 0;
+      for(k = 0; k < NSCEN && n < 38; k++, base += 40, r5 = (r5 + 5) & 31, r3 = (r3 == 2) ? 0 : r3 + 1){   /* trees and rocks along the road */
+        UINT8 y, rk = (r3 == 0);
+        INT16 lat = (k & 1) ? 150 + r5 : -150 - r5;
+        dz = base - (INT16)pm; if(dz < 0) dz += (INT16)LAPM;
         if(dz < 2 || dz > 90) continue;
         y = kt_y[dz]; i = y - HZ;
         { INT16 x = 80 + (((lat - px) * kt_hw[i]) >> 7) + bend[i];
           if(dz < 20){ put_obj(n, rk ? KU_ROCK2 : KU_TREE2, 2, 2, rk, x, y); n += 4; }
           else if(dz < 48){ put_obj(n, rk ? KU_ROCK1 : KU_TREE1, 2, 1, rk, x, y); n += 2; }
           else { put_obj(n, rk ? KU_ROCK0 : KU_TREE0, 1, 1, rk, x, y); n += 1; } }
-    }
+      } }
     hide_from(n);
 }
 
@@ -189,12 +202,14 @@ void kart_run(void) BANKED {
     set_sprite_palette_entry(5, 2, sv.look.col[BC_SHELL]);
     hide_from(0);
     SCX_REG = 0; SCY_REG = 0;
-    for(k = 0; k <= NRIV; k++){ tot[k] = (UINT32)(4 - k) * 5UL * 256UL; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; }   /* the start grid: you at the back */
-    head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; lapn = 0; bump_cd = 0; frame = 0;
+    for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)(k * 5); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; }   /* the start grid: you at the back */
+    head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; lapn = 0; nextlap = LAPM; bump_cd = 0; frame = 0;
     memset(tab, 0, sizeof tab); flip(); set_stripes();
     scene(); flip(); me_draw(0);
     SHOW_BKG; SHOW_SPRITES; DISPLAY_ON;
+#ifndef KX_NOISR
     road_start();
+#endif
     banner("GET READY!");
     while(!done){
         wait_vbl_done(); input_poll(); frame++;
@@ -209,13 +224,13 @@ void kart_run(void) BANKED {
             t++; if(t == 45) HIDE_WIN;
             tot_t++; lap_t++;
             drive(1);
-            if((UINT8)(tot[0] / LAPF) > lapn && lapn < NLAPS){                  /* across the line */
+            if(tm[0] >= nextlap && lapn < NLAPS){ nextlap += LAPM;                  /* across the line */
                 if(!best_run || lap_t < best_run) best_run = lap_t;
                 lap_t = 0; lapn++;
                 if(lapn < NLAPS){ char c[16]; c[0] = 'L'; c[1] = 'A'; c[2] = 'P'; c[3] = ' '; c[4] = (char)('1' + lapn); c[5] = '/'; c[6] = '3'; c[7] = 0; banner(c); t = 0; sfx(SFX_COIN); }
             }
             if(lapn >= NLAPS){
-                UINT8 r = 1; for(k = 1; k <= NRIV; k++) if(tot[k] >= LAPF * NLAPS) r++;
+                UINT8 r = 1; for(k = 1; k <= NRIV; k++) if(tm[k] >= LAPM * NLAPS) r++;
                 place = r; state = 2; t = 0;
                 if(best_run && (!EX_KART || best_run < EX_KART)){ EX_KART = best_run; saved = 1; }
                 if(opt.autosave) slot_write(cur_slot);
@@ -226,8 +241,13 @@ void kart_run(void) BANKED {
             if(HIT(J_A) || HIT(J_B) || HIT(J_START)){ done = 1; }
         }
         dir = HELD(J_LEFT) ? -1 : HELD(J_RIGHT) ? 1 : 0;
+#ifdef TEST_KPROF
+        { static UINT32 lf; UINT8 d0 = DIV_REG, d1, d2, d3; char pb[21], *pp; UINT32 nf = frames32(); drive(state == 1); d1 = DIV_REG; scene(); d2 = DIV_REG; me_draw(dir); d3 = DIV_REG;
+          pp = u16s(pb, (UINT8)(d1 - d0)); pp = scat(pp, " "); pp = u16s(pp, (UINT8)(d2 - d1)); pp = scat(pp, " "); pp = u16s(pp, (UINT8)(d3 - d2)); pp = scat(pp, " F"); pp = u16s(pp, (UINT16)(nf - lf)); lf = nf; *pp = 0; txt_line(0, 1, pb, 20); }
+#else
         scene(); me_draw(dir);
         if(state < 2 && !(frame & 7)) hud(place_now());
+#endif
     }
     road_stop();
     hide_from(0); HIDE_SPRITES; HIDE_WIN; if(!was) SPRITES_8x8;
