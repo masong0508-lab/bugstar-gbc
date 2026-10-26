@@ -61,7 +61,7 @@ static void mode_info(UINT8 sel){
     *d = 0; txt_line(2, 9, b, 16);
 }
 static UINT8 pick_mode(void){                                                 /* 0 grand prix, 1 time trial, 2 quick race, 3 exit */
-    UINT8 sel = 0, i;
+    UINT8 sel = 0, i, f = 0;
     DISPLAY_OFF; txt_win(1); menu_box("KART WORLD", 15);
     txt_line(4, 3, "GRAND PRIX", 14); txt_line(4, 4, "TIME TRIAL", 14); txt_line(4, 5, "QUICK RACE", 14); txt_line(4, 6, "EXIT", 14);
     txt_color(4, 9 + 0, 14, 1, TXT_GREY);
@@ -71,6 +71,7 @@ static UINT8 pick_mode(void){                                                 /*
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
+        f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 4, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
         if(HIT(J_DOWN) && sel < 3){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
         if(HIT(J_UP) && sel > 0){ txt_put(2, 3 + sel, " "); sel--; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
         if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i; }

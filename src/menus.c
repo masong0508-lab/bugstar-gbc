@@ -6,6 +6,7 @@
 #include "text.h"
 #include "save.h"
 #include "menus.h"
+#include "sysmenu.h"
 
 /* word-wrap s into `rows` lines of 18 columns starting at row y */
 static void print_wrap(UINT8 y, UINT8 rows, const char *s){
@@ -65,8 +66,15 @@ static UINT8 op_max(UINT8 i){            /* number of values */
 }
 
 #define OP_ROWS 10                       /* list rows 2..11 */
+void ui_tick(UINT8 x, UINT8 y, UINT8 f, UINT8 hx, UINT8 hw, UINT8 hy, UINT8 win) BANKED {   /* a pulsing arrow and a twinkling gold header */
+    if(win) txt_win(1);
+    UI_BLINK(x, y, f);
+    if(!(f & 31)) txt_color(hx, hy, hw, 1, (f & 32) ? TXT_WHITE : TXT_GOLD);
+    if(win) txt_win(0);
+}
+void sys_tick(UINT8 sel, UINT8 f) BANKED { ui_tick(1, 3 + sel, f, 1, SM_W - 2, 1, 1); }   /* the SYSTEM box: pulsing arrow, twinkling header */
 void options_screen(void) BANKED {
-    UINT8 sel = 0, top = 0, dirty = 1, i, first = 1;
+    UINT8 sel = 0, top = 0, dirty = 1, i, first = 1, f = 0;
     for(;;){
         if(dirty){
             dirty = 0;
@@ -89,6 +97,7 @@ void options_screen(void) BANKED {
             print_wrap(14, 2, op_help[sel]); txt_color(1, 14, 18, 2, TXT_GREY);
         }
         wait_vbl_done(); input_poll();
+        f++; UI_BLINK(1, 2 + sel - top, f); if(!(f & 31)) txt_color(7, 0, 7, 1, (f & 32) ? TXT_WHITE : TXT_GOLD);
         if(HIT(J_UP))   { sel = sel ? sel - 1 : NOPT - 1; dirty = 1; sfx(SFX_MOVE); }
         if(HIT(J_DOWN)) { sel = (sel + 1) % NOPT; dirty = 1; sfx(SFX_MOVE); }
         if(sel < top) top = sel;

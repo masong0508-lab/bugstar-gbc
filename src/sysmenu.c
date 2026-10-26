@@ -61,7 +61,7 @@ static UINT8 confirm_title(void){
 }
 
 int sysmenu_run(void (*redraw)(void)){
-    UINT8 sel = 0, had = hud_is_on();
+    UINT8 sel = 0, had = hud_is_on(), f = 0;
     int result = SYS_RESUME;
     sfx(SFX_OK);
     move_win(OFFX, SM_WY); SHOW_WIN;                 /* the HUD vanishes: this box takes over the window */
@@ -73,6 +73,7 @@ int sysmenu_run(void (*redraw)(void)){
     slide_x(OFFX, SM_WX);
     for(;;){
         wait_vbl_done(); input_poll();
+        sys_tick(sel, ++f);
         if(HIT(J_UP))   { sel = sel ? sel - 1 : NITEM - 1; cores(); draw_items(sel); sfx(SFX_MOVE); }
         if(HIT(J_DOWN)) { sel = (sel + 1) % NITEM;         cores(); draw_items(sel); sfx(SFX_MOVE); }
         if(HIT(J_B) || HIT(J_START)) break;

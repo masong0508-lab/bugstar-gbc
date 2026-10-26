@@ -20,4 +20,6 @@ void txt_box(UINT8 x, UINT8 y, UINT8 w, UINT8 h);     /* framed box, interior cl
 void txt_bar(UINT8 x, UINT8 y, UINT8 w, UINT16 val, UINT16 max); /* bar w tiles wide (>= 3) incl. end caps */
 void txt_color(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 pal);   /* recolour a rectangle with BG palette 0..7 (0..3 are the text colours) */
 void txt_pal_reset(void);                             /* reload the four text palettes (after a screen borrowed them) */
+/* a pulsing menu arrow: call every frame with a running frame counter f; redraws the arrow cell every 16 frames */
+#define UI_BLINK(x,y,f) do{ if(!((f)&15)) txt_line((x),(y),((f)&16)?S_CURSOR:">",1); }while(0)
 #endif

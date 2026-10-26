@@ -14,4 +14,6 @@ char *world_name(char *d, UINT32 wseed);  /* its name, two or three made-up syll
 void  options_screen(void) BANKED;              /* bank 2 */
 /* mode 0 = LOAD (used slots only), 1 = NEW (asks before overwriting). Returns slot 0..2, or -1 for back. */
 int   slot_picker(UINT8 mode) BANKED;   /* bank 2 */
+void ui_tick(UINT8 x, UINT8 y, UINT8 f, UINT8 hx, UINT8 hw, UINT8 hy, UINT8 win) BANKED;   /* menu animation: arrow at x,y pulses, header (hx,hy,hw) twinkles; f = frame counter */
+void sys_tick(UINT8 sel, UINT8 f) BANKED;
 #endif

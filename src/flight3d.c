@@ -445,12 +445,13 @@ static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
     txt_line(2, 16, "A: GO  B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
 }
 UINT8 extras_run(UINT8 in_space) BANKED {
-    UINT8 sel = 0, on = 0, d = 1;
+    UINT8 sel = 0, on = 0, d = 1, f = 0;
     const char *msg = "";
     unlocks_update();
     for(;;){
         if(d){ ex_draw(sel, in_space, msg); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
         wait_vbl_done(); input_poll();
+        f++; if(on){ UINT8 tp = sel > 2 ? sel - 2 : 0; UI_BLINK(3, 4 + (sel - tp) * 4, f); if(!(f & 31)) txt_color(7, 1, 6, 1, (f & 32) ? TXT_WHITE : TXT_GOLD); }
         if(HIT(J_B) || HIT(J_START)) return 0;
         if(HIT(J_UP)){ sel = sel ? sel - 1 : EX_N - 1; msg = ""; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_DOWN)){ sel = sel < EX_N - 1 ? sel + 1 : 0; msg = ""; d = 1; sfx(SFX_MOVE); }
