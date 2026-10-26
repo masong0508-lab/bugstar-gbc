@@ -27,6 +27,11 @@ static void lv(UINT8 x, UINT8 y, UINT8 w, const char *lab, const char *val, UINT
     d = scat(d, " "); scat(d, val);
     txt_line(x, y, b, w); txt_color(x, y, w, 1, vpal); txt_color(x, y, n, 1, TXT_GREY);
 }
+static char *rnum(char *d, char *start, UINT16 v, UINT8 end){            /* the number v, ending at column `end` of the line */
+    char t[8], *e = u16s(t, v); UINT8 n = (UINT8)(e - t);
+    while((UINT8)(d - start) + n < end) *d++ = ' ';
+    d = scat(d, t); return d;
+}
 static UINT8 here;                                                  /* the star we are docked at */
 static UINT8 rep;                                                   /* key repeat counter */
 
@@ -45,18 +50,19 @@ static void mk_draw(UINT8 cur, const char *msg){
     txt_line(1, 1, "MARKET", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
     d = u16s(v, econ_load()); d = scat(d, "/"); u16s(d, HOLD_CAP()); lv(10, 1, 9, "HOLD", v, TXT_WHITE);
     u32s(v, sv.gold > 999999999UL ? 999999999UL : sv.gold); lv(1, 2, 18, "GOLD", v, TXT_GOLD);
-    txt_line(1, 4, " GOOD   BUY SELL HAVE", 18); txt_color(1, 4, 18, 1, TXT_GREY);
+    txt_line(1, 4, " GOOD     BUY SELL", 18); txt_color(1, 4, 18, 1, TXT_GREY);
     for(g = 0; g < G_N; g++){
         UINT16 bp = econ_price(here, k, g), sp = econ_sell(here, k, g), mid = econ_base(g);
-        d = scat(b, g == cur ? S_CURSOR : " "); d = good_at(d, g); d = pad(d, b, 8);
-        d = u16s(d, bp); d = pad(d, b, 12); d = u16s(d, sp); d = pad(d, b, 17); u16s(d, sv.el.cargo[g]);
+        d = scat(b, g == cur ? S_CURSOR : " "); d = good_at(d, g);
+        d = rnum(d, b, bp, 13); rnum(d, b, sp, 18);
         txt_line(1, 5 + g, b, 18);
-        txt_color(1, 5 + g, 18, 1, g == cur ? TXT_GOLD : TXT_WHITE);
-        if(bp * 100 <= mid * 85) txt_color(9, 5 + g, 3, 1, TXT_GOLD);          /* cheap here: buy! */
-        if(sp * 100 >= mid * 112) txt_color(13, 5 + g, 3, 1, TXT_GOLD);        /* dear here: sell! */
+        txt_color(1, 5 + g, 18, 1, g == cur ? TXT_GOLD : sv.el.cargo[g] ? TXT_WHITE : TXT_GREY);      /* the goods you carry stand out */
+        if(g != cur && bp * 100 <= mid * 85) txt_color(11, 5 + g, 3, 1, TXT_GOLD);         /* cheap here: buy! */
+        if(g != cur && sp * 100 >= mid * 112) txt_color(16, 5 + g, 3, 1, TXT_GOLD);       /* dear here: sell! */
     }
-    txt_line(1, 14, "RIGHT BUY  LEFT SELL", 18); txt_color(1, 14, 18, 1, TXT_GREY);
-    txt_line(1, 15, "A BUY MAX  SEL SELL ALL", 18); txt_color(1, 15, 18, 1, TXT_GREY);
+    u16s(v, sv.el.cargo[cur]); lv(1, 13, 18, "YOU HAVE", v, TXT_WHITE);
+    txt_line(1, 14, "R: BUY    L: SELL", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_line(1, 15, "A: MAX    SEL: ALL", 18); txt_color(1, 15, 18, 1, TXT_GREY);
     txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
     txt_win(0);
 }

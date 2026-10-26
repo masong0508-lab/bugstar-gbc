@@ -27,24 +27,14 @@ static void print_wrap(UINT8 y, UINT8 rows, const char *s){
 /* ------------------------------------------------------------ options */
 enum { OP_BABY, OP_DIFF, OP_HUNGER, OP_FAINT, OP_XP, OP_GOLD, OP_CAM, OP_MUSIC, OP_SFX, OP_AUTO,
        OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, NOPT };
-static const char *const op_name[NOPT] = { "BABY MODE", "DIFFICULTY", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
+static const char *const op_name[NOPT] = { "BABY MODE", "CHALLENGE", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
     "CAMERA", "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "MINIMAP", "DMG NUMBERS", "HINTS", "GUIDE ARROW" };
 static const char *const op_help[NOPT] = {
-    "1 DAMAGE MAX, NO HUNGER, NOTHING LOST, 2X GOLD AND XP",
-    "EASY: HALF DAMAGE, KEEP YOUR BAG. HARD: MORE DAMAGE, +25% GOLD",
-    "OFF: NOBODY EVER STARVES",
-    "OFF: FAINTING COSTS NO GOLD AND NO BAG",
-    "HOW FAST YOU LEVEL UP",
-    "HOW MUCH GOLD EVERYTHING PAYS",
-    "WHICH VIEW A NEW GAME STARTS WITH",
-    "THE CHIPTUNE TUNES",
-    "BITES, HITS AND PICKUPS",
-    "SAVES AT THE SHIP, AFTER DUNGEONS AND AT STATIONS",
-    "THE JOLT WHEN YOU GET HURT",
-    "THE LITTLE MAP IN THE DUNGEON CORNER",
-    "NUMBERS THAT FLY OFF THINGS YOU BITE",
-    "THE LINES THAT SAY WHAT A DOES",
-    "THE YELLOW ARROW ON PLANETS" };
+    "1 DAMAGE MAX. NO LOSSES. 2X XP", "EASY: HALF DAMAGE. HARD: MORE", "OFF: NOBODY EVER STARVES",
+    "OFF: FAINTING COSTS NOTHING", "HOW FAST YOU LEVEL UP", "HOW MUCH GOLD THINGS PAY",
+    "THE VIEW A NEW GAME USES", "THE CHIPTUNE TUNES", "BITES, HITS AND PICKUPS",
+    "SAVES AT SHIP, DUNGEON, STATION", "THE JOLT WHEN YOU GET HURT", "MINIMAP IN THE DUNGEON",
+    "NUMBERS THAT FLY OFF FOES", "LINES THAT SAY WHAT A DOES", "THE YELLOW ARROW ON PLANETS" };
 static const char *const dif_n[5] = { "EASY", "NORMAL", "HARD", "BRUTAL", "NIGHTMR" };
 static const char *const mus_n[3] = { "OFF", "LOW", "FULL" };
 static const char *const cam_n[2] = { "3RD", "1ST" };
@@ -74,26 +64,29 @@ static UINT8 op_max(UINT8 i){            /* number of values */
     return i == OP_DIFF ? 5 : (i == OP_MUSIC || i == OP_XP || i == OP_GOLD) ? 3 : 2;
 }
 
-#define OP_ROWS 11                       /* list rows 2..12 */
+#define OP_ROWS 10                       /* list rows 2..11 */
 void options_screen(void) BANKED {
-    UINT8 sel = 0, top = 0, dirty = 1, i;
+    UINT8 sel = 0, top = 0, dirty = 1, i, first = 1;
     for(;;){
         if(dirty){
             dirty = 0;
-            put_line(1, 0, "OPTIONS", 18);
+            if(first){ first = 0; txt_box(0, 1, 20, 12); txt_box(0, 13, 20, 4);
+                put_line(7, 0, "OPTIONS", 7); txt_color(7, 0, 7, 1, TXT_GOLD);
+                put_line(2, 17, "< > CHANGE B:BACK", 17); txt_color(2, 17, 18, 1, TXT_GREY); }
             for(i = 0; i < OP_ROWS; i++){
                 UINT8 o = top + i; char b[20]; UINT8 nl, vl; const char *v;
-                if(o >= NOPT){ put_line(0, 2 + i, "", 19); continue; }
+                if(o >= NOPT){ put_line(1, 2 + i, "", 18); continue; }
                 v = op_val(o); nl = (UINT8)strlen(op_name[o]); vl = (UINT8)strlen(v);
-                memset(b, ' ', 19); b[19] = 0;
+                memset(b, ' ', 18); b[18] = 0;
                 b[0] = (o == sel) ? T_CURSOR : ' ';
-                memcpy(b + 1, op_name[o], nl); memcpy(b + 19 - vl, v, vl);
-                put_line(0, 2 + i, b, 19);
+                memcpy(b + 1, op_name[o], nl); memcpy(b + 17 - vl, v, vl);
+                put_line(1, 2 + i, b, 18);
+                txt_color(1, 2 + i, 18, 1, o == sel ? TXT_GOLD : TXT_WHITE);
+                txt_color(18 - vl, 2 + i, vl, 1, TXT_GOLD);
             }
-            put_line(0, 1,  top > 0 ? "                  " S_ARROW_UP : "", 19);
-            put_line(0, 13, top + OP_ROWS < NOPT ? "                  " S_ARROW_DN : "", 19);
-            print_wrap(14, 3, op_help[sel]);
-            put_line(1, 17, "LEFT/RIGHT  B:BACK", 18);
+            put_line(18, 2, top > 0 ? S_ARROW_UP : " ", 1); put_line(18, 11, top + OP_ROWS < NOPT ? S_ARROW_DN : " ", 1);
+            put_line(1, 14, "", 18); put_line(1, 15, "", 18);
+            print_wrap(14, 2, op_help[sel]); txt_color(1, 14, 18, 2, TXT_GREY);
         }
         wait_vbl_done(); input_poll();
         if(HIT(J_UP))   { sel = sel ? sel - 1 : NOPT - 1; dirty = 1; sfx(SFX_MOVE); }
