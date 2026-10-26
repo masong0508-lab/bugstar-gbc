@@ -11,14 +11,15 @@
 #include "bug.h"
 #include "shop.h"
 #include "space3d.h"
+#include "spell.h"
 
 UINT8 sys_gfx_lost;
 UINT8 sys_space;
 
-#define NITEM 7
+#define NITEM 8
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "FEATS", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -114,6 +115,12 @@ int sysmenu_run(void (*redraw)(void)){
                   SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
                 if(r){ result = r == 1 ? SYS_FLIP : SYS_ARENA; break; }
+            } else if(sel == 6){
+                HIDE_WIN;
+                { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;
+                  SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; txt_cls(); feats_run(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
+                if(redraw) redraw();
+                SHOW_WIN; cores();
             } else {
                 if(confirm_title()){ if(opt.autosave) slot_write(cur_slot); result = SYS_TITLE; break; }
                 draw_items(sel);

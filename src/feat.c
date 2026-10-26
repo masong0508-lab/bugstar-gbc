@@ -97,7 +97,7 @@ UINT8 fish_run(UINT8 world) BANKED {
             if(HIT(J_A)){
                 caught = 1;
                 if((rnd() & 15) == 0){ if(ex.rare < 99) ex.rare++; d = scat(b, "A GOLDEN "); scat(d, fish_nm[world % 6]); fline(3, b, TXT_GOLD); sfx(SFX_FANFARE); }
-                else { if(ex.fish < 99) ex.fish++; d = scat(b, "A "); scat(d, fish_nm[world % 6]); scat(d, "!"); fline(3, b, TXT_WHITE); sfx(SFX_COIN); }
+                else { if(ex.fish < 99) ex.fish++; if(ex.rsv[3] < 255) ex.rsv[3]++; d = scat(b, "A "); scat(d, fish_nm[world % 6]); scat(d, "!"); fline(3, b, TXT_WHITE); sfx(SFX_COIN); }
                 d = u16s(scat(b, "FISH "), ex.fish); d = scat(d, "  GOLDEN "); u16s(d, ex.rare); fline(4, b, TXT_GREY);
                 for(k = 0; k < 70; k++){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
                 break;

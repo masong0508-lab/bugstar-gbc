@@ -72,6 +72,7 @@ void hud_update(void){
 
 void gain_xp(UINT16 n){
     char b[80], *d;
+    if(!opt.diff) n *= 2;
     sv.xp += n;
     while(sv.xp >= (UINT32)sv.level * 12 && sv.level < 99){
         sv.xp -= (UINT32)sv.level * 12; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
