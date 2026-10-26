@@ -21,6 +21,7 @@
 #include "hud.h"
 #include "dialog.h"
 #include "sysmenu.h"
+#include "spell.h"
 #include "menus.h"
 #include "space_art.h"
 #include "space.h"
@@ -399,25 +400,25 @@ void arena_run(void) BANKED {
 }
 
 /* ================================================================ EXTRAS: what you have unlocked */
+#define HELL_OPEN (sv.level >= 8)
+static void ex_card(UINT8 sel, UINT8 i, UINT8 y, const char *nm, const char *st, UINT8 c1, const char *info){
+    txt_box(1, y, 18, 4);
+    txt_line(3, y + 1, sel == i ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 11); txt_color(3, y + 1, 12, 1, sel == i ? TXT_GOLD : TXT_WHITE);
+    txt_line(13, y + 1, st, 5); txt_color(13, y + 1, 5, 1, c1);
+    txt_line(4, y + 2, info, 14); txt_color(4, y + 2, 14, 1, TXT_GREY);
+}
 static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
     char b[24], *d;
     txt_cls();
     txt_box(0, 0, 20, 18);
     txt_line(7, 1, "EXTRAS", 6); txt_color(7, 1, 6, 1, TXT_GOLD);
-    txt_line(1, 2, "UNLOCKED EXTRAS", 18); txt_color(1, 2, 18, 1, TXT_GREY);
-    txt_box(1, 4, 18, 5);                                              /* one card per extra */
-    txt_line(3, 5, sel == 0 ? S_CURSOR "3D VIEW" : " 3D VIEW", 15); txt_color(3, 5, 15, 1, sel == 0 ? TXT_GOLD : TXT_WHITE);
-    if(V3_OPEN){ txt_line(4, 6, V3_ON ? "ON" : "OFF", 14); txt_color(4, 6, 14, 1, TXT_GOLD); txt_line(4, 7, "A: SWITCH", 14); txt_color(4, 7, 14, 1, TXT_GREY); }
-    else { txt_line(4, 6, "LOCKED", 14); txt_color(4, 6, 14, 1, TXT_RED); txt_line(4, 7, "NEED RANK POOR", 14); txt_color(4, 7, 14, 1, TXT_GREY); }
-    txt_box(1, 9, 18, 5);
-    txt_line(3, 10, sel == 1 ? S_CURSOR "ARENA" : " ARENA", 15); txt_color(3, 10, 15, 1, sel == 1 ? TXT_GOLD : TXT_WHITE);
-    if(ARENA_OPEN){
-        d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(4, 11, b, 14); txt_color(4, 11, 14, 1, TXT_GOLD);
-        txt_line(4, 12, in_space ? "A: PLAY" : "PLAY IN SPACE", 14); txt_color(4, 12, 14, 1, TXT_GREY);
-    } else { txt_line(4, 11, "LOCKED", 14); txt_color(4, 11, 14, 1, TXT_RED); txt_line(4, 12, "NEED RANK AVERAGE", 14); txt_color(4, 12, 14, 1, TXT_GREY); }
-    txt_line(2, 14, "RANK UP IN SPACE", 16); txt_color(2, 14, 16, 1, TXT_GREY);
+    if(V3_OPEN) ex_card(sel, 0, 3, "3D VIEW", V3_ON ? "ON" : "OFF", TXT_GOLD, "A: SWITCH"); else ex_card(sel, 0, 3, "3D VIEW", "LOCK", TXT_RED, "NEED RANK POOR");
+    if(ARENA_OPEN){ d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; ex_card(sel, 1, 7, "ARENA", "OPEN", TXT_GOLD, b); }
+    else ex_card(sel, 1, 7, "ARENA", "LOCK", TXT_RED, "NEED RANK AVER");
+    if(HELL_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_HELL); *d = 0; ex_card(sel, 2, 11, "HELL DEPTHS", "OPEN", TXT_GOLD, b); }
+    else ex_card(sel, 2, 11, "HELL DEPTHS", "LOCK", TXT_RED, "NEED LEVEL 8");
     txt_line(2, 15, msg, 16); txt_color(2, 15, 16, 1, TXT_RED);
-    txt_line(2, 16, "B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
+    txt_line(2, 16, "A: GO  B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
 }
 UINT8 extras_run(UINT8 in_space) BANKED {
     UINT8 sel = 0, on = 0, d = 1;
@@ -427,17 +428,23 @@ UINT8 extras_run(UINT8 in_space) BANKED {
         if(d){ ex_draw(sel, in_space, msg); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) return 0;
-        if(HIT(J_UP) || HIT(J_DOWN)){ sel ^= 1; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_UP)){ sel = sel ? sel - 1 : 2; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; msg = ""; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_A)){
             d = 1; msg = "";
             if(sel == 0){
                 if(!V3_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
                 else { sv.el.rsv[0] ^= 2; sfx(SFX_OK); if(in_space) return 1; }
-            } else {
+            } else if(sel == 1){
                 if(!ARENA_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
                 else if(!in_space){ msg = "FLY TO PLAY IT"; sfx(SFX_HURT); }
                 else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "REPAIR FIRST"; sfx(SFX_HURT); }
                 else return 2;
+            } else {
+                if(!HELL_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
+                else if(in_space){ msg = "LAND ON A WORLD"; sfx(SFX_HURT); }
+                else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "HEAL FIRST"; sfx(SFX_HURT); }
+                else return 3;
             }
         }
     }

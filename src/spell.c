@@ -8,6 +8,7 @@
 #include "dialog.h"
 #include "menus.h"
 #include "spell.h"
+#include "dungeon.h"
 
 /* ------------------------------------------------------------ spells: SPARK, FIREBALL, HEAL, SHIELD */
 static const char *const sp_nm[4] = { "SPARK", "FIREBALL", "HEAL", "SHIELD" };
@@ -35,7 +36,8 @@ UINT8 spell_dmg(UINT8 s, UINT8 face, INT16 dx, INT16 dy) BANKED {
     return (ah > 0 && ah < 96 && la < 20) ? 4 + sv.level : 0;
 }
 /* ------------------------------------------------------------ difficulty: BABY EASY NORMAL HARD BRUTAL NIGHTMARE */
-UINT8 diff_dmg(UINT8 n) BANKED {
+UINT8 hell_t;
+static UINT8 base_dmg(UINT8 n){
     switch(opt.diff){
         case 0: return 1;
         case 1: return n > 1 ? n / 2 : 1;
@@ -44,6 +46,23 @@ UINT8 diff_dmg(UINT8 n) BANKED {
         case 5: return n * 3;
         default: return n;
     }
+}
+UINT8 diff_dmg(UINT8 n) BANKED {
+    UINT16 r = base_dmg(n);
+    if(hell_t && opt.diff) r += r * hell_t / 4;                   /* the deeper, the harder they bite (BABY stays gentle) */
+    return r > 255 ? 255 : (UINT8)r;
+}
+/* ------------------------------------------------------------ the HELL DEPTHS: an endless stair down, tougher every four floors */
+void hell_set(UINT8 depth) BANKED { hell_t = 1 + depth / 4; if(hell_t > 10) hell_t = 10; }
+UINT16 hell_hp(UINT16 hp) BANKED { return hp + hp * hell_t / 2 + hell_t * 3; }
+void hell_end(UINT8 r, UINT8 depth) BANKED {
+    char b[40], *d; UINT16 g = (UINT16)depth * depth * 4;
+    hell_t = 0;
+    if(depth > EX_HELL) EX_HELL = depth;
+    if(r == DG_FAINT) g /= 2;
+    sv.gold += g;
+    d = scat(b, "DEPTH "); d = u16s(d, depth); d = scat(d, ". +"); d = u16s(d, g); d = scat(d, "G. BEST "); d = u16s(d, EX_HELL); *d = 0;
+    dlg_say(0, b);
 }
 
 /* ------------------------------------------------------------ floor events */
@@ -65,14 +84,14 @@ void floor_intro(UINT8 e) BANKED {
 #define NFEAT 16
 static const char *const ft_nm[NFEAT] = { "SLAYER", "ANGLER", "EXPLORER", "DEEP DIVER", "BRAVE", "HERO", "FRIEND", "CITIZEN",
     "PIT FIGHTER", "QUEEN BANE", "RICH BUG", "MAGE", "BOLT'S MIND", "JUMPER", "WORKER", "FAMOUS" };
-static const UINT16 ft_goal[NFEAT] = { 50, 10, 6, 6, 10, 20, 3, 3, 10, 3, 5000, 25, 4, 20, 5, 100 };
+static const UINT16 ft_goal[NFEAT] = { 50, 10, 6, 6, 10, 20, 3, 3, 10, 3, 50, 25, 4, 20, 5, 100 };   /* (RICH BUG counts hundreds of gold: 50 = 5000) */
 static UINT8 pop(UINT8 *a, UINT8 n){ UINT8 i, c = 0, b; for(i = 0; i < n; i++) for(b = a[i]; b; b &= b - 1) c++; return c; }
 static UINT16 ft_val(UINT8 i){
     switch(i){
         case 0: return EX_KILLS;     case 1: return EX_FISHN;      case 2: return pop(ex.seen, 32);  case 3: return sv.deepest;
         case 4: return sv.level;     case 5: return sv.level;      case 6: return sv.friends;        case 7: return pop(ex.city, 32);
         case 8: return ex.pit;       case 9: return pop(&ex.tricks, 1);
-        case 10: return sv.gold > 5000 ? 5000 : (UINT16)sv.gold;
+        case 10: return sv.gold > 5000 ? 50 : (UINT16)sv.gold / 100;
         case 11: return EX_CASTS;    case 12: return sv.cores;     case 13: return sv.el.jumps;      case 14: return sv.el.jobs;
         default: return sv.el.fame;
     }
@@ -89,7 +108,7 @@ void feats_check(void) BANKED {
 }
 void feats_run(void) BANKED {
     UINT8 i, n = 0;
-    feats_check();
+    feats_check(); HIDE_WIN;
     txt_line(1, 0, "FEATS", 18); txt_color(1, 0, 18, 1, TXT_GOLD);
     for(i = 0; i < NFEAT; i++){
         char b[24], *d; UINT8 k = ft_done(i), L;

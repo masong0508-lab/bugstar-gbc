@@ -115,7 +115,7 @@ int sysmenu_run(void (*redraw)(void)){
                   sys_gfx_lost = 0;
                   SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
-                if(r){ result = r == 1 ? SYS_FLIP : SYS_ARENA; break; }
+                if(r){ result = r == 1 ? SYS_FLIP : r == 2 ? SYS_ARENA : SYS_HELL; break; }
             } else if(sel == 6){
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;

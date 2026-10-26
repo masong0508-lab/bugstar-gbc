@@ -50,6 +50,7 @@ typedef struct { UINT16 x, y; UINT8 t, n, pal; } Fx;              /* a burst (n 
 #define NFX 4
 static Fx     fxs[NFX];
 static UINT8  depth, floors, kind, inv, atk, face, frame, step;
+static UINT8  hell;
 static UINT8  pit, pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
 static const UINT8 qbrood[6] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, K_WASP };   /* what each kind of queen calls */
 static UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
@@ -112,6 +113,7 @@ static void make_floor(void){
         m->x = ((UINT16)x << 4) + 8; m->y = ((UINT16)y << 4) + 12; m->kind = k; m->alive = 1;
         m->hp = (k == K_BEETLE ? 8 : k == K_WASP ? 3 : k == K_SLIME ? 5 : 4) + depth * 2 + sv.zone * 3;
         if(evt == 5) m->hp += m->hp / 2;
+        if(hell) m->hp = hell_hp(m->hp);
         i++;
         if(i >= (UINT8)(4 + depth * 2 + (evt == 3 ? 3 : 0) - (evt == 6 ? 3 : 0))) break;
     }
@@ -458,6 +460,14 @@ int dungeon_run(void) BANKED {
     else if(r == DG_WIN) dungeon_won(kind);
     else if(r == DG_EXIT) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     feats_check();
+    return r;
+}
+int dungeon_hell(void) BANKED {
+    int r;
+    kind = world_kind(world_seed(sv.star)); floors = 99; depth = 1; inv = 0; atk = 0; face = 3; hell = 1;
+    for(;;){ hell_set(depth); r = play_floor(); if(r == DG_DOWN){ depth++; continue; } break; }
+    hell = 0; { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
+    if(r == DG_EXIT || r == DG_FAINT) hell_end(r, depth); else hell_t = 0;
     return r;
 }
 int dungeon_pit(UINT8 tier) BANKED {                                 /* the city pit: returns (waves cleared << 4) | how it ended (DG_WIN: all ten, DG_EXIT: gave up, DG_FAINT) */

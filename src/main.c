@@ -63,7 +63,14 @@ void main(void){
 #ifdef TEST_STAR
     sv.star = TEST_STAR;
 #endif
+#ifdef TEST_LVL
+    sv.level = TEST_LVL; sv.hp = hud_hpmax(TEST_LVL); sv.mp = hud_mpmax(TEST_LVL); sv.zone = 0;
+#endif
+#ifdef TEST_HELL
+    cpu_fast(); dungeon_hell();
+#else
     cpu_fast(); dungeon_run();
+#endif
     for(;;) wait_vbl_done();
 #endif
 #ifdef TEST_SPACE

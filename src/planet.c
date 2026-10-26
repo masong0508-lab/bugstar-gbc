@@ -456,7 +456,13 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         else if(HIT(J_A) && water_near()){ fish_run(wk); }
         else if(!(tick & 31) && !fish_hint && water_near()){ fish_hint = 1; note("PRESS A AT THE WATER TO FISH"); }
         if(HIT(J_START)){
-            if(sysmenu_run(redraw) == SYS_TITLE){ leave(); return PL_TITLE; }
+            { int sr = sysmenu_run(redraw);
+              if(sr == SYS_TITLE){ leave(); return PL_TITLE; }
+              if(sr == SYS_HELL){                                  /* EXTRAS > HELL DEPTHS */
+                  int r = dungeon_hell();
+                  if(r == DG_TITLE){ leave(); return PL_TITLE; }
+                  if(r == DG_FAINT){ bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40; }
+                  was_door = 1; camera(); enter(); continue; } }
             bugspr_load(&sv.look);
         }
     }

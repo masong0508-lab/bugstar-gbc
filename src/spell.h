@@ -7,6 +7,11 @@
 #define EX_FISHN  (ex.rsv[3])                       /* fish caught in all */
 #define EX_CASTS  (ex.rsv[4])                       /* spells cast */
 #define EX_KILLS  (*(UINT16 *)&ex.rsv[5])           /* monsters killed in dungeons */
+#define EX_HELL   (ex.rsv[7])                       /* deepest HELL DEPTHS floor reached */
+extern UINT8 hell_t;                                /* 0 in a normal dungeon; 1..10 in the HELL DEPTHS: the tier */
+void  hell_set(UINT8 depth) BANKED;                 /* sets hell_t for this floor */
+UINT16 hell_hp(UINT16 hp) BANKED;                   /* a monster's hit points in the tier */
+void  hell_end(UINT8 r, UINT8 depth) BANKED;        /* pays the gold, keeps the record, and says so */
 UINT8 spell_known(UINT8 s) BANKED;
 UINT8 spell_cost(UINT8 s) BANKED;
 UINT8 spell_next(UINT8 s) BANKED;                   /* the next spell you know */
