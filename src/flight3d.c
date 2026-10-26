@@ -403,8 +403,8 @@ void arena_run(void) BANKED {
 #define HELL_OPEN (sv.level >= 8)
 static void ex_card(UINT8 sel, UINT8 i, UINT8 y, const char *nm, const char *st, UINT8 c1, const char *info){
     txt_box(1, y, 18, 4);
-    txt_line(3, y + 1, sel == i ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 11); txt_color(3, y + 1, 12, 1, sel == i ? TXT_GOLD : TXT_WHITE);
-    txt_line(13, y + 1, st, 5); txt_color(13, y + 1, 5, 1, c1);
+    txt_line(3, y + 1, sel == i ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, sel == i ? TXT_GOLD : TXT_WHITE);
+    txt_line(14, y + 1, st, 4); txt_color(14, y + 1, 4, 1, c1);
     txt_line(4, y + 2, info, 14); txt_color(4, y + 2, 14, 1, TXT_GREY);
 }
 static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
@@ -415,8 +415,8 @@ static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
     if(V3_OPEN) ex_card(sel, 0, 3, "3D VIEW", V3_ON ? "ON" : "OFF", TXT_GOLD, "A: SWITCH"); else ex_card(sel, 0, 3, "3D VIEW", "LOCK", TXT_RED, "NEED RANK POOR");
     if(ARENA_OPEN){ d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; ex_card(sel, 1, 7, "ARENA", "OPEN", TXT_GOLD, b); }
     else ex_card(sel, 1, 7, "ARENA", "LOCK", TXT_RED, "NEED RANK AVER");
-    if(HELL_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_HELL); *d = 0; ex_card(sel, 2, 11, "HELL DEPTHS", "OPEN", TXT_GOLD, b); }
-    else ex_card(sel, 2, 11, "HELL DEPTHS", "LOCK", TXT_RED, "NEED LEVEL 8");
+    if(HELL_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_HELL); *d = 0; ex_card(sel, 2, 11, "HELL DEEP", "OPEN", TXT_GOLD, b); }
+    else ex_card(sel, 2, 11, "HELL DEEP", "LOCK", TXT_RED, "NEED LEVEL 8");
     txt_line(2, 15, msg, 16); txt_color(2, 15, 16, 1, TXT_RED);
     txt_line(2, 16, "A: GO  B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
 }
