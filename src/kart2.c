@@ -29,10 +29,10 @@ static const UINT16 prize[4] = { 200, 100, 50, 20 };
 void kart_results(UINT8 place, UINT8 saved, UINT8 gpn) BANKED {
     char b[21], *d;
     txt_win(1); txt_cls(); txt_box(0, 0, 20, 15);
-    if(gpn){ d = scat(b, "RACE "); d = u16s(d, gpn); d = scat(d, " OF 3 DONE"); *d = 0; txt_line(3, 1, b, 14); }
+    if(gpn){ d = scat(b, "RACE "); d = u16s(d, gpn); d = scat(d, " OF 3 DONE"); *d = 0; txt_line(3, 1, b, 16); }
     else txt_line(5, 1, "RACE OVER!", 10);
     txt_color(3, 1, 14, 1, TXT_GOLD);
-    if(rivals_on){ d = scat(b, "YOU CAME "); d = u16s(d, place); d = scat(d, place == 1 ? " (WIN!)" : " OF 4"); *d = 0; txt_line(3, 3, b, 15); }
+    if(rivals_on){ d = scat(b, "YOU CAME "); d = u16s(d, place); if(place == 1) d = scat(d, " (WIN!)"); else d = scat(d, " OF 4"); *d = 0; txt_line(3, 3, b, 15); }
     else txt_line(3, 3, "TIME TRIAL", 15);
     d = scat(b, "TIME "); d = ftime(d, tot_t); *d = 0; txt_line(3, 5, b, 15);
     d = scat(b, "BEST LAP "); d = ftime(d, best_run); *d = 0; txt_line(3, 7, b, 15);
@@ -109,7 +109,7 @@ static void trophy(const UINT8 *pts){                                         /*
     txt_line(3, 1, "GRAND PRIX OVER!", 16); txt_color(3, 1, 16, 1, TXT_GOLD);
     for(i = 0; i < 4; i++){
         d = u16s(b, i + 1); d = scat(d, "  "); d = scat(d, rname[ord[i]]); while(d - b < 11) *d++ = ' '; d = u16s(d, pts[ord[i]]); d = scat(d, " PTS"); *d = 0;
-        txt_line(2, 3 + i, b, 16); if(ord[i] == 0) txt_color(2, 3 + i, 16, 1, TXT_GOLD);
+        txt_line(2, 3 + i, b, 18); if(ord[i] == 0) txt_color(2, 3 + i, 18, 1, TXT_GOLD);
     }
     d = scat(b, tr == 3 ? "GOLD CUP!" : tr == 2 ? "SILVER CUP" : tr == 1 ? "BRONZE CUP" : "NO CUP THIS TIME"); *d = 0; txt_line(2, 9, b, 16); txt_color(2, 9, 16, 1, tr ? TXT_GOLD : TXT_GREY);
     d = scat(b, "PRIZE +"); d = u16s(d, cupg[tr]); d = scat(d, " G"); *d = 0; txt_line(2, 11, b, 16); txt_color(2, 11, 16, 1, TXT_GOLD);
@@ -118,7 +118,11 @@ static void trophy(const UINT8 *pts){                                         /*
     sv.gold += cupg[tr]; if(opt.autosave) slot_write(cur_slot);
     txt_win(0); move_win(7, 8); SHOW_WIN;
     sfx(tr == 3 ? SFX_FANFARE : SFX_COIN);
+#ifdef KX_AUTO
+    { UINT8 w; for(w = 0; w < 200; w++) wait_vbl_done(); }
+#else
     for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B) || HIT(J_START)) break; }
+#endif
     HIDE_WIN;
 }
 static void grand_prix(void){

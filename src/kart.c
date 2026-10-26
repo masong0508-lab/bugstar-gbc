@@ -390,6 +390,9 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
         } else if(state == 2){
             drive(0);
             if(HIT(J_A) || HIT(J_B) || HIT(J_START)){ done = 1; }
+#ifdef KX_AUTO
+            if(++tcount > 40) done = 1;
+#endif
         }
         dir = HELD(J_LEFT) ? -1 : HELD(J_RIGHT) ? 1 : 0;
 #ifdef TEST_KFPS
