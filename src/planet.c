@@ -29,6 +29,7 @@
 #include "econ.h"
 #include "town.h"
 #include "feat.h"
+#include "wild.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
 #define CRIT_TILE0 120           /* the sparkle and butterfly sprites (bank 1, after the ship) */
@@ -53,6 +54,7 @@ static const WorldKind kinds[PL_NWORLD] = {
 
 static UINT16 seed_a, seed_b;                 /* the world's seed, in two halves */
 static UINT8  wk;                              /* the kind of world */
+static UINT8  wv;                              /* its weird trait (wild.h), 0 = none */
 static UINT8  ship_mx, ship_my, door_mx, door_my;
 static UINT16 bx, by;                          /* the bug's feet, world pixels (wrap at 4096) */
 static UINT16 cam_x, cam_y;                    /* the top-left of the screen, world pixels */
@@ -186,7 +188,7 @@ static void world_setup(void){
     UINT32 ws = world_seed(sv.star);
     seed_a = (UINT16)ws; seed_b = (UINT16)(ws >> 16) ^ 0x1234u; if(!seed_b) seed_b = 1;
     sa1 = (UINT8)seed_a; sa2 = (UINT8)(seed_a >> 8); sb1 = (UINT8)seed_b; sb2 = (UINT8)(seed_b >> 8) ^ 0x5A;
-    wk = world_kind(ws);
+    wk = world_kind(ws); wv = weird_of(sv.star);
     ship_mx = 250; ship_my = 250;                                /* (out of the way while we look for land) */
     door_mx = 0; door_my = 0;
     find_land(&ship_mx, &ship_my, 128, 128, 2);                  /* a clearing big enough to land in */
@@ -214,7 +216,7 @@ static void world_setup(void){
 static const palette_color_t glow_pal[4] = { RGB(0, 0, 0), RGB(8, 12, 2), RGB(31, 29, 6), RGB(31, 31, 20) };   /* the butterflies glow at night */
 static void apply_pal(void){                                    /* the colours, darkened by the time of day */
     palette_color_t b[16], sp[4];
-    memcpy(b, &planet_pals[wk * 16], 32); tod_tint(b, 16); set_bkg_palette(4, 4, b);
+    memcpy(b, &planet_pals[wk * 16], 32); tod_tint(b, 16); if(wv) weird_pal(b, 16, wv, (UINT8)frames32()); set_bkg_palette(4, 4, b);
     memcpy(sp, ship_pal, 8); tod_tint(sp, 4); set_sprite_palette(SHIP_PAL, 1, sp);
     if(tod_dark() >= 9) set_sprite_palette(2, 1, glow_pal); else set_sprite_palette(2, 1, &crit_pal[4]);
 }
@@ -226,6 +228,7 @@ static void load_gfx(void){
     set_sprite_data(CRIT_TILE0, 8, crit_tiles);
     VBK_REG = VBK_BANK_0;
     set_sprite_palette(1, 2, crit_pal);
+    life_gfx(wk);
     apply_pal();
     pet_load();
     for(i = 0; i < 8; i++){ set_sprite_tile(SHIP_OAM0 + i, SHIP_TILE0 + i * 2); set_sprite_prop(SHIP_OAM0 + i, SHIP_PAL | 0x08); }
@@ -378,6 +381,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
     world_setup();
     place_things(); note_t = 0; fish_hint = 0;
+    life_load(wk, ((UINT16)ship_mx << 4) + 8, ((UINT16)ship_my << 4) + 8);
     ex.seen[sv.star >> 3] |= 1 << (sv.star & 7);
     enter(); pet_reset(bx, by);
     play_reset(sv.secs);
@@ -390,6 +394,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         dlg_say("BOLT", "HI, I AM BOLT, YOUR SHIP. I LOST MY MEMORY. EVERY WORLD HAS A QUEEN DEEP DOWN, AND EACH ONE HOLDS ONE OF MY 8 DATA CORES. PLEASE GET THEM BACK!");
     }
     dlg_say("BOLT", msg);
+    weird_land(wv);
 #ifdef TEST_FISH
     fish_run(wk);
 #endif
@@ -407,6 +412,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
         crit_step(++tick); pet_push(bx, by);
+        if(!(tick & 1)){ UINT8 i; UINT16 lx, ly; life_step(bx, by, tick); for(i = 0; i < 4; i++) if(life_peek(i, &lx, &ly) && blocked(lx, ly)) life_back(i); }
+        if(wv && !(tick & 63)) weird_tick(wv, tick);
         if(ground(ox, oy) == MT_GATE){
             if(!was_gate){ UINT8 i; was_gate = 1;
                 for(i = 0; i < tw_n; i++) if((UINT8)(ox - tw_x[i]) < tw_w[tw_t[i]] && (UINT8)(oy - tw_y[i]) < tw_w[tw_t[i]]) break;
@@ -445,14 +452,15 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         wait_vbl_done();
         SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;
         bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, frame);
-        ship_show(); crit_draw(tick); { UINT8 po[3]; po[0] = 0; po[1] = 1; po[2] = 2; pet_draw(po, cam_x, cam_y, 1); }
-        if(!(tick & 63)) apply_pal();
+        ship_show(); crit_draw(tick); life_draw(cam_x, cam_y); { UINT8 po[3]; po[0] = 0; po[1] = 1; po[2] = 2; pet_draw(po, cam_x, cam_y, 1); }
+        if(!(tick & (wv ? 7 : 63))) apply_pal();
         hud_update();
         if(HIT(J_A) && near_ship()){
             sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); if(sv.el.fuel < 6) sv.el.fuel = 6; slot_write(cur_slot); sfx(SFX_FANFARE);
             dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
             if(ship_menu()){ leave(); return PL_LAUNCH; }
         }
+        else if(HIT(J_A) && (k = life_pat(bx, by))){ note(k == 1 ? "A HAPPY PAT! +GOLD" : k == 2 ? "NUZZLE! +GOLD" : k == 3 ? "SHY! IT RAN AWAY." : "IT LIKES YOU ALREADY"); }
         else if(HIT(J_A) && water_near()){ fish_run(wk); }
         else if(!(tick & 31) && !fish_hint && water_near()){ fish_hint = 1; note("PRESS A AT THE WATER TO FISH"); }
         if(HIT(J_START)){

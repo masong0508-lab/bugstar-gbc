@@ -25,6 +25,7 @@
 #include "dungeon_art.h"
 #include "dungeon.h"
 #include "feat.h"
+#include "wild.h"
 
 #define DW        32               /* the floor is DW x DW metatiles */
 #define NROOM     8
@@ -114,6 +115,7 @@ static void make_floor(void){
         m->hp = (k == K_BEETLE ? 8 : k == K_WASP ? 3 : k == K_SLIME ? 5 : 4) + depth * 2 + sv.zone * 3;
         if(evt == 5) m->hp += m->hp / 2;
         if(hell) m->hp = hell_hp(m->hp);
+        m->hp = bst_hp(m->hp, k, kind);
         i++;
         if(i >= (UINT8)(4 + depth * 2 + (evt == 3 ? 3 : 0) - (evt == 6 ? 3 : 0))) break;
     }
@@ -235,7 +237,7 @@ static void enter_gfx(void){                                       /* everything
     pet_load();
     txt_pal_reset();
     set_bkg_palette(4, 4, &dg_pals[kind * 16]);
-    set_sprite_palette(0, 4, mon_pals);
+    set_sprite_palette(0, 4, mon_pals); bst_pals(kind);
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
 }
 static void redraw(void){ if(sys_gfx_lost){ enter_gfx(); return; } SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &dg_pals[kind * 16]); draw_all(); }
@@ -258,11 +260,12 @@ static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.fr
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
+static void kill_pay(Mon *m){ sv.gold += LUCKY(3 + m->kind * 2 + depth) * gmul(); gain_xp(3 + m->kind + depth); EX_KILLS++; bst_kill(m->kind, kind, depth); }
 static void spell_hit(Mon *m, UINT8 p){                            /* a spell hurts a monster (it never finishes the queen) */
     if(m->kind == K_QUEEN && p >= m->hp) p = m->hp - 1;
     if(p > m->hp) p = (UINT8)m->hp;
     m->hp -= p; m->flash = 12; fx_add(m->x, m->y - 18, p, 2);
-    if(!m->hp){ m->alive = 0; sfx(SFX_DIE); fx_add(m->x - 8, m->y - 10, 255, m->kind); sv.gold += LUCKY(3 + m->kind * 2 + depth) * gmul(); gain_xp(3 + m->kind + depth); EX_KILLS++; }
+    if(!m->hp){ m->alive = 0; sfx(SFX_DIE); fx_add(m->x - 8, m->y - 10, 255, m->kind); kill_pay(m); }
 }
 static void cast(void){
     UINT8 s = EX_SPELL & 3, i;
@@ -291,8 +294,8 @@ static void do_bite(void){
             fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
             if(m->kind == K_QUEEN){ fx_add(m->x - 24, m->y - 20, 255, 0); fx_add(m->x + 8, m->y - 22, 255, 3); fx_add(m->x - 8, m->y + 4, 255, 2); }   /* she goes up big */
             if(m->kind == K_SLIME && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(K_SLIME, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(K_SLIME, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
-            if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); }
-            else { sv.gold += LUCKY(3 + m->kind * 2 + depth) * gmul(); gain_xp(3 + m->kind + depth); EX_KILLS++; }
+            if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); bst_kill(4, kind, depth); }
+            else { kill_pay(m); }
         }
     }
     { UINT8 tx = (UINT8)((UINT16)hx >> 4), ty = (UINT8)((UINT16)(hy + 6) >> 4);    /* biting a chest or a cage opens it */
@@ -352,7 +355,7 @@ static void mon_step(void){
         if(!(step & 7)) m->frame ^= 1;
 contact:
         { INT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, reach = m->kind == K_QUEEN ? 22 : 11;
-          if(ax < reach && ay < reach - 2 && !inv){ UINT8 dmg = 1 + depth / 2 + sv.zone + (m->kind == K_BEETLE) + (m->kind == K_QUEEN) * (2 + sv.zone);
+          if(ax < reach && ay < reach - 2 && !inv){ UINT8 dmg = 1 + depth / 2 + sv.zone + (m->kind == K_BEETLE) + (m->kind == K_QUEEN) * (2 + sv.zone) + bst_dmg(m->kind, kind);
               hurt(dmg, dx > 0 ? 2 : dx < 0 ? -2 : 0, dy > 0 ? 2 : dy < 0 ? -2 : 0); } }
     }
 }

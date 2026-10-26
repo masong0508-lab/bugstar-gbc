@@ -12,6 +12,7 @@
 #include "spell.h"
 #include "kart.h"
 #include "xtra.h"
+#include "wild.h"
 
 typedef struct { UINT32 seed; UINT16 relics; UINT16 ore; UINT8 best, dbg, lounge, chk; } XSave;
 #define XS_OFF 432U
@@ -118,6 +119,7 @@ void xtra_mine(void) BANKED {
     }
     if(sw < 9){
         screen("MINING"); d = scat(b, "ORES "); d = u16s(d, ores); *d = 0; txt_line(4, 5, b, 14);
+        pay += pay * weird_pct(weird_of(sv.star), WP_ORE) / 100;
         d = scat(b, "PAY +"); d = u16s(d, pay); d = scat(d, " G"); *d = 0; txt_line(4, 7, b, 14); txt_color(4, 7, 14, 1, TXT_GOLD);
         sv.gold += pay; xs.ore += got; if(pay > xs.best) xs.best = pay > 255 ? 255 : (UINT8)pay;
         d = scat(b, "BEST "); d = u16s(d, xs.best); *d = 0; txt_line(4, 9, b, 14); txt_color(4, 9, 14, 1, TXT_GREY);

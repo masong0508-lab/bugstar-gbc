@@ -14,6 +14,7 @@
 #include "feat.h"
 #include "dialog.h"
 #include "dungeon.h"
+#include "wild.h"
 
 enum { SV_INN, SV_QUEST, SV_STORE, SV_YARD, SV_ACADEMY, SV_FORTUNE, SV_CASINO, SV_SHRINE, SV_WORK, SV_PIT };
 static const char *const pre[16] = { "BRAM", "WEN", "KOR", "ASH", "MIR", "TOL", "FEN", "DUN", "SAL", "OAK", "VEX", "LUM", "NOR", "PIP", "ZAN", "HOL" };
@@ -256,7 +257,7 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
 /* ---------------------------------------------------------------- the town page */
 static const char *const sv_nm[10] = { "THE INN", "QUEST BOARD", "GENERAL STORE", "SHIPYARD", "ACADEMY", "FORTUNE TELLER", "CASINO", "SHRINE", "WORKSHOP", "BUG PIT" };
 UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {   /* returns 0, or tier + 1 when the person paid for the bug pit */
-    UINT8 ids[10], n = 0, sel = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
+    UINT8 ids[14], n = 0, sel = 0, top = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
     th = thash(star, idx); shrine_used = 0; mpal = TXT_GOLD;
     rs = (UINT16)frames32() ^ ((UINT16)DIV_REG << 8) ^ th; if(!rs) rs = 1;
     ids[n++] = SV_INN; ids[n++] = SV_QUEST;
@@ -268,6 +269,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
       for(k = 0; k < cnt; k++) sp |= 1 << ((s0 + k) & 3);
       for(k = 0; k < 4; k++) if(sp & (1 << k)) ids[n++] = SV_ACADEMY + k; }
     if(tier >= 3) ids[n++] = SV_PIT;
+    n = town2_add(ids, n, tier, th);
     HIDE_SPRITES; sfx(SFX_OK);
     for(;;){
         night = tod_dark() >= 10;
@@ -280,10 +282,11 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
         }
         if(msg) line(5, msg, TXT_RED); else { d = scat(b, "IT IS "); tod_name(d); line(5, b, night ? TXT_GREY : TXT_WHITE); }
         txt_win(1);
-        for(i = 0; i < n; i++){
-            UINT8 id = ids[i], shut = (night && (id == SV_STORE || id == SV_YARD || id == SV_ACADEMY || id == SV_WORK)) || (!night && (id == SV_CASINO || id == SV_FORTUNE));
-            d = scat(b, i == sel ? S_CURSOR : " "); scat(d, sv_nm[id]); txt_line(1, 6 + i, b, 18);
-            txt_color(1, 6 + i, 18, 1, shut ? TXT_GREY : i == sel ? TXT_GOLD : TXT_WHITE);
+        if(sel < top) top = sel; if(sel >= top + 10) top = sel - 9;
+        for(i = top; i < n && i < top + 10; i++){
+            UINT8 id = ids[i], shut = id >= 16 ? !town2_open(id, night) : (night && (id == SV_STORE || id == SV_YARD || id == SV_ACADEMY || id == SV_WORK)) || (!night && (id == SV_CASINO || id == SV_FORTUNE));
+            d = scat(b, i == sel ? S_CURSOR : " "); if(id >= 16) town2_name(id, d); else scat(d, sv_nm[id]); txt_line(1, 6 + i - top, b, 18);
+            txt_color(1, 6 + i - top, 18, 1, shut ? TXT_GREY : i == sel ? TXT_GOLD : TXT_WHITE);
         }
         txt_line(1, 16, "A: GO IN  B: LEAVE", 18); txt_color(1, 16, 18, 1, TXT_GREY);
         txt_win(0);
@@ -293,7 +296,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             UINT8 id = ids[sel]; mpal = TXT_GOLD;
-            if(night && (id == SV_STORE || id == SV_YARD || id == SV_ACADEMY || id == SV_WORK)){ msg = "CLOSED: BACK AT DAY"; sfx(SFX_BACK); continue; }
+            if(id >= 16 ? !town2_open(id, night) : (night && (id == SV_STORE || id == SV_YARD || id == SV_ACADEMY || id == SV_WORK))){ msg = "CLOSED: BACK AT DAY"; sfx(SFX_BACK); continue; }
             if(!night && (id == SV_CASINO || id == SV_FORTUNE)){ msg = "OPEN AT NIGHT ONLY"; sfx(SFX_BACK); continue; }
             sfx(SFX_OK); msg = 0;
             if(id == SV_INN) inn(tier);
@@ -304,6 +307,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
             else if(id == SV_FORTUNE) fortune(ddx, ddy);
             else if(id == SV_CASINO) casino();
             else if(id == SV_WORK) workshop();
+            else if(id >= 16) town2_go(id, tier, th);
             else if(id == SV_PIT){ out = pit_entry(tier); if(out) break; }
             else shrine(tier);
             redraw = 1;
