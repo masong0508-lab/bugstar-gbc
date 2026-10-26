@@ -443,7 +443,7 @@ int space3d_run(UINT8 keep) BANKED {
         shx = star_px(sv.star) << 4; shy = (star_py(sv.star) + 110) << 4; sz = star_z(sv.star) * 16; yaw = 0x8000; pit16 = 0;
     }
 #ifdef TEST_DOCK
-    shx = (star_px(sv.star) - 60) << 4; shy = (star_py(sv.star) + 60) << 4; sz = (star_z(sv.star) + 8) * 16; yaw = 0x5200; told3 = 1;     /* (test builds: just short of the station) */
+    shx = (star_px(sv.star) + ST_DX - 30) << 4; shy = (star_py(sv.star) + 30) << 4; sz = (star_z(sv.star) + 8) * 16; yaw = 0x5200; told3 = 1;     /* (test builds: just short of the station) */
 #endif
     vel = 24; inv = 0; tgt = sv.star; cool = 0; turn_h = 0; spawn_t = 200; regen = 0;
     objects_clear();

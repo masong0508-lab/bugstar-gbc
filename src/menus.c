@@ -111,11 +111,11 @@ void options_screen(void) BANKED {
 
 /* ------------------------------------------------------------ slot picker */
 static UINT8 confirm(const char *l1){
-    put_line(1, 13, l1, 18); put_line(1, 14, "A: YES   B: NO", 18);
+    put_line(1, 15, l1, 18); put_line(1, 16, "A: YES   B: NO", 18);
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_A)) { put_line(1, 13, "", 18); put_line(1, 14, "", 18); return 1; }
-        if(HIT(J_B)) { put_line(1, 13, "", 18); put_line(1, 14, "", 18); return 0; }
+        if(HIT(J_A)) { put_line(1, 15, "", 18); put_line(1, 16, "", 18); return 1; }
+        if(HIT(J_B)) { put_line(1, 15, "", 18); put_line(1, 16, "", 18); return 0; }
     }
 }
 int slot_picker(UINT8 mode) BANKED {
@@ -124,18 +124,20 @@ int slot_picker(UINT8 mode) BANKED {
     for(;;){
         if(dirty){
             dirty = 0;
-            put_line(1, 0, mode ? "NEW GAME" : "LOAD GAME", 18);
+            put_line(5, 0, mode ? "NEW GAME" : "LOAD GAME", 10); txt_color(5, 0, 10, 1, TXT_GOLD);
             put_line(1, 1, "PICK A SAVE SLOT", 18);
-            for(i = 0; i < NSLOT; i++){
-                char b[20], *d; UINT8 y = 3 + i * 3;
+            for(i = 0; i < NSLOT; i++){                          /* a framed card per slot; the chosen one is gold */
+                char b[32], *d; UINT8 y = 3 + i * 4;
                 good[i] = slot_peek(i, &t);
+                txt_box(0, y, 20, 4);
                 d = b; *d++ = (i == sel) ? T_CURSOR : ' '; *d++ = '1' + i; *d++ = ' ';
-                if(good[i]){ d = scat(d, t.name); d = scat(d, " LV "); u16s(d, t.level); }
+                if(good[i]){ d = scat(d, t.name); d = scat(d, "  LV "); u16s(d, t.level); }
                 else scat(d, "EMPTY");
-                put_line(0, y, b, 19);
-                d = b; d = scat(d, "   ");
-                if(good[i]){ d = scat(d, "TIME "); fmt_time(d, t.secs); } else *d = 0;
-                put_line(0, y + 1, b, 19);
+                put_line(1, y + 1, b, 18);
+                d = b; *d++ = ' '; *d++ = ' ';
+                if(good[i]){ d = fmt_time(d, t.secs); d = scat(d, " "); d = u16s(d, t.cores); scat(d, "/8 CORES"); } else *d = 0;
+                put_line(1, y + 2, b, 18);
+                txt_color(1, y + 1, 18, 2, i == sel ? TXT_GOLD : TXT_WHITE);
             }
             put_line(1, 15, "A:OK  B:BACK", 18);
             put_line(1, 16, good[sel] ? "START: ERASE" : "", 18);

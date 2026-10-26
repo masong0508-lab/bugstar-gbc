@@ -8,8 +8,8 @@
 BugSet bug_set;
 #define bpx WRAM_AT(WRAM_BPX, UINT8)                     /* the canvas, BUG_BW x BUG_BH (wram.h) */
 #define PX(x, y) bpx[(UINT16)(y) * BUG_BW + (x)]
-#define HEAD_UP 6
-#define HEAD_LO 22
+#define HEAD_UP 1                                  /* the head sits level with the shell: its oval (rows 0..9 of its cell) is centred on the body */
+#define HEAD_LO 17
 
 static UINT8 part_px(const BugPart *p, UINT8 x, UINT8 y){ UINT16 i = (UINT16)y * p->w + x; return (p->px[i >> 2] >> ((i & 3) << 1)) & 3; }
 static void stamp(const BugPart *p, UINT8 x0, UINT8 y0){
@@ -50,6 +50,10 @@ static void draw_shell(const BugLook *l, UINT8 x0, UINT8 W){
         }
         if(on) PX(x0 + x, 16 + y) = 3;
     }
+    if(W >= 24 && !pat){                                              /* a seam between the thorax and the abdomen: it is a bug, not a pill */
+        UINT8 sx = W - 9;
+        for(y = 1; y < 11; y++) if(PX(x0 + sx, 16 + y) == 2 && PX(x0 + sx, 16 + y - 1) && PX(x0 + sx, 16 + y + 1)) PX(x0 + sx, 16 + y) = 1;
+    }
 }
 static void draw_back(const BugLook *l, UINT8 x0, UINT8 W){      /* gear on the back: in the wing cell, with a stem down to the shell */
     const BugPart *b = &bp_back[l->pt[BP_BACK]];
@@ -61,21 +65,31 @@ static void draw_back(const BugLook *l, UINT8 x0, UINT8 W){      /* gear on the 
         if(top < 28) for(y = 16; y < top; y++) PX(x, y) = 1;       /* (index 1 is the outline in the shell's palette) */
     }
 }
-static void draw_legs(const BugLook *l, UINT8 x0, UINT8 W, UINT8 f){
-    UINT8 n = 2 + l->pt[BP_LEGS], i, lx, by, y, len, lift, k, st = l->pt[BP_LEGST];
+static void join_wings(UINT8 x0, UINT8 W){                          /* wings sit ON the shell: no hovering gap, no double outline between them */
+    UINT8 x;
+    for(x = x0; x < x0 + W; x++){
+        if(!PX(x, 15)) continue;
+        if(!PX(x, 16) && PX(x, 17)) PX(x, 16) = 1;                      /* a gap row: bridge it with the shell's outline */
+        if(PX(x, 16) && PX(x, 14)) PX(x, 15) = 2;                        /* the wing's own bottom outline: its body runs down into the shell instead */
+    }
+}
+static void draw_legs(const BugLook *l, UINT8 x0, UINT8 W, UINT8 f){      /* splayed, jointed legs: the front ones lean forward, the back ones back, they step in pairs */
+    UINT8 n = 3 + l->pt[BP_LEGS], i, lx, by, y, k, st = l->pt[BP_LEGST], lift, len;
+    INT8 dir, x;
     for(i = 0; i < n; i++){
         lx = x0 + 3 + (UINT8)(((UINT16)(W - 7) * i) / (n - 1));
-        lift = (i + f) & 1; len = 3 - lift;
+        dir = (i * 2 < n - 1) ? -1 : (i * 2 > n - 1) ? 1 : 0;
+        lift = (i + f) & 1; len = 4 - lift;
         by = 16;
         for(y = 0; y < 12; y++) if(PX(lx, 16 + y)) by = 16 + y;
-        lx += lift;
         for(k = 1; k <= len; k++){
             y = by + k;
-            if(!PX(lx, y)) PX(lx, y) = 1;
-            if(st == 1 && !PX(lx + 1, y)) PX(lx + 1, y) = 1;
-            if(st == 2 && ((k == 2 && lx > x0 && !PX(lx - 1, y)) )) PX(lx - 1, y) = 1;
-            if(st == 2 && k == 1 && !PX(lx + 1, y)) PX(lx + 1, y) = 1;
-            if(st == 3 && k == len){ if(!PX(lx + 1, y)) PX(lx + 1, y) = 1; if(!PX(lx + 2, y)) PX(lx + 2, y) = 1; }
+            x = (INT8)lx + (k >= 2 ? dir : 0) + (k >= 3 ? dir * (lift ? 0 : 1) : 0) + (lift && k == len ? 1 : 0);
+            if(x < 0) continue;
+            if(!PX(x, y)) PX(x, y) = 1;
+            if(st == 1 && !PX(x + 1, y)) PX(x + 1, y) = 1;
+            if(st == 2 && k == 1 && !PX(x + 1, y)) PX(x + 1, y) = 1;
+            if(st == 3 && k == len){ if(!PX(x + 1, y)) PX(x + 1, y) = 1; if(!PX(x + 2, y)) PX(x + 2, y) = 1; }
         }
     }
 }
@@ -90,6 +104,7 @@ static void draw_canvas(const BugLook *l, UINT8 f, UINT8 tc, UINT8 hc, UINT8 W){
     if(tc) stamp(&bp_tail[l->pt[BP_TAIL]], 0, 16);
     draw_shell(l, tc * 8, W);
     draw_back(l, tc * 8, W);
+    if(l->pt[BP_WING]) join_wings(tc * 8, W);
     draw_legs(l, tc * 8, W, f);
     stamp(&bp_head[0], hc * 8, HEAD_LO);
     stamp(&bp_neck[l->pt[BP_NECK]], hc * 8, HEAD_LO);
