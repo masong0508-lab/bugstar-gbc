@@ -24,10 +24,10 @@ import os, random
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 R = random.Random(7)
 
-MT = ["DEEP", "SHALLOW", "SAND", "GRASS", "GRASS2", "FLOWERS", "TREE", "ROCK", "BERRY", "DOOR", "PAD"]
-PAL = {"DEEP": 0, "SHALLOW": 0, "SAND": 2, "GRASS": 3, "GRASS2": 3, "FLOWERS": 3, "TREE": 3, "ROCK": 2, "BERRY": 3, "DOOR": 2, "PAD": 2}
-LVL = {"DEEP": 0, "SHALLOW": 1, "SAND": 2, "GRASS": 3, "GRASS2": 3, "FLOWERS": 3, "TREE": 3, "ROCK": 2, "BERRY": 3, "DOOR": 2, "PAD": 2}
-OBJ = ("TREE", "ROCK", "BERRY", "DOOR", "PAD")      # drawn as they are, never blended
+MT = ["DEEP", "SHALLOW", "SAND", "GRASS", "GRASS2", "FLOWERS", "TREE", "ROCK", "BERRY", "DOOR", "PAD", "HOUSE", "STALL", "WALL", "GATE"]
+PAL = {"DEEP": 0, "SHALLOW": 0, "SAND": 2, "GRASS": 3, "GRASS2": 3, "FLOWERS": 3, "TREE": 3, "ROCK": 2, "BERRY": 3, "DOOR": 2, "PAD": 2, "HOUSE": 3, "STALL": 3, "WALL": 2, "GATE": 2}
+LVL = {"DEEP": 0, "SHALLOW": 1, "SAND": 2, "GRASS": 3, "GRASS2": 3, "FLOWERS": 3, "TREE": 3, "ROCK": 2, "BERRY": 3, "DOOR": 2, "PAD": 2, "HOUSE": 3, "STALL": 3, "WALL": 2, "GATE": 2}
+OBJ = ("TREE", "ROCK", "BERRY", "DOOR", "PAD", "HOUSE", "STALL", "WALL", "GATE")      # drawn as they are, never blended
 
 
 def grid(v=0):
@@ -101,6 +101,45 @@ def art(name):
         g = art("SAND")
         for i in range(16):
             if i % 5 != 4: g[0][i] = 1; g[i][0] = 1
+    elif name == "HOUSE":                                      # PF: 0 grass, 1 dark outline, 2 light wall, 3 roof (the flower colour of the world)
+        g = grid(0)
+        for y in range(0, 8):
+            hw = min(8, 5 + y)
+            for x in range(8 - hw, 8 + hw):
+                g[y][x] = 1 if (x == 8 - hw or x == 7 + hw or y == 0 or y == 7) else (3 if y % 3 else 1)
+        for y in range(8, 16):
+            for x in range(1, 15): g[y][x] = 1 if (x in (1, 14) or y == 15) else 2
+        for y in range(10, 15):
+            for x in range(6, 10): g[y][x] = 1
+        for y in (10, 11):
+            for x in (3, 4, 11, 12): g[y][x] = 1
+    elif name == "STALL":                                     # a market stall: striped awning, a counter with goods
+        g = grid(0)
+        for y in range(0, 7):
+            for x in range(0, 16): g[y][x] = 1 if (y == 0 or y == 6) else (3 if (x // 2) % 2 == 0 else 2)
+        for y in range(7, 16):
+            g[y][1] = g[y][14] = 1
+        for y in range(10, 16):
+            for x in range(2, 14): g[y][x] = 1 if y == 15 else 2
+        for x in range(2, 14): g[10][x] = 1
+        for x in (4, 7, 10): g[9][x] = 3; g[9][x + 1] = 2
+    elif name in ("WALL", "GATE"):                            # PC: 0 sand, 1 pebble grey, 2 grass, 3 grass shadow: a sandstone wall, grey mortar
+        g = grid(0)
+        for x in range(16):
+            if (x // 4) % 2 == 0: g[0][x] = g[1][x] = 2          # battlement gaps show the lawn behind
+            g[2][x] = 1; g[3][x] = 3 if (x // 4) % 2 == 0 else 1
+        for y in range(4, 16):
+            for x in range(16):
+                row = (y - 4) // 4
+                if (y - 4) % 4 == 3 or (x + (4 if row % 2 else 0)) % 8 == 7: g[y][x] = 1
+                elif R.random() < 0.06: g[y][x] = 1
+        if name == "GATE":
+            for y in range(5, 16):
+                for x in range(4, 12):
+                    d = abs(x - 7.5)
+                    if y > 8 or d <= 3 - (8 - y) * 0.8: g[y][x] = 3 if y < 15 else 0
+            for y in range(4, 8):
+                for x in range(3, 13): g[y][x] = 1 if (g[y][x] == 0 and (x + y) % 2 == 0) else g[y][x]
     return g
 
 

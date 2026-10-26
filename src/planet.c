@@ -27,6 +27,7 @@
 #include "dungeon.h"
 #include "shop.h"
 #include "econ.h"
+#include "town.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
 #define CRIT_TILE0 120           /* the sparkle and butterfly sprites (bank 1, after the ship) */
@@ -71,11 +72,25 @@ static UINT8 height(UINT8 x, UINT8 y){
     return (UINT8)(((UINT16)a + a + b) / 3);                   /* big hills, and a little roughness */
 }
 static UINT8 is_picked(UINT8 x, UINT8 y){ UINT8 i; for(i = 0; i < npicked; i++) if(picked[i][0] == x && picked[i][1] == y) return 1; return 0; }
+/* The cities: 3 a world, each a square footprint (3, 5, 7, 9 or 13 metatiles wide by tier) laid over the land. Roads of paving cross it, houses and
+   stalls fill the blocks, towns of tier 2+ have a wall with a gate at the bottom middle. Stepping on the gate walks into town.c. */
+static const UINT8 tw_w[5] = { 3, 5, 7, 9, 13 };
+static UINT8 tw_x[3], tw_y[3], tw_t[3], tw_n, tw_seen;                 /* top-left corner, tier, how many are placed */
+static UINT8 town_cell(UINT8 t, UINT8 dx, UINT8 dy, UINT8 x, UINT8 y){
+    UINT8 w = tw_w[t], c = w >> 1, h = HASH(x, y, sb1, sb2);
+    if(dy == w - 1 && dx == c) return MT_GATE;
+    if(t >= 2 && (dx == 0 || dy == 0 || dx == w - 1 || dy == w - 1)) return MT_WALL;
+    if(dx == c || (t && dy == c) || (t >= 3 && (dx == (c >> 1) || dx == c + (c >> 1) || dy == (c >> 1) || dy == c + (c >> 1)))) return MT_SAND;
+    if(dy >= w - (t ? 2 : 1)) return (h & 15) ? MT_GRASS : MT_FLOWERS;     /* the lawn in front */
+    if((h & 3) == 0) return (h & 16) ? MT_FLOWERS : MT_GRASS;              /* a gap between the houses */
+    return ((h & 0x60) == 0x60) ? MT_STALL : MT_HOUSE;
+}
 static UINT8 ground(UINT8 x, UINT8 y){                          /* the metatile at (x, y) */
     const WorldKind *k = &kinds[wk]; UINT8 h, v, r;
     UINT8 dx = x - ship_mx + 1, dy = y - ship_my + 1;
     if(dx < 4 && dy < 4) return MT_PAD;                           /* the landing pad around the ship (you step out onto its bottom row) */
     if(x == door_mx && y == door_my) return MT_DOOR;
+    { UINT8 i; for(i = 0; i < tw_n; i++){ UINT8 w = tw_w[tw_t[i]], ex = x - tw_x[i], ey = y - tw_y[i]; if(ex < w && ey < w) return town_cell(tw_t[i], ex, ey, x, y); } }
     h = height(x, y);
     if(h < k->water) return MT_DEEP;
     if(h < k->shore) return MT_SHALLOW;
@@ -88,7 +103,7 @@ static UINT8 ground(UINT8 x, UINT8 y){                          /* the metatile 
     if(r > 255 - k->flowers) return MT_FLOWERS;
     return (r & 16) ? MT_GRASS2 : MT_GRASS;
 }
-static UINT8 solid(UINT8 mt){ return mt == MT_DEEP || mt == MT_TREE || mt == MT_ROCK; }
+static UINT8 solid(UINT8 mt){ return mt == MT_DEEP || mt == MT_TREE || mt == MT_ROCK || mt == MT_HOUSE || mt == MT_STALL || mt == MT_WALL; }
 
 /* ------------------------------------------------------------ drawing */
 /* The ground is blended (planet_art.h): each quarter of a metatile looks at its cell and the three cells towards that corner.
@@ -176,8 +191,20 @@ static void world_setup(void){
     find_land(&ship_mx, &ship_my, 128, 128, 2);                  /* a clearing big enough to land in */
     { UINT8 d = (UINT8)(seed_b & 3), dx = d == 0 ? 14 : d == 1 ? (UINT8)-14 : 3, dy = d == 2 ? 14 : d == 3 ? (UINT8)-14 : 5;
       find_land(&door_mx, &door_my, ship_mx + dx, ship_my + dy, 1); }
+    tw_n = 0; tw_seen = 0;
+    { UINT8 i;
+      static const INT8 ox[3] = { 22, 31, 17 }, oy[3] = { 9, 13, 38 };
+      for(i = 0; i < 3; i++){                                      /* the cities: nearer ones are smaller, the farthest is the biggest */
+          UINT8 t = i + ((seed_a >> (i * 4)) & 7) % 3, lx, ly;
+          INT8 dx = (seed_b >> i) & 1 ? -ox[i] : ox[i], dy = (seed_b >> (i + 3)) & 1 ? -oy[i] : oy[i];
+          find_land(&lx, &ly, ship_mx + dx, ship_my + dy, 1);
+          tw_x[i] = lx - (tw_w[t] >> 1); tw_y[i] = ly - (tw_w[t] >> 1); tw_t[i] = t; tw_n = i + 1;
+      } }
     bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40;   /* you step out just below the ship */
     npicked = 0;
+#ifdef TEST_TOWN
+    bx = ((UINT16)(tw_x[TEST_TOWN] + (tw_w[tw_t[TEST_TOWN]] >> 1)) << 4) + 8; by = ((UINT16)(tw_y[TEST_TOWN] + tw_w[tw_t[TEST_TOWN]]) << 4) + 20;
+#endif
 #ifdef TEST_DOOR
     bx = ((UINT16)door_mx << 4) + 8; by = ((UINT16)door_my << 4) - 6;   /* (test builds: start just above the door) */
 #endif
@@ -331,7 +358,7 @@ static void enter(void){                                       /* the planet ont
     fade_in();
 }
 int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
-    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0, tick = 0; char msg[140], *d;
+    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0, tick = 0, was_gate = 0; char msg[140], *d;
     fade_out(); DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
@@ -362,6 +389,24 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
         crit_step(++tick);
+        if(ground(ox, oy) == MT_GATE){
+            if(!was_gate){ UINT8 i; was_gate = 1;
+                for(i = 0; i < tw_n; i++) if((UINT8)(ox - tw_x[i]) < tw_w[tw_t[i]] && (UINT8)(oy - tw_y[i]) < tw_w[tw_t[i]]) break;
+                if(i < tw_n){
+                    INT16 ex = (INT16)door_mx - ox, ey = (INT16)door_my - oy;
+                    if(ex > 127) ex -= 256; if(ex < -128) ex += 256; if(ey > 127) ey -= 256; if(ey < -128) ey += 256;
+                    sfx(SFX_STAIRS); town_run(sv.star, i, tw_t[i], (INT8)ex, (INT8)ey);
+                    if(opt.autosave) slot_write(cur_slot);
+                }
+            }
+        } else was_gate = 0;
+        if(!(tick & 7) && !note_t){                                  /* a banner the first time a city comes close */
+            UINT8 i;
+            for(i = 0; i < tw_n; i++) if(!(tw_seen & (1 << i))){
+                INT8 ex = (INT8)(ox - tw_x[i] - (tw_w[tw_t[i]] >> 1)), ey = (INT8)(oy - tw_y[i] - (tw_w[tw_t[i]] >> 1));
+                if(ex > -9 && ex < 9 && ey > -9 && ey < 9){ char lb[24]; lb[0] = 0; tw_seen |= 1 << i; town_label(lb, sv.star, i, tw_t[i]); note(lb); break; }
+            }
+        }
         if(ox == door_mx && oy == door_my){ if(!was_door){ int r;
                 was_door = 1; sfx(SFX_STAIRS);
                 r = dungeon_run();                                 /* down you go */
