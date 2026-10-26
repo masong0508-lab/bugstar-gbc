@@ -12,4 +12,6 @@ void space3_pals(void) BANKED;            /* the space BG palette 3 and sprite p
 void space_kind_pal(UINT8 slot, UINT8 kind) BANKED;   /* sprite palette `slot` = the colours of planets of that kind */
 void title_pal_load(UINT8 pal) BANKED;    /* the title borrows the ship sprite: its colours (tiles: title_ship_load in space_art.h) */
 void space_pals_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED;   /* sprite palettes src.. of space into dst.. (for the warp) */
+UINT8 space_laser_add(UINT16 x, UINT16 y, INT8 dx, INT8 dy) BANKED;   /* a wingman fires (needs 3 free laser slots left for you) */
+void space_restore(void) BANKED;          /* the space pictures, colours and sprite size again (after the fleet arena) */
 #endif

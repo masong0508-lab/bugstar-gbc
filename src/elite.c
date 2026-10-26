@@ -11,6 +11,7 @@
 #include "menus.h"
 #include "dialog.h"
 #include "econ.h"
+#include "fleet.h"
 #include "shop.h"
 #include "space_int.h"
 #include "elite.h"
@@ -226,16 +227,16 @@ static void lounge(void){
 
 /* ---------------------------------------------------------------- the dock */
 static void dock_draw(UINT8 sel, const char *msg){
-    static const char *const item[7] = { "MARKET", "SERVICE", "SHIPYARD", "JOB BOARD", "LOUNGE", "VIEW", "UNDOCK" };
+    static const char *const item[8] = { "MARKET", "SERVICE", "SHIPYARD", "JOB BOARD", "LOUNGE", "VIEW", "FLEET", "UNDOCK" };
     UINT8 i; char b[24], v[16], *d;
     txt_win(1);
-    txt_box(0, 0, 20, 7); txt_box(0, 7, 20, 9);                      /* the station card, and the menu below it */
+    txt_box(0, 0, 20, 7); txt_box(0, 7, 20, 10);                      /* the station card, and the menu below it */
     d = world_name(b, world_seed(here)); d = scat(d, " STN"); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
     d = scat(b, kind_name[KIND(here)]); d = scat(d, " WORLD"); pad(d, b, 18); txt_line(1, 2, b, 18); txt_color(1, 2, 18, 1, TXT_GREY);
     u32s(v, sv.gold > 999999999UL ? 999999999UL : sv.gold); lv(1, 3, 18, "GOLD", v, TXT_GOLD);
     d = u16s(v, sv.el.fuel); d = scat(d, "/"); u16s(d, TANK_CAP()); lv(1, 4, 18, "FUEL", v, sv.el.fuel < 3 ? TXT_RED : TXT_WHITE);
     rank_at(v, fame_rank()); lv(1, 5, 18, "RANK", v, TXT_WHITE);
-    for(i = 0; i < 7; i++){
+    for(i = 0; i < 8; i++){
         d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, item[i]);
         if(i == 5){ d = pad(d, b, 8); d = scat(d, !V3_OPEN ? "LOCKED" : V3_ON ? "3D  A:2D" : "2D  A:3D"); }
         pad(d, b, 18); txt_line(1, 8 + i, b, 18);
@@ -244,8 +245,8 @@ static void dock_draw(UINT8 sel, const char *msg){
     if(sv.el.jk == J_HUNT){ d = num(b, "JOB  HUNT ", sv.el.jp, "/"); d = u16s(d, sv.el.jn); pad(d, b, 19); }
     else if(sv.el.jk == J_SEND){ d = scat(b, "JOB  GO TO "); d = world_name(d, world_seed(sv.el.jd)); pad(d, b, 19); }
     else { scat(b, "NO JOB TAKEN"); }
-    txt_line(1, 16, b, 19); txt_color(1, 16, 19, 1, sv.el.jk != J_NONE ? TXT_GOLD : TXT_GREY);
-    txt_line(1, 17, msg ? msg : "", 19); txt_color(1, 17, 19, 1, TXT_RED);
+    if(msg){ d = scat(b, msg); pad(d, b, 19); }
+    txt_line(1, 17, b, 19); txt_color(1, 17, 19, 1, msg ? TXT_RED : sv.el.jk != J_NONE ? TXT_GOLD : TXT_GREY);
     txt_win(0);
 }
 static void dock_frame(void){ txt_win(1); txt_cls(); txt_win(0); move_win(7, 0); SHOW_WIN; }
@@ -261,12 +262,13 @@ UINT8 elite_dock(UINT8 star) BANKED {
     dock_frame(); dock_draw(sel, msg);
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : 6; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
-        if(HIT(J_DOWN)) { sel = sel < 6 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
+        if(HIT(J_UP))   { sel = sel ? sel - 1 : 7; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
+        if(HIT(J_DOWN)) { sel = sel < 7 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             sfx(SFX_OK);
-            if(sel == 6) break;
+            if(sel == 7) break;
+            if(sel == 6){ fleet_hq(here); dock_frame(); msg = 0; dock_draw(sel, msg); continue; }
             if(sel == 5){
                 if(!V3_OPEN){ d = scat(b, "NEED RANK "); rank_at(d, 2); msg = b; sfx(SFX_BACK); }
                 else { sv.el.rsv[0] ^= 2; go = 1; break; }

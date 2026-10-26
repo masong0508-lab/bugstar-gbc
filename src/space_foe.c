@@ -14,6 +14,7 @@
 #include "econ.h"
 #include "menus.h"
 #include "text.h"
+#include "fleet.h"
 void toast(const char *t1, const char *t2) {              /* two lines over the HUD for a moment (from the foes, bank 10) */
     shown = 252; toast_t = 110;
     txt_win(1);
@@ -54,7 +55,7 @@ static UINT8 near_planet(UINT16 px, UINT16 py, INT16 r){      /* a planet within
 }
 static void hurt(UINT8 dmg, INT16 dx, INT16 dy, INT8 push){     /* the ship is hit; dx, dy: from what hit it to the ship */
     if(inv) return;
-    { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3; dmg = dmg > a ? dmg - a : 1; }
+    { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3 + FL_ARMOR(); dmg = dmg > a ? dmg - a : 1; }
     if(UPG(UP_SHIELD) && sv.mp){                                 /* the shield soaks it up: 2 MP for every point of damage */
         UINT8 soak = sv.mp / 2 > dmg ? dmg : (UINT8)(sv.mp / 2);
         sv.mp -= soak * 2; dmg -= soak;
@@ -135,6 +136,15 @@ void foes_gfx(void) BANKED {
     for(i = 0; i < NPIR * 2; i++) set_sprite_prop(OAM_PIR + i, 1 | 0x08);
 }
 
+UINT8 foes_target(UINT16 x, UINT16 y, INT16 *tx, INT16 *ty) BANKED {   /* the nearest pirate within 150 px: its offset from (x, y) */
+    UINT8 k, f = 0; INT16 bd = 150;
+    for(k = 0; k < NPIR; k++){ INT16 dx, dy, m; Pirate *p = &pir[k];
+        if(p->st != 1) continue;
+        dx = wrapd(p->x, x); dy = wrapd(p->y, y); m = (dx < 0 ? -dx : dx) > (dy < 0 ? -dy : dy) ? (dx < 0 ? -dx : dx) : (dy < 0 ? -dy : dy);
+        if(m < bd){ bd = m; *tx = dx; *ty = dy; f = 1; }
+    }
+    return f;
+}
 UINT8 foes_hit(Laser *l) BANKED {
     UINT8 k;
     if(b_on && !b_dead){ INT16 dx = wrapd(l->x, b_x), dy = wrapd(l->y, b_y);
@@ -151,7 +161,7 @@ UINT8 foes_hit(Laser *l) BANKED {
         if(dx > -10 && dx < 10 && dy > -10 && dy < 10){
             l->life = 0;
             sfx(SFX_HIT);
-            { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2; p->hp = p->hp > ld ? p->hp - ld : 0; }
+            { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2 + FL_GUN(); p->hp = p->hp > ld ? p->hp - ld : 0; }
             if(!p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
                 sv.gold += SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253;   /* (a level-up message covers the window: put it back) */
                 pod_drop(p->x, p->y, p->kind); if(elite_kill(p->kind)) toast("JOB COMPLETE!", "DOCK TO GET PAID"); }

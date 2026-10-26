@@ -61,6 +61,7 @@ void  foes_reset(void) BANKED;                  /* a fresh flight: no pirates, o
 void  foes_clear(void) BANKED;                  /* after a warp: everything gone, the beast keeps its wounds */
 void  foes_gfx(void) BANKED;                    /* sprite tiles and colours for the foes (LCD off) */
 UINT8 foes_step(UINT8 frame) BANKED;            /* move everything; 1 when the beast has just died (play the ending) */
+UINT8 foes_target(UINT16 x, UINT16 y, INT16 *tx, INT16 *ty) BANKED;   /* the nearest pirate in range: its offset (for the wingmen) */
 UINT8 foes_hit(Laser *l) BANKED;                /* a laser against the foes: 1 if it hit something (the laser is used up) */
 void  foes_draw(UINT8 frame) BANKED;            /* sprites (call in VBlank) */
 #endif

@@ -25,6 +25,7 @@
 #include "menus.h"
 #include "space_art.h"
 #include "space.h"
+#include "fleet.h"
 #include "warp.h"
 #include "econ.h"
 #include "elite.h"
@@ -202,7 +203,17 @@ static void gfx_tiles(void){                                     /* the pictures
     set_sprite_palette(0, 6, sp_spr_pal);
     sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2); sprite_pals(OAM_ORB, 2, 3);
     foes_gfx();
+    fleet_ship_gfx();
 }
+UINT8 space_laser_add(UINT16 x, UINT16 y, INT8 dx, INT8 dy) BANKED {
+    UINT8 i, fr = 0, sl = 255;
+    for(i = 0; i < NLAS; i++) if(!las[i].life){ fr++; if(sl == 255) sl = i; }
+    if(fr < 3) return 0;
+    las[sl].x = x & 4095; las[sl].y = y & 4095; las[sl].dx = dx; las[sl].dy = dy; las[sl].life = 30;
+    sfx(SFX_LASER);
+    return 1;
+}
+void space_restore(void) BANKED { gfx_tiles(); SPRITES_8x16; txt_pal_reset(); pals(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all(); hud_init(); shown = 255; }
 static void gfx(void){                                           /* everything onto the screen (LCD off): it fades in */
     UINT8 i;
     gfx_tiles();
@@ -249,7 +260,7 @@ static int space2d(void) {
             else dir = (k & J_RIGHT) ? 2 : 6;
             vx += thr_x[dir]; vy += thr_y[dir];
         } else if(frame & 1){ vx = drag(vx); vy = drag(vy); }
-        { INT16 m = (k & J_B) ? VBOOST + 6 * UPG(UP_TURBO) : VMAX + 3 * UPG(UP_ENGINE);
+        { INT16 m = (k & J_B) ? VBOOST + 6 * UPG(UP_TURBO) : VMAX + 3 * UPG(UP_ENGINE) + FL_SPEED();
           if(k & J_B){ vx += thr_x[dir]; vy += thr_y[dir]; }
           if(vx > m) vx = m; if(vx < -m) vx = -m; if(vy > m) vy = m; if(vy < -m) vy = -m; }
         shx += vx; shy += vy;
@@ -275,6 +286,7 @@ static int space2d(void) {
             if(las[i].life) spr16(OAM_LAS + i * 2, SP_T_LASER, wrapd(las[i].x, cam_x), wrapd(las[i].y, cam_y)); else hide2(OAM_LAS + i * 2);
         }
         foes_draw(frame);
+        if(b_on) fleet_wing_hide(); else fleet_wing(frame, shx >> 4, shy >> 4, dir, cam_x, cam_y);
         if(!b_on) for(i = 0; i < 2; i++){                            /* engine puffs (sprites 0..3: the beast's when it is about) */
             if(puff[i].life){ puff[i].life--; set_sprite_prop(i * 2, 3 | 0x08); set_sprite_prop(i * 2 + 1, 3 | 0x08);
                 spr16(i * 2, SP_T_BOOM(puff[i].life > 9), wrapd(puff[i].x, cam_x), wrapd(puff[i].y, cam_y)); }
