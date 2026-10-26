@@ -64,7 +64,7 @@ extern Extra ex;
 typedef struct {                 /* options, same set as the GBA game */
     UINT8 music;                 /* 0 off, 1 low, 2 full */
     UINT8 sfx, autosave, shake;
-    UINT8 diff;                  /* 0 EASY .. 4 NIGHTMARE */
+    UINT8 diff;                  /* 0 BABY, 1 EASY, 2 NORMAL, 3 HARD, 4 BRUTAL, 5 NIGHTMARE */
     UINT8 baby, hunger, faint;   /* hunger/faint: 1 = on (default) */
     UINT8 xpm, goldm;            /* 0 x1, 1 x2, 2 x5 */
     UINT8 cam, minimap, nums, hints, arrow;

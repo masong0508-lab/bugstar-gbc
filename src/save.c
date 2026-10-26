@@ -77,8 +77,8 @@ static void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n){
 #define sram_write(b, s, n) sram_write_at(b, 0, s, n)
 
 static void opts_default(void){
-    opt.music = 2; opt.sfx = 1; opt.autosave = 1; opt.shake = 1; opt.diff = 1;
-    opt.baby = 0; opt.hunger = 1; opt.faint = 1; opt.xpm = 0; opt.goldm = 0;
+    opt.music = 2; opt.sfx = 1; opt.autosave = 1; opt.shake = 1; opt.diff = 2;
+    opt.baby = 2;   /* 2 = difficulty list has BABY first (older saves: baby on = BABY, else diff + 1) */ opt.hunger = 1; opt.faint = 1; opt.xpm = 0; opt.goldm = 0;
     opt.cam = 0; opt.minimap = 1; opt.nums = 1; opt.hints = 1; opt.arrow = 1;
 }
 void settings_save(void){
@@ -95,10 +95,11 @@ static void settings_load(void){
     if(s.magic != SET_MAGIC || s.sum != fnv(&s, sizeof s - 4) || s.last >= NSLOT) return;   /* first run: defaults */
     last_slot = s.last; opt = s.o;
     if(opt.music > 2) opt.music = 2;                 /* clamp anything odd */
-    if(opt.diff > 4) opt.diff = 4;
+    if(opt.baby != 2){ opt.diff = opt.baby ? 0 : (opt.diff > 4 ? 5 : opt.diff + 1); opt.baby = 2; }
+    if(opt.diff > 5) opt.diff = 5;
     if(opt.xpm > 2) opt.xpm = 2;
     if(opt.goldm > 2) opt.goldm = 2;
-    opt.sfx &= 1; opt.autosave &= 1; opt.shake &= 1; opt.baby &= 1; opt.hunger &= 1; opt.faint &= 1;
+    opt.sfx &= 1; opt.autosave &= 1; opt.shake &= 1; opt.hunger &= 1; opt.faint &= 1;
     opt.cam &= 1; opt.minimap &= 1; opt.nums &= 1; opt.hints &= 1; opt.arrow &= 1;
 }
 

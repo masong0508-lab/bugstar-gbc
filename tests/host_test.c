@@ -81,7 +81,7 @@ int main(void){
     /* fake SRAM erased to 0xFF like a fresh cart */
     memset(sram_buf,0xFF,sizeof sram_buf);
     save_init();
-    CHECK(opt.music==2 && opt.diff==1 && opt.autosave==1);
+    CHECK(opt.music==2 && opt.diff==2 && opt.autosave==1);
     CHECK(first_good_slot()==255);
     new_game(1, 0xDEADBEEF, 0, 0);
     CHECK(first_good_slot()==1); CHECK(last_slot==1);
@@ -94,7 +94,7 @@ int main(void){
     opt.music=0; opt.diff=3; opt.xpm=2; settings_save();
     opt.music=2; opt.diff=1; opt.xpm=0; last_slot=0;
     save_init(); CHECK(opt.music==0 && opt.diff==3 && opt.xpm==2 && last_slot==1);
-    sram_buf[3*8192+6]=9; /* corrupt settings -> defaults */ save_init(); CHECK(opt.music==2 && opt.diff==1);
+    sram_buf[3*8192+6]=9; /* corrupt settings -> defaults */ save_init(); CHECK(opt.music==2 && opt.diff==2);
     /* second slot, erase logic */
     new_game(2, 5, 0, 0); CHECK(last_slot==2); slot_erase(2); CHECK(!slot_peek(2,&t)); CHECK(first_good_slot()==1);
     /* formatting helpers */
@@ -116,10 +116,10 @@ int main(void){
     static const UINT8 s5[] = { J_START, J_A, J_B, 0xFF };
     script=s5; sp=0; phase=0; cls(); r=slot_picker(0); CHECK(r==-1); CHECK(!slot_peek(1,&t));
     /* options: toggle BABY (right), cycle DIFFICULTY left twice, go to the bottom, B to save */
-    static const UINT8 o1[] = { J_RIGHT, J_DOWN, J_LEFT, J_LEFT, J_UP, J_UP, J_B, 0xFF };
+    static const UINT8 o1[] = { J_LEFT, J_LEFT, J_LEFT, J_UP, J_B, 0xFF };
     save_init(); script=o1; sp=0; phase=0; cls(); options_screen();
-    CHECK(opt.baby==1); CHECK(opt.diff==4 /* 1->0->4 */); CHECK(opt.arrow==1); dump("options after edits (cursor wrapped to bottom)");
-    memset(&opt,0,sizeof opt); save_init(); CHECK(opt.baby==1 && opt.diff==4);
+    CHECK(opt.diff==5 /* NORMAL 2 -> 1 -> 0 BABY -> 5 NIGHTMARE */); CHECK(opt.arrow==1); dump("options after edits (cursor wrapped to bottom)");
+    memset(&opt,0,sizeof opt); save_init(); CHECK(opt.diff==5);
     /* ---- font data: tile number == ASCII, every drawn glyph has ink, aliases and specials are right */
     CHECK(sizeof bs_font == 128 * 16);
     for(int t = 0; t < 128; t++){
