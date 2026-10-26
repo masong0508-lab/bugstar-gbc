@@ -12,14 +12,15 @@
 #include "shop.h"
 #include "space3d.h"
 #include "spell.h"
+#include "guide.h"
 
 UINT8 sys_gfx_lost;
 UINT8 sys_space;
 
-#define NITEM 8
+#define NITEM 9
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "FEATS", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "FEATS", "GUIDE", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -120,6 +121,17 @@ int sysmenu_run(void (*redraw)(void)){
                 { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;
                   SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; txt_cls(); feats_run(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
                 if(redraw) redraw();
+                SHOW_WIN; cores();
+            } else if(sel == 7){
+                HIDE_WIN;
+                { UINT8 sx = SCX_REG, sy = SCY_REG;                    /* the guide borrows sprite tiles: the scene repaints afterwards */
+                  DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_cls();
+                  sys_gfx_lost = 1;
+                  guide_run();
+                  DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy;
+                  if(redraw) redraw();
+                  sys_gfx_lost = 0;
+                  SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
             } else {
                 if(confirm_title()){ if(opt.autosave) slot_write(cur_slot); result = SYS_TITLE; break; }

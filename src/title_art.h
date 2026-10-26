@@ -5,7 +5,7 @@
 #include <gb/cgb.h>
 #define TITLE_ART_W 20
 #define TITLE_ART_H 18
-#define TITLE_NTILES 247
+#define TITLE_NTILES 254
 #define TITLE_NSTAR 1
 extern const UINT8 title_tiles[TITLE_NTILES * 16]; /* 2bpp, load into VRAM bank 1 */
 extern const UINT8 title_map[TITLE_ART_W * TITLE_ART_H];    /* tile numbers (bank 0 map) */

@@ -87,9 +87,9 @@ ctext("A LITTLE BUG", 37, WHITE)
 ctext("A BIG GALAXY", 47, WHITE)
 # menu panel, aligned to the 8px tile grid: tiles x5..14, y11..15. Four lines, 9px apart (title.c MENU_Y0/MENU_DY)
 PANEL, EDGE = (18,16,38), (255,210,90)
-img[88:128, 40:120] = PANEL
-img[88, 40:120] = EDGE; img[127, 40:120] = EDGE; img[88:128, 40] = EDGE; img[88:128, 119] = EDGE
-for i, name in enumerate(("CONTINUE", "NEW GAME", "LOAD GAME", "OPTIONS")):
+img[88:136, 40:120] = PANEL
+img[88, 40:120] = EDGE; img[135, 40:120] = EDGE; img[88:136, 40] = EDGE; img[88:136, 119] = EDGE
+for i, name in enumerate(("CONTINUE", "NEW GAME", "LOAD GAME", "OPTIONS", "HOW TO PLAY")):
     ctext(name, 90 + i*9, WHITE)
 img = (img & 0xF8).astype(np.uint8)
 Image.fromarray(img).save("tools/title.png")

@@ -114,8 +114,8 @@ int title_run(UINT8 have_save) BANKED {
         input_poll();
         twinkle(t); show_off(t);
         t++; title_frames++;
-        if(HIT(J_DOWN)){ i = title_sel; do { i = (i + 1) % 4; } while(!enabled(i, have_save)); title_sel = i; sfx(SFX_MOVE); }
-        if(HIT(J_UP))  { i = title_sel; do { i = (i + 3) % 4; } while(!enabled(i, have_save)); title_sel = i; sfx(SFX_MOVE); }
+        if(HIT(J_DOWN)){ i = title_sel; do { i = (i + 1) % 5; } while(!enabled(i, have_save)); title_sel = i; sfx(SFX_MOVE); }
+        if(HIT(J_UP))  { i = title_sel; do { i = (i + 4) % 5; } while(!enabled(i, have_save)); title_sel = i; sfx(SFX_MOVE); }
         move_sprite(0, 46 + 8 + ((t >> 4) & 1), MENU_Y0 + title_sel * MENU_DY + 16);
         if(HIT(J_START) || HIT(J_A)){ sfx(SFX_OK); return title_sel; }
     }

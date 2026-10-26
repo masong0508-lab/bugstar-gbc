@@ -13,6 +13,7 @@
 #include "hud.h"
 #include "dialog.h"
 #include "sysmenu.h"
+#include "guide.h"
 #include "bug.h"
 #include "bugspr.h"
 #include "bugmake.h"
@@ -84,6 +85,7 @@ void main(void){
         choice = title_run(first_good_slot() != 255);
         title_exit();
         if(choice == TI_OPT){ options_screen(); }
+        else if(choice == TI_HELP){ guide_run(); }
         else if(choice == TI_CONT){ cur_slot = first_good_slot(); if(cur_slot != 255 && slot_read(cur_slot)) play(); }
         else if(choice == TI_LOAD){ s = slot_picker(0); if(s >= 0 && slot_read(s)){ cur_slot = s; play(); } }
         else {                                                    /* TI_NEW */
