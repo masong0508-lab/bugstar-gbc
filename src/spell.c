@@ -47,15 +47,15 @@ UINT8 diff_dmg(UINT8 n) BANKED {
 }
 
 /* ------------------------------------------------------------ floor events */
-static const char *const ev_tx[7] = { "", "TREASURE VAULT! CHESTS IN EVERY ROOM.", "GOLD RUSH! FOES PAY TRIPLE.", "AMBUSH! EXTRA MONSTERS HERE.",
-    "BLESSED SHRINE! YOU FEEL HEALED.", "CURSED FLOOR! TOUGH FOES, DOUBLE GOLD.", "QUIET FLOOR. FEW MONSTERS." };
+static const char *const ev_tx[8] = { "", "TREASURE VAULT! CHESTS IN EVERY ROOM.", "GOLD RUSH! FOES PAY TRIPLE.", "AMBUSH! EXTRA MONSTERS HERE.",
+    "BLESSED SHRINE! YOU FEEL HEALED.", "CURSED FLOOR! TOUGH FOES, DOUBLE GOLD.", "QUIET FLOOR. FEW MONSTERS.", "A LABYRINTH! FIND THE STAIRS." };
 UINT8 ev_roll(UINT8 depth) BANKED {
     UINT32 h = world_seed(sv.star) ^ ((UINT32)depth * 2654435761UL) ^ ((UINT32)sv.zone << 20);
     h ^= h >> 15; h *= 2246822519UL; h ^= h >> 13;
     if((h & 3) == 0) return 0;                       /* 1 floor in 4 has none */
     return 1 + (UINT8)((h >> 8) % 6);
 }
-void ev_name(UINT8 e, char *out) BANKED { scat(out, ev_tx[e > 6 ? 0 : e]); }
+void ev_name(UINT8 e, char *out) BANKED { scat(out, ev_tx[e > 7 ? 0 : e]); }
 void floor_intro(UINT8 e) BANKED {
     if(e){ char b[40]; b[0] = 0; ev_name(e, b); if(e == 4){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); } dlg_say(0, b); }
     if(!(EX_SPELL & 0x80)){ EX_SPELL |= 0x80; dlg_say(0, "SELECT CASTS YOUR SPELL. A+SELECT SWITCHES SPELL. B+SELECT DRINKS A POTION."); }
