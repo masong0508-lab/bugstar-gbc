@@ -238,8 +238,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     play_reset(sv.secs);
     ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
     d = scat(msg, "WE LANDED ON "); d = world_name(d, world_seed(sv.star)); d = scat(d, ", A "); d = scat(d, planet_world_name[wk]);
-    d = scat(d, world_freed(sv.star) ? " WORLD. IT IS FREE NOW, THANKS TO YOU." : " WORLD. FIND THE DOOR AND GO DOWN TO ITS QUEEN.");
-    scat(d, " A AT THE SHIP SAVES, OR FLIES US AWAY.");
+    d = scat(d, world_freed(sv.star) ? " WORLD. IT IS FREE NOW, THANKS TO YOU." : " WORLD. FIND THE DOOR DOWN TO ITS QUEEN.");
+    scat(d, " PRESS A AT THE SHIP TO SAVE OR TAKE OFF.");
     if(!(sv.story & ST_INTRO)){
         sv.story |= ST_INTRO;
         dlg_say("BOLT", "HI, I AM BOLT, YOUR SHIP. I LOST MY MEMORY. EVERY WORLD HAS A QUEEN DEEP DOWN, AND EACH ONE HOLDS ONE OF MY 8 DATA CORES. PLEASE GET THEM BACK!");
