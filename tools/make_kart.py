@@ -164,6 +164,7 @@ out += arr('kt_map', [v for r in mp for v in r], per=32)
 out += arr('kt_attr', [v for r in at for v in r], per=32)
 out += arr('kt_pal', pal, 'UINT16', 12)
 out += arr('kt_hw', hwt, per=20) + arr('kt_qa', qa, per=20) + arr('kt_y', ytab, per=24)
+out += arr('kt_bv', [(c * qa[2 * k]) >> 6 for c in range(-30, 30) for k in range(NR // 2)], 'INT8', 20)       # the bend of every road line pair for every curve (-30..29): no multiply at run time
 sb = []
 for u in units:
     for half in (0, 1):

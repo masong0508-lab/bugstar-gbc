@@ -19,6 +19,10 @@
 #define NLAPS  3
 #define NRIV   3
 #define HZ     64                              /* first road scanline */
+#ifndef KX_T0
+#define KX_T0 0
+#define KX_L0 0
+#endif
 #define NSCEN  52                              /* trees and rocks along a lap, one every 40 metres */
 
 static const INT8 seg[16] = { 0, 0, 10, 28, 28, 10, 0, -14, -30, -30, -14, 0, 18, 18, 0, -8 };      /* the bend of each 128 m of track (+ right) */
@@ -52,18 +56,20 @@ static void set_stripes(void){
     set_bkg_palette(5, 1, &kt_pal[stripe ? 0 : 4]);
 }
 
-static void put_obj(UINT8 slot, UINT8 unit, UINT8 cols, UINT8 rows, UINT8 pal, INT16 cx, INT16 by){
-    UINT8 c, r;
-    for(c = 0; c < cols; c++) for(r = 0; r < rows; r++){
-        INT16 x = cx - 4 * cols + 8 * c, y = by - 16 * rows + 16 * r;
-        UINT8 s = slot + c * rows + r;
-        if(x < -7 || x > 159 || y < 16 || y > 143){ move_sprite(s, 0, 0); continue; }
-        set_sprite_tile(s, 128 + 2 * (unit + c * rows + r));
-        set_sprite_prop(s, pal);
-        move_sprite(s, (UINT8)(x + 8), (UINT8)(y + 16));
+static void put_obj(UINT8 slot, UINT8 unit, UINT8 cols, UINT8 rows, UINT8 pal, INT16 cx, INT16 by){      /* (adds only, and straight into the sprite table: a multiply or a call costs more than a sprite) */
+    UINT8 c, r, s = slot, u = unit;
+    INT16 x = cx - (INT16)(cols << 2), y0 = by - (INT16)(rows << 4), y;
+    for(c = 0; c < cols; c++, x += 8){
+        y = y0;
+        for(r = 0; r < rows; r++, y += 16, s++, u++){
+            if(x < -7 || x > 159 || y < 16 || y > 143){ shadow_OAM[s].y = 0; continue; }
+            shadow_OAM[s].tile = (UINT8)(128 + (u << 1));
+            shadow_OAM[s].prop = pal;
+            shadow_OAM[s].x = (UINT8)(x + 8); shadow_OAM[s].y = (UINT8)(y + 16);
+        }
     }
 }
-static void hide_from(UINT8 s){ for(; s < 40; s++) move_sprite(s, 0, 0); }
+static void hide_from(UINT8 s){ for(; s < 40; s++) shadow_OAM[s].y = 0; }
 
 static void banner(const char *s){
     txt_win(1); txt_cls(); txt_box(0, 0, 20, 3); txt_line(2, 1, s, 16); txt_color(2, 1, 16, 1, TXT_GOLD); txt_win(0);
@@ -126,41 +132,56 @@ static void drive(UINT8 go){
 }
 
 /* the picture: the sideways slide of every road line, then the sprites. (No multiplies in the per-line loops: they only add.) */
+#ifdef TEST_KPROF
+UINT16 sp[5], lt_tot;
+#define SP(i) sp[i]=(UINT16)(frames32()*154+LY_REG-(LY_REG>=144?154:0))
+#else
+#define SP(i)
+#endif
 static void scene(void){
+    SP(0);
     UINT8 i, k, n = 12; INT16 cur = curve_at(tm[0] + 24, tf[0]), px = lx[0];
     UINT16 pm = tm[0] & (LAPM - 1);
     INT16 sh = px * 6, sh_d = (INT16)(((INT32)px * 466L) >> 7);              /* the sideways shift of the road (8.8): px * hw / 128, two lines at a time */
-    for(i = 0; i < 80; i += 2){
-        INT16 bv = (INT16)(((INT16)cur * (INT16)kt_qa[i]) >> 6);
-        UINT8 t = (UINT8)((sh >> 8) - bv);
-        bend[i] = bend[i + 1] = (INT8)bv;
-        tab[HZ + i] = tab[HZ + i + 1] = t;
+    { const INT8 *row; UINT8 *tp = &tab[HZ]; INT8 *bp = bend; UINT8 kk;
+      if(cur < -30) cur = -30; if(cur > 29) cur = 29;
+      row = &kt_bv[(UINT8)(cur + 30) * 40U];
+      for(kk = 0; kk < 40; kk++){
+        INT8 bv = row[kk];
+        UINT8 t = (UINT8)((UINT8)((UINT16)sh >> 8) - (UINT8)bv);
+        *bp++ = bv; *bp++ = bv; *tp++ = t; *tp++ = t;
         sh += sh_d;
-    }
+      } }
+    SP(1);
     memset(tab, 0, 16); memset(&tab[16], sky_x = (UINT8)(head >> 4), HZ - 16);
     for(k = 1; k <= NRIV; k++){                                             /* the rivals ahead of you, bigger as they near */
         INT16 dz = (INT16)(tm[k] - tm[0]);
         UINT8 y, o = 3 * (k - 1) + 3;
-        if(dz < 1 || dz > 90){ for(i = 0; i < 3; i++) move_sprite(o + i, 0, 0); continue; }
+        if(dz < 1 || dz > 90){ for(i = 0; i < 3; i++) shadow_OAM[o + i].y = 0; continue; }
         y = kt_y[dz]; i = y - HZ;
         { INT16 x = 80 + (((lx[k] - px) * kt_hw[i]) >> 7) + bend[i];
           if(dz < 18) put_obj(o, KU_AI2, 3, 1, 1 + k, x, y);
-          else if(dz < 44){ put_obj(o, KU_AI1, 2, 1, 1 + k, x, y); move_sprite(o + 2, 0, 0); }
-          else { put_obj(o, KU_AI0, 1, 1, 1 + k, x, y); move_sprite(o + 1, 0, 0); move_sprite(o + 2, 0, 0); } }
+          else if(dz < 44){ put_obj(o, KU_AI1, 2, 1, 1 + k, x, y); shadow_OAM[o + 2].y = 0; }
+          else { put_obj(o, KU_AI0, 1, 1, 1 + k, x, y); shadow_OAM[o + 1].y = 0; shadow_OAM[o + 2].y = 0; } }
     }
-    { INT16 base = 0, dz; UINT8 r5 = 0, r3 = 0;
-      for(k = 0; k < NSCEN && n < 38; k++, base += 40, r5 = (r5 + 5) & 31, r3 = (r3 == 2) ? 0 : r3 + 1){   /* trees and rocks along the road */
-        UINT8 y, rk = (r3 == 0);
-        INT16 lat = (k & 1) ? 150 + r5 : -150 - r5;
-        dz = base - (INT16)pm; if(dz < 0) dz += (INT16)LAPM;
+    SP(2);
+    { UINT8 n0 = (UINT8)(pm / 40U), q; INT16 dz;
+      for(q = 0; q < 4 && n < 38; q++){                                   /* trees and rocks along the road: only the next few are near enough to see */
+        UINT8 kq = n0 + q, y, rk, r3; INT16 lat;
+        if(kq >= NSCEN) kq -= NSCEN;
+        dz = (INT16)(kq * 40U) - (INT16)pm; if(dz < 0) dz += (INT16)LAPM;
         if(dz < 2 || dz > 90) continue;
+        r3 = kq % 3; rk = (r3 == 0);
+        lat = (kq & 1) ? 150 + ((kq * 5) & 31) : -150 - ((kq * 5) & 31);
         y = kt_y[dz]; i = y - HZ;
         { INT16 x = 80 + (((lat - px) * kt_hw[i]) >> 7) + bend[i];
           if(dz < 20){ put_obj(n, rk ? KU_ROCK2 : KU_TREE2, 2, 2, rk, x, y); n += 4; }
           else if(dz < 48){ put_obj(n, rk ? KU_ROCK1 : KU_TREE1, 2, 1, rk, x, y); n += 2; }
           else { put_obj(n, rk ? KU_ROCK0 : KU_TREE0, 1, 1, rk, x, y); n += 1; } }
       } }
+    SP(3);
     hide_from(n);
+    SP(4);
 }
 
 static void me_draw(INT8 dir){
@@ -174,14 +195,15 @@ static void flip(void){
 static void results(UINT8 place, UINT8 saved){
     static const UINT16 prize[4] = { 200, 100, 50, 20 };
     char b[21], *d; UINT16 s = tot_t / 60;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 14);
+    txt_win(1); txt_cls(); txt_box(0, 0, 20, 15);
     txt_line(5, 1, "RACE OVER!", 10); txt_color(5, 1, 10, 1, TXT_GOLD);
     d = scat(b, "YOU CAME "); d = u16s(d, place); d = scat(d, place == 1 ? " (WIN!)" : " OF 4"); *d = 0; txt_line(3, 3, b, 15);
     d = scat(b, "TIME "); d = u16s(d, s / 60); d = scat(d, ":"); if(s % 60 < 10) d = scat(d, "0"); d = u16s(d, s % 60); *d = 0; txt_line(3, 5, b, 15);
     d = scat(b, "BEST LAP "); d = u16s(d, best_run / 60); d = scat(d, "."); d = u16s(d, (best_run % 60) * 10 / 60); *d = 0; txt_line(3, 7, b, 15);
-    if(saved) txt_line(3, 8, "NEW RECORD!", 15), txt_color(3, 8, 15, 1, TXT_GOLD);
-    d = scat(b, "PRIZE +"); d = u16s(d, prize[place - 1]); d = scat(d, " G"); *d = 0; txt_line(3, 10, b, 15); txt_color(3, 10, 15, 1, TXT_GOLD);
-    txt_line(3, 12, "A: OK", 15); txt_color(3, 12, 15, 1, TXT_GREY);
+    if(saved) txt_line(3, 9, "NEW RECORD!", 15), txt_color(3, 9, 15, 1, TXT_GOLD);
+    d = scat(b, "PRIZE +"); d = u16s(d, prize[place - 1]); d = scat(d, " G"); *d = 0; txt_line(3, 11, b, 15); txt_color(3, 11, 15, 1, TXT_GOLD);
+    txt_line(3, 13, "A: OK", 15); txt_color(3, 13, 15, 1, TXT_GREY);
+    hide_from(0);
     txt_win(0); move_win(7, 8); SHOW_WIN;
     sv.gold += prize[place - 1];
     sfx(place == 1 ? SFX_FANFARE : SFX_COIN);
@@ -202,8 +224,8 @@ void kart_run(void) BANKED {
     set_sprite_palette_entry(5, 2, sv.look.col[BC_SHELL]);
     hide_from(0);
     SCX_REG = 0; SCY_REG = 0;
-    for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)(k * 5); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; }   /* the start grid: you at the back */
-    head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; lapn = 0; nextlap = LAPM; bump_cd = 0; frame = 0;
+    for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)(k * 5 + KX_T0); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; }   /* the start grid: you at the back */
+    head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; lapn = KX_L0; nextlap = LAPM * (KX_L0 + 1); bump_cd = 0; frame = 0;
     memset(tab, 0, sizeof tab); flip(); set_stripes();
     scene(); flip(); me_draw(0);
     SHOW_BKG; SHOW_SPRITES; DISPLAY_ON;
@@ -212,7 +234,11 @@ void kart_run(void) BANKED {
 #endif
     banner("GET READY!");
     while(!done){
-        wait_vbl_done(); input_poll(); frame++;
+        wait_vbl_done();
+#ifdef TEST_KPROF_OFF
+        { static UINT16 lp; UINT16 nw; nw = (UINT16)(frames32()*154+LY_REG-(LY_REG>=144?154:0)); lt_tot = nw - lp; lp = nw; }
+#endif
+        input_poll(); frame++;
         flip(); set_stripes();
         if(HIT(J_START)){ done = 1; state = 9; break; }
         if(state == 0){                                                        /* 3, 2, 1, GO */
@@ -241,12 +267,11 @@ void kart_run(void) BANKED {
             if(HIT(J_A) || HIT(J_B) || HIT(J_START)){ done = 1; }
         }
         dir = HELD(J_LEFT) ? -1 : HELD(J_RIGHT) ? 1 : 0;
-#ifdef TEST_KPROF
-        { static UINT32 lf; UINT8 d0 = DIV_REG, d1, d2, d3; char pb[21], *pp; UINT32 nf = frames32(); drive(state == 1); d1 = DIV_REG; scene(); d2 = DIV_REG; me_draw(dir); d3 = DIV_REG;
-          pp = u16s(pb, (UINT8)(d1 - d0)); pp = scat(pp, " "); pp = u16s(pp, (UINT8)(d2 - d1)); pp = scat(pp, " "); pp = u16s(pp, (UINT8)(d3 - d2)); pp = scat(pp, " F"); pp = u16s(pp, (UINT16)(nf - lf)); lf = nf; *pp = 0; txt_line(0, 1, pb, 20); }
+#ifdef TEST_KFPS
+        if(state < 2){ scene(); me_draw(dir); if(!(frame & 7)) hud(place_now()); }
+        { static UINT32 f0; if(frame == 400) f0 = frames32(); if(frame == 520){ char pb[21], *pp; pp = u16s(pb, (UINT16)(frames32() - f0)); *pp = 0; HIDE_WIN; txt_line(0, 17, pb, 20); } }
 #else
-        scene(); me_draw(dir);
-        if(state < 2 && !(frame & 7)) hud(place_now());
+        if(state < 2){ scene(); me_draw(dir); if(!(frame & 7)) hud(place_now()); }
 #endif
     }
     road_stop();
