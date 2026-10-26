@@ -94,3 +94,9 @@ Each step ends with a ROM that boots in an emulator.
 - EXTRAS in the SYSTEM menu (sysmenu.c -> extras_run in flight3d.c): shows what is unlocked, switches the view, starts the Arena. GBA: an EXTRAS tab.
 - Polish pass: bug art (head level with the body, jointed legs, seam, wings attached), framed save cards, station screens as cards with grey labels,
   bright values and gold selection; text palette 3 (grey) matches the space sky.
+
+## Extras pass (cities, tricks, pets, day/night, fishing, pit, star map)
+- Cities (town.c, bank 13): 3 per planet, tiers hamlet..metropolis; inn, quest board, stores, workshop, academy, fortune, casino, shrine, shipyard, bug pit. Open/closed by time of day.
+- feat.c (bank 20): clock (480 s day, ex.off), pets (follow history ring), fishing, queen tricks (ex.tricks bits), memory words.
+- Save: Extra block at SRAM offset 256 of each slot (own magic/sum), see save.h.
+- dungeon.c: tricks, boss variants per world kind, pets chip at monsters, dungeon_pit(tier).

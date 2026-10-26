@@ -22,6 +22,7 @@
 #include "bugspr.h"
 #include "dungeon_art.h"
 #include "dungeon.h"
+#include "feat.h"
 
 #define DW        32               /* the floor is DW x DW metatiles */
 #define NROOM     8
@@ -47,6 +48,8 @@ typedef struct { UINT16 x, y; UINT8 t, n, pal; } Fx;              /* a burst (n 
 #define NFX 4
 static Fx     fxs[NFX];
 static UINT8  depth, floors, kind, inv, atk, face, frame, step;
+static UINT8  pit, pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
+static const UINT8 qbrood[6] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, K_WASP };   /* what each kind of queen calls */
 static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
 static UINT16 bx, by, cam_x, cam_y, rng;
 static UINT8  left_mt, top_mt;
@@ -64,7 +67,8 @@ static void make_floor(void){
     rng = (UINT16)world_seed(sv.star) ^ ((UINT16)depth * 0x3C1Bu) ^ ((UINT16)sv.zone << 11) ^ 0x2B7Du; if(!rng) rng = 1;
     memset(dmap, D_WALL, DW * DW);
     nrooms = 0;
-    for(t = 0; t < 60 && nrooms < NROOM; t++){                    /* rooms: place them where they do not touch */
+    if(pit){ Room *r = &rooms[0]; r->x = 8; r->y = 9; r->w = 16; r->h = 13; nrooms = 1; for(y = r->y; y < r->y + r->h; y++) for(x = r->x; x < r->x + r->w; x++) carve(x, y); }
+    for(t = 0; !pit && t < 60 && nrooms < NROOM; t++){                    /* rooms: place them where they do not touch */
         Room r; UINT8 ok = 1;
         r.w = 4 + rndn(5); r.h = 4 + rndn(4); r.x = 1 + rndn(DW - 2 - r.w); r.y = 2 + rndn(DW - 3 - r.h);
         for(i = 0; i < nrooms && ok; i++){ Room *o = &rooms[i];
@@ -73,7 +77,7 @@ static void make_floor(void){
         rooms[nrooms++] = r;
         for(y = r.y; y < r.y + r.h; y++) for(x = r.x; x < r.x + r.w; x++) carve(x, y);
     }
-    for(i = 1; i < nrooms; i++){                                 /* corridors: each room to the one before, an L shape */
+    for(i = 1; !pit && i < nrooms; i++){                         /* corridors: each room to the one before, an L shape */
         UINT8 x0 = rooms[i - 1].x + rooms[i - 1].w / 2, y0 = rooms[i - 1].y + rooms[i - 1].h / 2, x1 = rooms[i].x + rooms[i].w / 2, y1 = rooms[i].y + rooms[i].h / 2;
         a = x0 < x1 ? x0 : x1; b = x0 < x1 ? x1 : x0; for(x = a; x <= b; x++) carve(x, y0);
         a = y0 < y1 ? y0 : y1; b = y0 < y1 ? y1 : y0; for(y = a; y <= b; y++) carve(x1, y);
@@ -81,6 +85,7 @@ static void make_floor(void){
     for(y = DW - 2; y > 0; y--) for(x = 0; x < DW; x++)           /* a wall with floor below shows its face */
         if(DM(x, y) == D_WALL && (DM(x, y + 1) == D_FLOOR || DM(x, y + 1) == D_FLOOR2)) DM(x, y) = D_FACE;
     { Room *r = &rooms[0]; DM(r->x + r->w / 2, r->y + 1) = D_UP; bx = ((UINT16)(r->x + r->w / 2) << 4) + 8; by = ((UINT16)(r->y + 3) << 4) - 2; }
+    if(pit){ memset(mon, 0, sizeof mon); return; }
     { Room *r = &rooms[nrooms - 1];
       if(depth < floors) DM(r->x + r->w / 2, r->y + r->h / 2) = D_DOWN;
       else DM(r->x + r->w / 2, r->y + 1) = D_CAGE; }               /* the last floor: a caged friend, guarded */
@@ -215,6 +220,7 @@ static void enter_gfx(void){                                       /* everything
     VBK_REG = VBK_BANK_1;
     dungeon_tiles_load(MON_TILE0);
     VBK_REG = VBK_BANK_0;
+    pet_load();
     txt_pal_reset();
     set_bkg_palette(4, 4, &dg_pals[kind * 16]);
     set_sprite_palette(0, 4, mon_pals);
@@ -229,14 +235,14 @@ static UINT8 blocked(UINT16 x, UINT16 y, UINT8 r){                 /* a box 2r w
 static void hurt(UINT8 n, INT8 kx, INT8 ky){
     UINT8 k;
     if(inv) return;
-    { UINT8 a = UPG(UP_SHELL) + UPG(SK_GUARD) / 3; n = n > a ? n - a : 1; }
-    sv.hp = sv.hp > n ? sv.hp - n : 0; inv = 50; sfx(SFX_HURT); shake(10);
+    { UINT8 a = UPG(UP_SHELL) + UPG(SK_GUARD) / 3 + (TRICK(3) ? 1 : 0); n = n > a ? n - a : 1; }
+    sv.hp = sv.hp > n ? sv.hp - n : 0; inv = TRICK(5) ? 75 : 50; sfx(SFX_HURT); shake(10);
     for(k = 0; k < 10; k++){ if(!blocked(bx + kx, by + ky, 5)){ bx += kx; by += ky; } }   /* knocked back */
 }
 #ifdef TEST_BOSS
 static UINT8 bite_power(void){ return 30; }
 #else
-static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG); }
+static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static void do_bite(void){
@@ -299,9 +305,12 @@ static void mon_step(void){
             if(m->t) m->t--;
             else if(dx > -56 && dx < 56 && dy > -48 && dy < 48){ m->st = 1; m->t = 18; sfx(SFX_HISS); continue; }
         }
-        if(m->kind == K_QUEEN && ++m->t >= 220){                    /* she calls her spiderlings */
+        if(m->kind == K_QUEEN && ++m->t >= 230 - kind * 12){        /* she calls her brood: each kind of queen calls something else, some also stamp */
+            UINT8 bk = qbrood[kind];
             m->t = 0; sfx(SFX_HISS); shake(8);
-            mon_spawn(K_SPIDER, m->x - 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16); mon_spawn(K_SPIDER, m->x + 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16);
+            mon_spawn(bk, m->x - 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16); mon_spawn(bk, m->x + 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16);
+            if(kind == 1 || kind == 3 || kind == 5) mon_spawn(bk, m->x, m->y + 22, 3 + depth, 0, m->x, m->y + 16);
+            if(kind == 2 || kind == 5){ shake(14); sfx(SFX_BOOM); if(dx < 52 && dx > -52 && dy < 44 && dy > -44) hurt(2 + sv.zone, dx > 0 ? 2 : -2, dy > 0 ? 2 : -2); }   /* she stamps */
         }
         sp = m->kind == K_WASP ? 3 : m->kind == K_SLIME ? 0 : m->kind == K_QUEEN ? 1 : 1;   /* steps per 2 frames */
         if(m->kind == K_SLIME) sp = (step & 1); else if(m->kind == K_QUEEN) sp = (step & 1) ? 1 : 0; else if(m->kind == K_BEETLE) sp = (step & 3) ? 1 : 0; else if(m->kind == K_SPIDER) sp = (step & 1) ? 2 : 1;
@@ -317,40 +326,71 @@ contact:
     }
 }
 
+
+/* ------------------------------------------------------------ pets, and the city pit */
+static void pets_fight(void){                                      /* your friends chip at monsters near them (they never finish one off: the kill is yours) */
+    UINT8 i, j; UINT16 px, py;
+    if(step & 31) return;
+    for(i = 0; i < 3; i++){
+        if(!pet_get(i, &px, &py)) break;
+        for(j = 0; j < NMON; j++){
+            Mon *m = &mon[j]; INT16 dx, dy;
+            if(!m->alive || m->hp < 2) continue;
+            dx = (INT16)m->x - (INT16)px; dy = (INT16)m->y - (INT16)py; if(dx < 0) dx = -dx; if(dy < 0) dy = -dy;
+            if(dx < 24 && dy < 20){ UINT8 p = 1 + sv.level / 6; if(p >= m->hp) p = m->hp - 1; m->hp -= p; m->flash = 6; fx_add(m->x, m->y - 18, p, 2); break; }
+        }
+    }
+}
+static UINT8 pit_tick(void){                                        /* the next wave when the last one is down; DG_WIN-worthy after the last */
+    UINT8 i, n = 0;
+    for(i = 0; i < NMON; i++) if(mon[i].alive) n++;
+    if(n) return 0;
+    if(pit_wave >= 10) return 1;
+    pit_wave++;
+    n = 2 + pit_wave / 2; if(n > 8) n = 8;
+    for(i = 0; i < n; i++){
+        UINT8 k = rndn(1 + pit_wave / 3 > 4 ? 4 : 1 + pit_wave / 3), x = (i & 1) ? 22 : 9, y = 11 + (i >> 1) * 2;
+        UINT16 hp = (k == K_BEETLE ? 8 : k == K_WASP ? 3 : k == K_SLIME ? 5 : 4) + pit_wave + pit_tier + sv.level / 2;
+        mon_spawn(k, ((UINT16)x << 4) + 8, ((UINT16)y << 4) + 12, hp > 250 ? 250 : (UINT8)hp, 0, ((UINT16)16 << 4) + 8, ((UINT16)16 << 4));
+    }
+    sfx(SFX_HISS); shake(6); return 0;
+}
 /* ------------------------------------------------------------ the floors */
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
     { UINT8 i; for(i = 0; i < NFX; i++) fxs[i].t = 0; }
-    fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
+    fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors || pit ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
     show_bug(); fade_in();
-    if(depth == floors) banner(BN_QUEEN);
+    if(depth == floors && !pit) banner(BN_QUEEN);
     if(depth > sv.deepest) sv.deepest = depth;
 #ifdef TEST_BOSS
     { Room *r = &rooms[nrooms - 1]; bx = ((UINT16)(r->x + r->w / 2) << 4) + 8; by = ((UINT16)(r->y + r->h - 1) << 4) + 12; }
 #endif
-    { char b[48], *d = scat(b, "FLOOR B"); d = u16s(d, depth); d = scat(d, " OF "); d = u16s(d, floors);
+    if(!pit){ char b[48], *d = scat(b, "FLOOR B"); d = u16s(d, depth); d = scat(d, " OF "); d = u16s(d, floors);
       if(depth == floors) scat(d, ". SOMETHING BIG IS BREATHING DOWN HERE."); dlg_say(0, b); }
+    pet_reset(bx, by);
     for(;;){
         input_poll(); k = keys; step++;
-        { INT8 vx = (k & J_LEFT) ? -1 : (k & J_RIGHT) ? 1 : 0, vy = (k & J_UP) ? -1 : (k & J_DOWN) ? 1 : 0; UINT8 sp = (k & J_B) ? 2 : 1, n;
+        { INT8 vx = (k & J_LEFT) ? -1 : (k & J_RIGHT) ? 1 : 0, vy = (k & J_UP) ? -1 : (k & J_DOWN) ? 1 : 0; UINT8 sp = (k & J_B) ? (TRICK(1) ? 3 : 2) : 1, n;
           if(vx > 0) face = 0; else if(vx < 0) face = 1; else if(vy < 0) face = 2; else if(vy > 0) face = 3;
           for(n = 0; n < sp; n++){ if(vx && !blocked(bx + vx, by, 5)) bx += vx; if(vy && !blocked(bx, by + vy, 5)) by += vy; }
           if((vx || vy) && !(step & 7)) frame ^= 1; }
         if(HIT(J_A) && !atk){ atk = 12; sfx(SFX_BITE); do_bite(); }
         if(atk) atk--;
         if(inv) inv--;
-        mon_step();
+        mon_step(); pets_fight(); if(TRICK(4) && !step && sv.hp && sv.hp < hud_hpmax(sv.level)) sv.hp++;
+        if(pit && pit_tick()) return DG_WIN;
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! SELECT DRINKS IT."); } }
         if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
         if(HIT(J_SELECT)){
-            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
+            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
         wait_vbl_done();
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
-        show_bug(); show_mons(); show_bite();
+        show_bug(); show_mons(); show_bite(); pet_push(bx, by); { UINT8 po[3]; po[0] = 2; po[1] = 3; po[2] = 15; pet_draw(po, cam_x, cam_y, 0); }
         hud_update();
         while(stop){ stop--; wait_vbl_done(); }
         if(!sv.hp) return DG_FAINT;
@@ -364,35 +404,13 @@ static int play_floor(void){                                       /* returns DG
         }
     }
 }
-static const char *const memory[8] = {      /* what each data core gives back to Bolt (the GBA game's words) */
-    "I WAS A SHIP. I WAS CALLED THE DAWN. I REMEMBER THE DARK, AND THE STARS, AND SOMEONE SMALL WHO SANG.",
-    "I CARRIED SEEDS. A GARDEN. A POND. A LAWN AT NIGHT. I PLANTED THEM ONE BY ONE. YOUR WORLDS. I MADE THEM.",
-    "MY CREW WERE BUGS. SMALL. STUBBORN. BRAVE. THEY SLEPT IN MY HEART ON THE LONG WAY. ONE OF THEM LOOKED LIKE YOU.",
-    "WE FELL. THE ANTHILL CAUGHT US. THE ANTS WERE KIND AT FIRST. THEN THEY WERE HUNGRY.",
-    "THE ANT KING OPENED MY HEART. HE BUILT A MOUTH AROUND IT. HE FED IT SHIPS SO IT WOULD GROW. THAT MOUTH IS THE TECHNOBEAST.",
-    "EVERY SHIP IT EATS, IT GROWS. IT IS EATING MY MEMORY TOO. THAT IS WHY I FORGET. THAT IS WHY I AM SMALL.",
-    "THERE IS A WORD THAT OPENS MY HEART. THE KING NEVER FOUND IT. IT IS MY NAME. MY REAL NAME.",
-    "I KNOW MY NAME NOW. TAKE ME TO THE BEAST. I WILL SAY IT. ITS HEART WILL OPEN. I AM NOT AFRAID. I HAVE YOU." };
-static void won(void){                                            /* the queen is beaten and the cage is open */
-    char b[100], *d;
-    if(world_freed(sv.star)){ dlg_say("BOLT", "THE QUEEN CAME BACK, AND YOU BEAT HER AGAIN. THIS WORLD IS STILL SAFE."); return; }
-    sv.zone++;
-    if(sv.cores >= 8){ dlg_say("BOLT", "THE QUEEN IS BEATEN AND YOUR FRIEND IS FREE! THIS WORLD IS SAFE NOW."); return; }
-    sv.freed[sv.cores++] = sv.star;
-    sfx(SFX_LEVEL);
-    d = scat(b, "THE QUEEN IS BEATEN AND YOUR FRIEND IS FREE! SHE HAD ONE OF MY DATA CORES. THAT IS "); d = u16s(d, sv.cores); scat(d, " OF 8.");
-    dlg_say("BOLT", b);
-    dlg_say("BOLT", memory[sv.cores - 1]);
-    if(sv.cores == 8) dlg_say("BOLT", "THAT WAS THE LAST OF ME. FIND THE TECHNOBEAST: IN SPACE THE ARROW POINTS TO IT NOW. SHOOT ITS CORE WHEN IT GLOWS.");
-    else dlg_say("BOLT", "EVERY WORLD WE FREE MAKES THE NEXT DUNGEON DEEPER. LET'S FLY TO A NEW WORLD!");
-}
 int dungeon_run(void) BANKED {
     int r;
     kind = world_kind(world_seed(sv.star));
     floors = 3 + (sv.zone > 3 ? 3 : sv.zone);
     depth = 1; inv = 0; atk = 0; face = 3;
 #ifdef TEST_BOSS
-    depth = floors;                                              /* (test builds: straight to the queen) */
+    depth = floors; ex.tricks = 63; sv.friends = 3;              /* (test builds: straight to the queen) */
 #endif
     for(;;){
         r = play_floor();
@@ -401,7 +419,18 @@ int dungeon_run(void) BANKED {
     }
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
     if(r == DG_FAINT){ sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT OF YOUR POCKETS."); }
-    else if(r == DG_WIN) won();
+    else if(r == DG_WIN) dungeon_won(kind);
     else if(r == DG_EXIT) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     return r;
+}
+int dungeon_pit(UINT8 tier) BANKED {                                 /* the city pit: returns (waves cleared << 4) | how it ended (DG_WIN: all ten, DG_EXIT: gave up, DG_FAINT) */
+    int r; UINT8 w;
+    kind = world_kind(world_seed(sv.star));
+    floors = 2; depth = 1; inv = 0; atk = 0; face = 3; pit = 1; pit_wave = 0; pit_tier = tier;
+    r = play_floor();
+    pit = 0;
+    { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
+    w = r == DG_WIN ? pit_wave : (pit_wave ? pit_wave - 1 : 0);
+    if(r == DG_FAINT){ sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; }
+    return (int)((w << 4) | (UINT8)r);
 }

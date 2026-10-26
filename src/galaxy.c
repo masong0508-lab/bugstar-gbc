@@ -21,12 +21,14 @@ static UINT8 glyph_of(UINT8 s, UINT8 from){
     if(s == from) return '@';
     if(sv.el.jk == J_SEND && s == sv.el.jd) return 'X';
     if(world_freed(s)) return '*';
+    if(ex.city[s >> 3] & (1 << (s & 7))) return '=';           /* landed and walked into a city */
+    if(ex.seen[s >> 3] & (1 << (s & 7))) return ':';           /* landed */
     return '.';
 }
 static void draw_cell(UINT8 s, UINT8 from, UINT8 cursor, UINT8 blink){
     char c[2]; UINT8 g = glyph_of(s, from), pal = TXT_WHITE;
     c[1] = 0;
-    if(g == '@') pal = TXT_WHITE; else if(g == 'X') pal = TXT_RED; else if(g == '*') pal = TXT_GOLD;
+    if(g == '@') pal = TXT_WHITE; else if(g == 'X') pal = TXT_RED; else if(g == '*') pal = TXT_GOLD; else if(g == '=' || g == ':') pal = TXT_GREY;
     if(cursor && blink){ g = '+'; pal = TXT_GOLD; }
     c[0] = (char)g;
     txt_put(MX + (s & 15), MY + (s >> 4), c); txt_color(MX + (s & 15), MY + (s >> 4), 1, 1, pal);
@@ -37,7 +39,7 @@ static void info(UINT8 cur, UINT8 from, UINT8 beast_sel, const char *msg){
         txt_line(0, 0, "THE TECHNOBEAST", 20); txt_color(0, 0, 20, 1, TXT_RED);
         cost = jump_fuel(from, BEAST_CELL);
     } else {
-        d = world_name(b, world_seed(cur)); d = scat(d, " "); d = scat(d, kind_name[world_kind(world_seed(cur))]); if(world_freed(cur)) d = scat(d, " *"); pad(d, b, 20);
+        d = world_name(b, world_seed(cur)); d = scat(d, " "); d = scat(d, kind_name[world_kind(world_seed(cur))]); if(world_freed(cur)) d = scat(d, " *"); if(ex.city[cur >> 3] & (1 << (cur & 7))) d = scat(d, " CITY"); else if(ex.seen[cur >> 3] & (1 << (cur & 7))) d = scat(d, " SEEN"); pad(d, b, 20);
         txt_line(0, 0, b, 20); txt_color(0, 0, 20, 1, TXT_GOLD);
         cost = cur == from ? 0 : jump_fuel(from, cur);
     }

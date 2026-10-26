@@ -11,14 +11,17 @@
 #include "econ.h"
 #include "shop.h"
 #include "town.h"
+#include "feat.h"
+#include "dialog.h"
+#include "dungeon.h"
 
-enum { SV_INN, SV_QUEST, SV_STORE, SV_YARD, SV_ACADEMY, SV_FORTUNE, SV_CASINO, SV_SHRINE };
+enum { SV_INN, SV_QUEST, SV_STORE, SV_YARD, SV_ACADEMY, SV_FORTUNE, SV_CASINO, SV_SHRINE, SV_WORK, SV_PIT };
 static const char *const pre[16] = { "BRAM", "WEN", "KOR", "ASH", "MIR", "TOL", "FEN", "DUN", "SAL", "OAK", "VEX", "LUM", "NOR", "PIP", "ZAN", "HOL" };
 static const char *const suf[8]  = { "WICK", "TON", "HAVEN", "BURG", "DALE", "FORD", "POLIS", "HOLM" };
 static const char *const tier_nm[5] = { "HAMLET", "VILLAGE", "TOWN", "CITY", "METROPOLIS" };
 static const char *const hello[8] = { "WELCOME, TRAVELER!", "MIND THE BEETLES.", "FRESH BERRIES!", "THE SHIP IS SAFE.",
                                       "BUGS ARE WELCOME.", "STAY AWHILE!", "GOOD LUCK DOWN THERE", "A QUIET DAY." };
-static const char *const pop_s[5] = { "12", "140", "2300", "18000", "400000" };
+static const char *const pop_s[5] = { "12", "140", "2.3K", "18K", "400K" };
 
 static UINT16 th, rs;           /* this town's hash, a random state */
 static UINT8  shrine_used, mpal;
@@ -63,11 +66,12 @@ static UINT8 offer(const char *title, const char *l1, const char *l2, UINT16 pri
 
 /* ---------------------------------------------------------------- the places */
 static void inn(UINT8 tier){
-    const char *m = 0; UINT8 r; UINT16 c = 4 + tier * 4;
+    const char *m = 0; UINT8 r, night; UINT16 c = 4 + tier * 4;
     for(;;){
-        r = offer("THE INN", "A SOFT BED AND A", "HOT BREAKFAST.", c, m);
+        night = tod_dark() >= 10;
+        r = offer("THE INN", night ? "SLEEP UNTIL THE" : "A SOFT BED AND A", night ? "MORNING COMES." : "HOT BREAKFAST.", c, m);
         if(!r) break;
-        if(r == 1){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); m = "SLEPT WELL! HEALED."; mpal = TXT_GOLD; sfx(SFX_FANFARE); }
+        if(r == 1){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); if(night){ tod_sleep(); m = "GOOD MORNING! HEALED."; } else m = "SLEPT WELL! HEALED."; mpal = TXT_GOLD; sfx(SFX_FANFARE); }
         else { m = "NOT ENOUGH GOLD"; mpal = TXT_RED; }
     }
 }
@@ -141,6 +145,55 @@ static void casino(void){
     }
 }
 
+/* the workshop: cook fish, sell fish, craft a charm, make fuel */
+static void workshop(void){
+    UINT8 sel = 0, i; const char *m = 0; char b[24], *d; static const char *const it[4] = { "COOK 2 FISH: POTION", "SELL ALL FISH", "3 GOLDEN: LUCKY CHARM", "2 ORE: 3 SHIP FUEL" };
+    for(;;){
+        page("WORKSHOP");
+        d = u16s(scat(b, "FISH "), ex.fish); d = u16s(scat(d, "  GOLDEN "), ex.rare); d = u16s(scat(d, "  ORE "), sv.el.cargo[G_ORE]); line(4, b, TXT_GREY);
+        for(i = 0; i < 4; i++){ d = scat(b, i == sel ? S_CURSOR : " "); scat(d, it[i]); line(6 + i * 2, b, i == sel ? TXT_GOLD : TXT_WHITE); }
+        line(14, m ? m : "", mpal); line(16, "A: DO IT  B: BACK", TXT_GREY);
+        for(;;){
+            wait_vbl_done(); input_poll();
+            if(HIT(J_UP))   { sel = sel ? sel - 1 : 3; sfx(SFX_MOVE); m = 0; break; }
+            if(HIT(J_DOWN)) { sel = (sel + 1) & 3; sfx(SFX_MOVE); m = 0; break; }
+            if(HIT(J_B) || HIT(J_START)) return;
+            if(HIT(J_A)){
+                mpal = TXT_RED; m = "YOU CANNOT YET"; sfx(SFX_BACK);
+                if(sel == 0 && ex.fish >= 2 && sv.potions < 9){ ex.fish -= 2; sv.potions++; m = "A FISH STEW POTION!"; mpal = TXT_GOLD; sfx(SFX_COIN); }
+                else if(sel == 0) m = ex.fish < 2 ? "NEED 2 FISH" : "POCKETS FULL";
+                if(sel == 1){ UINT16 g = (UINT16)ex.fish * 7 + (UINT16)ex.rare * 50;
+                    if(g){ sv.gold += LUCKY(g); ex.fish = ex.rare = 0; mb[0] = 0; scat(u16s(scat(mb, "SOLD! +"), LUCKY(g)), " GOLD"); m = mb; mpal = TXT_GOLD; sfx(SFX_COIN); } else m = "NO FISH TO SELL"; }
+                if(sel == 2){ if(ex.rare >= 3 && sv.up[SK_LUCK] < 10){ ex.rare -= 3; sv.up[SK_LUCK]++; m = "LUCK UP! (SKILLS)"; mpal = TXT_GOLD; sfx(SFX_FANFARE); } else m = ex.rare < 3 ? "NEED 3 GOLDEN FISH" : "LUCK IS AT MAX"; }
+                if(sel == 3){ if(sv.el.cargo[G_ORE] >= 2 && sv.el.fuel + 3 <= TANK_CAP()){ sv.el.cargo[G_ORE] -= 2; sv.el.fuel += 3; m = "+3 SHIP FUEL"; mpal = TXT_GOLD; sfx(SFX_COIN); } else m = sv.el.cargo[G_ORE] < 2 ? "NEED 2 ORE" : "THE TANK IS FULL"; }
+                break;
+            }
+        }
+    }
+}
+/* the pit: ten waves of bugs in one room (dungeon.c); the fee is paid here, the fight is run by the planet, and town_pit_reward pays out */
+static UINT8 pit_entry(UINT8 tier){
+    char b[24], *d; const char *m = 0; UINT8 r; UINT16 fee = 10 + 10 * (UINT16)tier;
+    for(;;){
+        d = u16s(scat(b, "BEST: "), ex.pit); scat(d, " OF 10");
+        r = offer("BUG PIT", tier == 4 ? "THE GRAND PIT: TEN" : "TEN WAVES OF BUGS.", tier == 4 ? "HARD WAVES." : b, fee, m);
+        if(r == 1) return tier + 1;
+        if(!r) return 0;
+        m = "NOT ENOUGH GOLD"; mpal = TXT_RED;
+    }
+}
+void town_pit_reward(UINT8 res, UINT8 tier) BANKED {
+    UINT8 w = res >> 4, code = res & 15; UINT16 g; char b[60], *d;
+    g = (UINT16)w * (12 + 4 * (UINT16)w) + (w ? (UINT16)tier * 20 : 0);
+    if(w >= 10) g += 200;
+    if(w > ex.pit) ex.pit = w;
+    g = LUCKY(g); sv.gold += g; if(w) gain_xp((UINT16)w * 4 * tier);
+    if(w >= 5){ fame_add(tier); unlocks_update(); }
+    d = scat(b, code == DG_FAINT ? "YOU DROPPED AFTER " : w >= 10 ? "PIT CHAMPION! ALL " : "YOU CLEARED "); d = u16s(d, w); d = scat(d, " WAVES. +"); d = u16s(d, g); scat(d, " GOLD");
+    sfx(w ? SFX_FANFARE : SFX_BACK);
+    dlg_say(0, b);
+}
+
 /* ---------------------------------------------------------------- the quest board */
 #define Q_T sv.el.rsv[2]
 #define Q_A sv.el.rsv[3]
@@ -201,40 +254,48 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
 }
 
 /* ---------------------------------------------------------------- the town page */
-static const char *const sv_nm[8] = { "THE INN", "QUEST BOARD", "GENERAL STORE", "SHIPYARD", "ACADEMY", "FORTUNE TELLER", "CASINO", "SHRINE" };
-void town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {
-    UINT8 ids[8], n = 0, sel = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp; char b[24], *d;
+static const char *const sv_nm[10] = { "THE INN", "QUEST BOARD", "GENERAL STORE", "SHIPYARD", "ACADEMY", "FORTUNE TELLER", "CASINO", "SHRINE", "WORKSHOP", "BUG PIT" };
+UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {   /* returns 0, or tier + 1 when the person paid for the bug pit */
+    UINT8 ids[10], n = 0, sel = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
     th = thash(star, idx); shrine_used = 0; mpal = TXT_GOLD;
     rs = (UINT16)frames32() ^ ((UINT16)DIV_REG << 8) ^ th; if(!rs) rs = 1;
     ids[n++] = SV_INN; ids[n++] = SV_QUEST;
     if(tier >= 1) ids[n++] = SV_STORE;
+    if(tier >= 2) ids[n++] = SV_WORK;
     if(tier >= 3) ids[n++] = SV_YARD;
     sp = 0;                                                         /* the special places: 0, 1, 2 or all four of them */
     { UINT8 k, cnt = tier < 2 ? 0 : tier == 2 ? 1 : tier == 3 ? 2 : 4, s0 = (UINT8)(th >> 11) & 3;
       for(k = 0; k < cnt; k++) sp |= 1 << ((s0 + k) & 3);
       for(k = 0; k < 4; k++) if(sp & (1 << k)) ids[n++] = SV_ACADEMY + k; }
+    if(tier >= 3) ids[n++] = SV_PIT;
     HIDE_SPRITES; sfx(SFX_OK);
     for(;;){
+        night = tod_dark() >= 10;
         if(redraw){
             page("");
             d = tname(b, th); line(1, b, TXT_GOLD);
-            d = scat(b, tier_nm[tier]); d = scat(d, "  POP "); scat(d, pop_s[tier]); line(3, b, TXT_GREY);
+            d = scat(b, tier_nm[tier]); d = scat(d, " "); scat(d, pop_s[tier]); line(3, b, TXT_GREY);
             line(4, hello[(th >> 8) & 7], TXT_GREY);
             redraw = 0;
         }
+        if(msg) line(5, msg, TXT_RED); else { d = scat(b, "IT IS "); tod_name(d); line(5, b, night ? TXT_GREY : TXT_WHITE); }
         txt_win(1);
         for(i = 0; i < n; i++){
-            d = scat(b, i == sel ? S_CURSOR : " "); scat(d, sv_nm[ids[i]]); txt_line(1, 6 + i, b, 18);
-            txt_color(1, 6 + i, 18, 1, i == sel ? TXT_GOLD : TXT_WHITE);
+            UINT8 id = ids[i], shut = (night && (id == SV_STORE || id == SV_YARD || id == SV_ACADEMY || id == SV_WORK)) || (!night && (id == SV_CASINO || id == SV_FORTUNE));
+            d = scat(b, i == sel ? S_CURSOR : " "); scat(d, sv_nm[id]); txt_line(1, 6 + i, b, 18);
+            txt_color(1, 6 + i, 18, 1, shut ? TXT_GREY : i == sel ? TXT_GOLD : TXT_WHITE);
         }
         txt_line(1, 16, "A: GO IN  B: LEAVE", 18); txt_color(1, 16, 18, 1, TXT_GREY);
         txt_win(0);
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : n - 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)) { sel = sel + 1 < n ? sel + 1 : 0; sfx(SFX_MOVE); }
+        if(HIT(J_UP))   { sel = sel ? sel - 1 : n - 1; sfx(SFX_MOVE); msg = 0; }
+        if(HIT(J_DOWN)) { sel = sel + 1 < n ? sel + 1 : 0; sfx(SFX_MOVE); msg = 0; }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
-            UINT8 id = ids[sel]; mpal = TXT_GOLD; sfx(SFX_OK);
+            UINT8 id = ids[sel]; mpal = TXT_GOLD;
+            if(night && (id == SV_STORE || id == SV_YARD || id == SV_ACADEMY || id == SV_WORK)){ msg = "CLOSED: BACK AT DAY"; sfx(SFX_BACK); continue; }
+            if(!night && (id == SV_CASINO || id == SV_FORTUNE)){ msg = "OPEN AT NIGHT ONLY"; sfx(SFX_BACK); continue; }
+            sfx(SFX_OK); msg = 0;
             if(id == SV_INN) inn(tier);
             else if(id == SV_QUEST) quest(star, idx, tier);
             else if(id == SV_STORE){ shop_run(0); }
@@ -242,6 +303,8 @@ void town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {
             else if(id == SV_ACADEMY) academy();
             else if(id == SV_FORTUNE) fortune(ddx, ddy);
             else if(id == SV_CASINO) casino();
+            else if(id == SV_WORK) workshop();
+            else if(id == SV_PIT){ out = pit_entry(tier); if(out) break; }
             else shrine(tier);
             redraw = 1;
         }
@@ -249,5 +312,6 @@ void town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {
     sfx(SFX_BACK);
     txt_win(1); txt_cls(); txt_win(0);
     hud_redraw(); hud_pos(HUD_Y);
-    if(sprites) SHOW_SPRITES;
+    if(sprites && !out) SHOW_SPRITES;
+    return out;
 }

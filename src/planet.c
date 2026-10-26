@@ -28,6 +28,7 @@
 #include "shop.h"
 #include "econ.h"
 #include "town.h"
+#include "feat.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
 #define CRIT_TILE0 120           /* the sparkle and butterfly sprites (bank 1, after the ship) */
@@ -203,11 +204,19 @@ static void world_setup(void){
     bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40;   /* you step out just below the ship */
     npicked = 0;
 #ifdef TEST_TOWN
+    sv.gold = 500; sv.friends = 3; ex.fish = 5; ex.rare = 3;
     bx = ((UINT16)(tw_x[TEST_TOWN] + (tw_w[tw_t[TEST_TOWN]] >> 1)) << 4) + 8; by = ((UINT16)(tw_y[TEST_TOWN] + tw_w[tw_t[TEST_TOWN]]) << 4) + 20;
 #endif
 #ifdef TEST_DOOR
     bx = ((UINT16)door_mx << 4) + 8; by = ((UINT16)door_my << 4) - 6;   /* (test builds: start just above the door) */
 #endif
+}
+static const palette_color_t glow_pal[4] = { RGB(0, 0, 0), RGB(8, 12, 2), RGB(31, 29, 6), RGB(31, 31, 20) };   /* the butterflies glow at night */
+static void apply_pal(void){                                    /* the colours, darkened by the time of day */
+    palette_color_t b[16], sp[4];
+    memcpy(b, &planet_pals[wk * 16], 32); tod_tint(b, 16); set_bkg_palette(4, 4, b);
+    memcpy(sp, ship_pal, 8); tod_tint(sp, 4); set_sprite_palette(SHIP_PAL, 1, sp);
+    if(tod_dark() >= 9) set_sprite_palette(2, 1, glow_pal); else set_sprite_palette(2, 1, &crit_pal[4]);
 }
 static void load_gfx(void){
     UINT8 i;
@@ -216,13 +225,13 @@ static void load_gfx(void){
     set_sprite_data(SHIP_TILE0, 16, ship_tiles);
     set_sprite_data(CRIT_TILE0, 8, crit_tiles);
     VBK_REG = VBK_BANK_0;
-    set_bkg_palette(4, 4, &planet_pals[wk * 16]);
-    set_sprite_palette(SHIP_PAL, 1, ship_pal);
     set_sprite_palette(1, 2, crit_pal);
+    apply_pal();
+    pet_load();
     for(i = 0; i < 8; i++){ set_sprite_tile(SHIP_OAM0 + i, SHIP_TILE0 + i * 2); set_sprite_prop(SHIP_OAM0 + i, SHIP_PAL | 0x08); }
 }
 static void camera(void){ cam_x = (bx - BUG_SX) & 4095; cam_y = (by - BUG_SY) & 4095; }
-static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &planet_pals[wk * 16]); draw_all(); }
+static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); apply_pal(); draw_all(); }
 
 /* ------------------------------------------------------------ walking */
 static UINT8 at(UINT16 x, UINT16 y){ return ground((UINT8)((x & 4095) >> 4), (UINT8)((y & 4095) >> 4)); }
@@ -235,6 +244,11 @@ static void eat_berry(UINT8 x, UINT8 y){
     cell_fill(x, y); draw_mt(x, y); sfx(SFX_PICK);
     { UINT16 mx = hud_hpmax(sv.level); sv.hp = sv.hp + 3 > mx ? mx : sv.hp + 3; }
     sv.gold += 2; sv.xp += 1;
+}
+static UINT8 fish_hint;
+static UINT8 water_near(void){                                   /* water within a short step of the bug's feet */
+    UINT8 a = at(bx - 14, by - 2), b = at(bx + 14, by - 2), c = at(bx, by - 14), d = at(bx, by + 12);
+    return a == MT_SHALLOW || a == MT_DEEP || b == MT_SHALLOW || b == MT_DEEP || c == MT_SHALLOW || c == MT_DEEP || d == MT_SHALLOW || d == MT_DEEP;
 }
 static UINT8 near_ship(void){
     UINT16 dx = (bx - ((UINT16)ship_mx << 4) - 8) & 4095, dy = (by - ((UINT16)ship_my << 4)) & 4095;
@@ -363,8 +377,9 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
     world_setup();
-    place_things(); note_t = 0;
-    enter();
+    place_things(); note_t = 0; fish_hint = 0;
+    ex.seen[sv.star >> 3] |= 1 << (sv.star & 7);
+    enter(); pet_reset(bx, by);
     play_reset(sv.secs);
     ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
     d = scat(msg, "WE LANDED ON "); d = world_name(d, world_seed(sv.star)); d = scat(d, ", A "); d = scat(d, planet_world_name[wk]);
@@ -375,6 +390,9 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         dlg_say("BOLT", "HI, I AM BOLT, YOUR SHIP. I LOST MY MEMORY. EVERY WORLD HAS A QUEEN DEEP DOWN, AND EACH ONE HOLDS ONE OF MY 8 DATA CORES. PLEASE GET THEM BACK!");
     }
     dlg_say("BOLT", msg);
+#ifdef TEST_FISH
+    fish_run(wk);
+#endif
     for(;;){
         input_poll();
         k = keys;
@@ -388,14 +406,22 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
-        crit_step(++tick);
+        crit_step(++tick); pet_push(bx, by);
         if(ground(ox, oy) == MT_GATE){
             if(!was_gate){ UINT8 i; was_gate = 1;
                 for(i = 0; i < tw_n; i++) if((UINT8)(ox - tw_x[i]) < tw_w[tw_t[i]] && (UINT8)(oy - tw_y[i]) < tw_w[tw_t[i]]) break;
                 if(i < tw_n){
-                    INT16 ex = (INT16)door_mx - ox, ey = (INT16)door_my - oy;
-                    if(ex > 127) ex -= 256; if(ex < -128) ex += 256; if(ey > 127) ey -= 256; if(ey < -128) ey += 256;
-                    sfx(SFX_STAIRS); town_run(sv.star, i, tw_t[i], (INT8)ex, (INT8)ey);
+                    INT16 dx = (INT16)door_mx - ox, dy = (INT16)door_my - oy;
+                    if(dx > 127) dx -= 256; if(dx < -128) dx += 256; if(dy > 127) dy -= 256; if(dy < -128) dy += 256;
+                    ex.city[sv.star >> 3] |= 1 << (sv.star & 7);
+                    sfx(SFX_STAIRS);
+                    k = town_run(sv.star, i, tw_t[i], (INT8)dx, (INT8)dy);
+                    if(k){                                           /* the pit: a fight in one room, then back out of the gate */
+                        int r = dungeon_pit(k - 1);
+                        if((r & 15) == DG_TITLE){ leave(); return PL_TITLE; }
+                        camera(); enter(); pet_reset(bx, by);
+                        town_pit_reward((UINT8)r, k - 1);
+                    }
                     if(opt.autosave) slot_write(cur_slot);
                 }
             }
@@ -403,8 +429,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         if(!(tick & 7) && !note_t){                                  /* a banner the first time a city comes close */
             UINT8 i;
             for(i = 0; i < tw_n; i++) if(!(tw_seen & (1 << i))){
-                INT8 ex = (INT8)(ox - tw_x[i] - (tw_w[tw_t[i]] >> 1)), ey = (INT8)(oy - tw_y[i] - (tw_w[tw_t[i]] >> 1));
-                if(ex > -9 && ex < 9 && ey > -9 && ey < 9){ char lb[24]; lb[0] = 0; tw_seen |= 1 << i; town_label(lb, sv.star, i, tw_t[i]); note(lb); break; }
+                INT8 ax = (INT8)(ox - tw_x[i] - (tw_w[tw_t[i]] >> 1)), ay = (INT8)(oy - tw_y[i] - (tw_w[tw_t[i]] >> 1));
+                if(ax > -9 && ax < 9 && ay > -9 && ay < 9){ char lb[24]; lb[0] = 0; tw_seen |= 1 << i; town_label(lb, sv.star, i, tw_t[i]); note(lb); break; }
             }
         }
         if(ox == door_mx && oy == door_my){ if(!was_door){ int r;
@@ -419,13 +445,16 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         wait_vbl_done();
         SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;
         bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, frame);
-        ship_show(); crit_draw(tick);
+        ship_show(); crit_draw(tick); { UINT8 po[3]; po[0] = 0; po[1] = 1; po[2] = 2; pet_draw(po, cam_x, cam_y, 1); }
+        if(!(tick & 63)) apply_pal();
         hud_update();
         if(HIT(J_A) && near_ship()){
             sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); if(sv.el.fuel < 6) sv.el.fuel = 6; slot_write(cur_slot); sfx(SFX_FANFARE);
             dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
             if(ship_menu()){ leave(); return PL_LAUNCH; }
         }
+        else if(HIT(J_A) && water_near()){ fish_run(wk); }
+        else if(!(tick & 31) && !fish_hint && water_near()){ fish_hint = 1; note("PRESS A AT THE WATER TO FISH"); }
         if(HIT(J_START)){
             if(sysmenu_run(redraw) == SYS_TITLE){ leave(); return PL_TITLE; }
             bugspr_load(&sv.look);

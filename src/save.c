@@ -17,6 +17,9 @@
 #endif
 
 Save  sv;
+Extra ex;
+#define EX_OFF   256
+#define EX_MAGIC 0x58454742UL      /* "BGEX" */
 Opts  opt;
 UINT8 cur_slot = 0, last_slot = 0;
 
@@ -58,18 +61,20 @@ static UINT32 fnv(const void *d, UINT16 n){
     while(n--){ h ^= *p++; h *= 16777619UL; }
     return h;
 }
-static void sram_read(UINT8 bank, void *d, UINT16 n){
+static void sram_read_at(UINT8 bank, UINT16 off, void *d, UINT16 n){
     UINT8 *p = (UINT8 *)d; UINT16 i;
     RAM_ON(); RAM_BANK(bank);
-    for(i = 0; i < n; i++) p[i] = SRAM[i];
+    for(i = 0; i < n; i++) p[i] = SRAM[off + i];
     RAM_OFF();
 }
-static void sram_write(UINT8 bank, const void *s, UINT16 n){
+static void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n){
     const UINT8 *p = (const UINT8 *)s; UINT16 i;
     RAM_ON(); RAM_BANK(bank);
-    for(i = 0; i < n; i++) SRAM[i] = p[i];
+    for(i = 0; i < n; i++) SRAM[off + i] = p[i];
     RAM_OFF();
 }
+#define sram_read(b, d, n)  sram_read_at(b, 0, d, n)
+#define sram_write(b, s, n) sram_write_at(b, 0, s, n)
 
 static void opts_default(void){
     opt.music = 2; opt.sfx = 1; opt.autosave = 1; opt.shake = 1; opt.diff = 1;
@@ -143,6 +148,8 @@ UINT8 slot_read(UINT8 slot){
     Save t;
     if(!slot_peek(slot, &t)) return 0;
     sv = t;
+    sram_read_at(slot, EX_OFF, &ex, sizeof ex);
+    if(ex.magic != EX_MAGIC || ex.sum != fnv(&ex, sizeof ex - 4)) memset(&ex, 0, sizeof ex);
     return 1;
 }
 void slot_write(UINT8 slot){
@@ -152,6 +159,8 @@ void slot_write(UINT8 slot){
     sv.secs = play_secs(); sv.saves = n + 1;
     sv.sum = fnv(&sv, sizeof(Save) - 4);
     sram_write(slot, &sv, sizeof(Save));
+    ex.magic = EX_MAGIC; ex.sum = fnv(&ex, sizeof ex - 4);
+    sram_write_at(slot, EX_OFF, &ex, sizeof ex);
     if(last_slot != slot){ last_slot = slot; settings_save(); }
 }
 void slot_erase(UINT8 slot){
@@ -161,7 +170,7 @@ void slot_erase(UINT8 slot){
     if(last_slot == slot){ last_slot = first_good_slot() == 255 ? 0 : first_good_slot(); settings_save(); }
 }
 void new_game(UINT8 slot, UINT32 seed, const BugLook *look, const char *name){
-    memset(&sv, 0, sizeof sv);
+    memset(&sv, 0, sizeof sv); memset(&ex, 0, sizeof ex);
     sv.seed = seed; sv.level = 1; sv.hp = 10; sv.mp = 5; sv.el.fuel = tank_tab[0];
     strcpy(sv.name, name ? name : "BUG");
     if(look) sv.look = *look; else bug_default(&sv.look);

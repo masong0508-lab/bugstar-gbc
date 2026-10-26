@@ -48,6 +48,19 @@ typedef struct {                 /* one save slot: 146 bytes on the cartridge (v
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 
+typedef struct {                 /* what comes after the slot (SRAM offset 256 of the slot's bank, its own magic and sum, so old saves just start empty): the star map, the cities, fishing */
+    UINT32 magic;
+    UINT8  seen[32];             /* a bit per star: landed on it */
+    UINT8  city[32];             /* a bit per star: walked into one of its cities */
+    UINT8  tricks;               /* a bit per kind of world whose queen was beaten: the trick she gave (feat.h) */
+    UINT8  off;                  /* the clock's offset in 20-second hours (sleeping at an inn moves it to the morning) */
+    UINT8  fish, rare;           /* fish in the bag, golden fish in the bag */
+    UINT8  pit;                  /* the most waves cleared in a city's bug pit */
+    UINT8  rsv[11];
+    UINT32 sum;
+} Extra;
+extern Extra ex;
+
 typedef struct {                 /* options, same set as the GBA game */
     UINT8 music;                 /* 0 off, 1 low, 2 full */
     UINT8 sfx, autosave, shake;
