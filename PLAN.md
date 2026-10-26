@@ -82,3 +82,15 @@ Each step ends with a ROM that boots in an emulator.
 - SYSTEM menu has MIRROR (re-opens the creator anywhere; the scene reloads its tiles after it).
 - Planet ground is blended: palettes form a chain (deep|shallow|sand|grass) and 42 blend tiles round every shore and edge (tools/make_planet.py).
 - Still to do: dungeon walls and space planets are still plain tiles; more creator parts (cheek, neck, back), Save v3; use the big ROM for pre-rendered art.
+
+## Upgrades, the Elite layer, the 3D view, the Arena, Extras, polish pass
+- Upgrades and skills (save v4), the Elite layer (stations, market of 8 goods, fuel, hold, jobs, fame ranks, galaxy chart, pods, shield,
+  shipyard; save v5): src/econ.c (bank 15 with shop.c), src/elite.c (16), src/galaxy.c (17).
+- 3D view (banks 18 + 19: space3d.c = maths and the sprite list, flight3d.c = the flight): unlocked at fame rank POOR (sv.el.rsv[0] bit 0),
+  switched in the station's VIEW row or EXTRAS. A real 3D point model (yaw, pitch, climb), planets as shaded sprites in 4 sizes, a per-scanline
+  sprite budget (10 per line: bigger planets fall back to smaller pictures), stations, pirates, pods, dust. space_run wraps both views (SP_FLIP).
+- The Arena (flight3d.c): wave shooter, hover ship, a flagship every 4th wave, bombs, gold per kill, best wave in sv.el.rsv[1]; unlocked at rank
+  AVERAGE (rsv[0] bit 2). unlocks_update() (econ.c) opens both.
+- EXTRAS in the SYSTEM menu (sysmenu.c -> extras_run in flight3d.c): shows what is unlocked, switches the view, starts the Arena. GBA: an EXTRAS tab.
+- Polish pass: bug art (head level with the body, jointed legs, seam, wings attached), framed save cards, station screens as cards with grey labels,
+  bright values and gold selection; text palette 3 (grey) matches the space sky.

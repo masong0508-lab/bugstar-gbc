@@ -5,10 +5,10 @@
 
 /* colour 0 = background, 1 = shadow / empty, 2 = accent, 3 = ink (see tools/make_font.py) */
 static const palette_color_t txt_pal[16] = {
-    RGB(1,1,6), RGB(26,6,6),  RGB(30,24,4),  RGB(31,31,31),   /* 0 white: bug-red shadow, gold accent */
-    RGB(1,1,6), RGB(20,12,1), RGB(31,22,6),  RGB(31,30,12),   /* 1 gold */
-    RGB(1,1,6), RGB(11,0,0),  RGB(31,10,6),  RGB(31,24,22),   /* 2 red */
-    RGB(1,1,6), RGB(3,3,5),   RGB(11,11,14), RGB(16,16,20)    /* 3 grey */
+    RGB(0,0,3), RGB(26,6,6),  RGB(30,24,4),  RGB(31,31,31),   /* 0 white: bug-red shadow, gold accent */
+    RGB(0,0,3), RGB(20,12,1), RGB(31,22,6),  RGB(31,30,12),   /* 1 gold */
+    RGB(0,0,3), RGB(11,0,0),  RGB(31,10,6),  RGB(31,24,22),   /* 2 red */
+    RGB(0,0,3), RGB(0,0,3),   RGB(13,15,22), RGB(19,21,28)    /* 3 grey: a cool blue-grey, no shadow, so it sits quietly on the panels */
 };
 
 static UINT8 to_win;                       /* 1: draw into the window layer instead of the background */

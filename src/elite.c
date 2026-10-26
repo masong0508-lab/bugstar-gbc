@@ -22,6 +22,11 @@ static char *pad(char *d, char *start, UINT8 n){ while((UINT8)(d - start) < n) *
 static char *num(char *d, const char *pre, UINT16 v, const char *post){ d = scat(d, pre); d = u16s(d, v); return scat(d, post); }
 static char *good_at(char *d, UINT8 g){ good_label(g, d); while(*d) d++; return d; }
 static char *rank_at(char *d, UINT8 r){ rank_label(r, d); while(*d) d++; return d; }
+static void lv(UINT8 x, UINT8 y, UINT8 w, const char *lab, const char *val, UINT8 vpal){   /* "LABEL value": the label grey, the value bright */
+    char b[24], *d = scat(b, lab); UINT8 n = (UINT8)(d - b);
+    d = scat(d, " "); scat(d, val);
+    txt_line(x, y, b, w); txt_color(x, y, w, 1, vpal); txt_color(x, y, n, 1, TXT_GREY);
+}
 static UINT8 here;                                                  /* the star we are docked at */
 static UINT8 rep;                                                   /* key repeat counter */
 
@@ -35,23 +40,23 @@ static UINT16 disc_price(UINT16 p){ UINT16 q = (UINT16)((UINT32)p * (100 - fame_
 
 /* ---------------------------------------------------------------- the market */
 static void mk_draw(UINT8 cur, const char *msg){
-    UINT8 g; char b[24], *d; UINT8 k = KIND(here);
+    UINT8 g; char b[24], v[16], *d; UINT8 k = KIND(here);
     txt_win(1);
-    d = num(b, "MARKET   HOLD ", econ_load(), "/"); d = u16s(d, HOLD_CAP()); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    d = scat(b, "GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 2, b, 18);
-    txt_line(1, 3, "GOOD    BUY SELL HAVE", 18); txt_color(1, 3, 18, 1, TXT_WHITE);
+    txt_line(1, 1, "MARKET", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
+    d = u16s(v, econ_load()); d = scat(d, "/"); u16s(d, HOLD_CAP()); lv(10, 1, 9, "HOLD", v, TXT_WHITE);
+    u32s(v, sv.gold > 999999999UL ? 999999999UL : sv.gold); lv(1, 2, 18, "GOLD", v, TXT_GOLD);
+    txt_line(1, 4, " GOOD   BUY SELL HAVE", 18); txt_color(1, 4, 18, 1, TXT_GREY);
     for(g = 0; g < G_N; g++){
         UINT16 bp = econ_price(here, k, g), sp = econ_sell(here, k, g), mid = econ_base(g);
         d = scat(b, g == cur ? S_CURSOR : " "); d = good_at(d, g); d = pad(d, b, 8);
         d = u16s(d, bp); d = pad(d, b, 12); d = u16s(d, sp); d = pad(d, b, 17); u16s(d, sv.el.cargo[g]);
-        txt_line(1, 4 + g, b, 18);
-        txt_color(1, 4 + g, 18, 1, TXT_WHITE);
-        if(bp * 100 <= mid * 85) txt_color(9, 4 + g, 3, 1, TXT_GOLD);          /* cheap here: buy! */
-        if(sp * 100 >= mid * 112) txt_color(13, 4 + g, 3, 1, TXT_GOLD);        /* dear here: sell! */
+        txt_line(1, 5 + g, b, 18);
+        txt_color(1, 5 + g, 18, 1, g == cur ? TXT_GOLD : TXT_WHITE);
+        if(bp * 100 <= mid * 85) txt_color(9, 5 + g, 3, 1, TXT_GOLD);          /* cheap here: buy! */
+        if(sp * 100 >= mid * 112) txt_color(13, 5 + g, 3, 1, TXT_GOLD);        /* dear here: sell! */
     }
-    txt_line(1, 13, "R: BUY   L: SELL", 18); txt_color(1, 13, 18, 1, TXT_WHITE);
-    txt_line(1, 14, "A: BUY MAX", 18); txt_color(1, 14, 18, 1, TXT_WHITE);
-    txt_line(1, 15, "SELECT: SELL ALL", 18); txt_color(1, 15, 18, 1, TXT_WHITE);
+    txt_line(1, 14, "RIGHT BUY  LEFT SELL", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_line(1, 15, "A BUY MAX  SEL SELL ALL", 18); txt_color(1, 15, 18, 1, TXT_GREY);
     txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
     txt_win(0);
 }
@@ -90,18 +95,19 @@ static void market(void){
 
 /* ---------------------------------------------------------------- fuel and repairs */
 static void sv_draw(UINT8 cur, const char *msg){
-    char b[24], *d; UINT8 need = TANK_CAP() > sv.el.fuel ? TANK_CAP() - sv.el.fuel : 0; UINT16 mx = hud_hpmax(sv.level), miss = mx > sv.hp ? mx - sv.hp : 0;
+    char b[24], v[16], *d; UINT8 need = TANK_CAP() > sv.el.fuel ? TANK_CAP() - sv.el.fuel : 0; UINT16 mx = hud_hpmax(sv.level), miss = mx > sv.hp ? mx - sv.hp : 0, cost;
     txt_win(1);
     txt_line(1, 1, "SERVICE", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    d = scat(b, "GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 2, b, 18);
-    d = scat(b, cur == 0 ? S_CURSOR : " "); d = scat(d, "REFUEL"); d = pad(d, b, 9); d = num(d, "", sv.el.fuel, "/"); d = u16s(d, TANK_CAP()); pad(d, b, 18); txt_line(1, 4, b, 18);
-    d = scat(b, cur == 1 ? S_CURSOR : " "); d = scat(d, "REPAIR"); d = pad(d, b, 9); d = u16s(d, sv.hp); d = scat(d, "/"); d = u16s(d, mx); pad(d, b, 18); txt_line(1, 5, b, 18);
-    d = scat(b, cur == 2 ? S_CURSOR : " "); d = scat(d, "FILL BOTH"); pad(d, b, 18); txt_line(1, 6, b, 18);
-    d = num(b, "FUEL ", need, " UNITS: "); d = u16s(d, disc_price(FUEL_PRICE) * need); pad(d, b, 18); txt_line(1, 9, b, 18);
-    d = num(b, "REPAIR ", miss, " HP: "); d = u16s(d, disc_price(2) * miss); pad(d, b, 18); txt_line(1, 10, b, 18);
-    txt_line(1, 12, "1 FUEL = 1 CELL", 18); txt_color(1, 12, 18, 1, TXT_WHITE);
-    txt_line(1, 13, "OF HYPERJUMP", 18); txt_color(1, 13, 18, 1, TXT_WHITE);
-    txt_line(1, 15, msg ? msg : "", 18); txt_color(1, 15, 18, 1, TXT_RED);
+    u32s(v, sv.gold > 999999999UL ? 999999999UL : sv.gold); lv(1, 2, 18, "GOLD", v, TXT_GOLD);
+    d = scat(b, cur == 0 ? S_CURSOR : " "); d = scat(d, "REFUEL"); d = pad(d, b, 10); d = num(d, "", sv.el.fuel, "/"); d = u16s(d, TANK_CAP()); pad(d, b, 18); txt_line(1, 5, b, 18);
+    d = scat(b, cur == 1 ? S_CURSOR : " "); d = scat(d, "REPAIR"); d = pad(d, b, 10); d = u16s(d, sv.hp); d = scat(d, "/"); d = u16s(d, mx); pad(d, b, 18); txt_line(1, 7, b, 18);
+    d = scat(b, cur == 2 ? S_CURSOR : " "); d = scat(d, "FILL BOTH"); pad(d, b, 18); txt_line(1, 9, b, 18);
+    txt_color(1, 5, 18, 1, cur == 0 ? TXT_GOLD : TXT_WHITE); txt_color(1, 7, 18, 1, cur == 1 ? TXT_GOLD : TXT_WHITE); txt_color(1, 9, 18, 1, cur == 2 ? TXT_GOLD : TXT_WHITE);
+    cost = cur == 0 ? disc_price(FUEL_PRICE) * need : cur == 1 ? disc_price(2) * miss : disc_price(FUEL_PRICE) * need + disc_price(2) * miss;
+    u16s(v, cost); lv(1, 11, 18, "COST", v, TXT_WHITE);
+    txt_line(1, 13, "1 FUEL = 1 JUMP", 18); txt_color(1, 13, 18, 1, TXT_GREY);
+    txt_line(1, 14, "A: BUY   B: BACK", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
     txt_win(0);
 }
 static UINT8 do_fuel(void){
@@ -155,24 +161,22 @@ static char *where(char *d, UINT8 from, UINT8 to){                  /* "3E 2N": 
 
 /* ---------------------------------------------------------------- the job board */
 static void jb_draw(UINT8 kind, UINT8 n, UINT8 dest, UINT16 rew, UINT8 active, const char *msg){
-    char b[40], *d;
+    char b[40], v[16], *d;
     txt_win(1);
     txt_line(1, 1, "JOB BOARD", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    txt_line(1, 3, active ? "YOUR JOB:" : "A JOB FOR YOU:", 18); txt_color(1, 3, 18, 1, TXT_WHITE);
+    txt_line(1, 3, active ? "YOUR JOB" : "A JOB FOR YOU", 18); txt_color(1, 3, 18, 1, TXT_GREY);
     if(kind == J_HUNT){
         d = num(b, "SHOOT DOWN ", n, " PIRATES"); pad(d, b, 18); txt_line(1, 5, b, 18);
         if(active){ d = num(b, "DONE: ", sv.el.jp, "/"); d = u16s(d, n); pad(d, b, 18); } else scat(b, "ANYWHERE IN SPACE");
-        txt_line(1, 6, b, 18);
+        txt_line(1, 6, b, 18); txt_color(1, 6, 18, 1, TXT_GREY);
     } else {
         d = scat(b, "BRING A PARCEL TO"); txt_line(1, 5, b, 18);
         d = world_name(b, world_seed(dest)); pad(d, b, 18); txt_line(1, 6, b, 18); txt_color(1, 6, 18, 1, TXT_GOLD);
-        d = where(b, here, dest); d = scat(d, "  FUEL "); d = u16s(d, jump_fuel(here, dest)); pad(d, b, 18); txt_line(1, 7, b, 18);
+        d = where(b, here, dest); d = scat(d, "  FUEL "); d = u16s(d, jump_fuel(here, dest)); pad(d, b, 18); txt_line(1, 7, b, 18); txt_color(1, 7, 18, 1, TXT_GREY);
     }
-    d = num(b, "PAYS ", rew, " GOLD"); pad(d, b, 18); txt_line(1, 9, b, 18); txt_color(1, 9, 18, 1, TXT_GOLD);
-    txt_line(1, 11, "PAID WHEN DONE AT", 18);
-    txt_line(1, 12, kind == J_HUNT ? "ANY STATION" : "THAT STATION", 18);
-    txt_line(1, 14, active ? "A: GIVE UP JOB" : "A: TAKE THE JOB", 18); txt_color(1, 14, 18, 1, TXT_WHITE);
-    txt_line(1, 15, "B: BACK", 18);
+    u16s(v, rew); lv(1, 9, 18, "PAYS", v, TXT_GOLD);
+    txt_line(1, 11, kind == J_HUNT ? "PAID AT ANY STATION" : "PAID AT THAT STATION", 18); txt_color(1, 11, 18, 1, TXT_GREY);
+    txt_line(1, 14, active ? "A: GIVE UP   B: BACK" : "A: TAKE IT   B: BACK", 18); txt_color(1, 14, 18, 1, TXT_GREY);
     txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
     txt_win(0);
 }
@@ -216,25 +220,29 @@ static void lounge(void){
 
 /* ---------------------------------------------------------------- the dock */
 static void dock_draw(UINT8 sel, const char *msg){
-    static const char *const item[7] = { "MARKET", "SERVICE", "SHIPYARD", "JOB BOARD", "LOUNGE", "VIEW: 2D", "UNDOCK" };
-    UINT8 i; char b[24], *d;
+    static const char *const item[7] = { "MARKET", "SERVICE", "SHIPYARD", "JOB BOARD", "LOUNGE", "VIEW", "UNDOCK" };
+    UINT8 i; char b[24], v[16], *d;
     txt_win(1);
+    txt_box(0, 0, 20, 7); txt_box(0, 7, 20, 9);                      /* the station card, and the menu below it */
     d = world_name(b, world_seed(here)); d = scat(d, " STN"); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    d = scat(b, kind_name[KIND(here)]); d = scat(d, " WORLD"); pad(d, b, 18); txt_line(1, 2, b, 18); txt_color(1, 2, 18, 1, TXT_WHITE);
-    d = scat(b, "RANK "); d = rank_at(d, fame_rank()); pad(d, b, 18); txt_line(1, 3, b, 18);
-    d = scat(b, "GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 4, b, 18);
-    d = num(b, "FUEL ", sv.el.fuel, "/"); d = u16s(d, TANK_CAP()); pad(d, b, 18); txt_line(1, 5, b, 18);
-    d = num(b, "HOLD ", econ_load(), "/"); d = u16s(d, HOLD_CAP()); pad(d, b, 18); txt_line(1, 6, b, 18);
-    d = num(b, "HP ", sv.hp, "/"); d = u16s(d, hud_hpmax(sv.level)); pad(d, b, 18); txt_line(1, 7, b, 18);
-    for(i = 0; i < 7; i++){ d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, item[i]); if(i == 5){ d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, !V3_OPEN ? "3D VIEW (LOCKED)" : V3_ON ? "VIEW: 3D  A: 2D" : "VIEW: 2D  A: 3D"); } pad(d, b, 18); txt_line(1, 8 + i, b, 18); }
-    txt_color(1, 13, 18, 1, V3_OPEN ? TXT_GOLD : TXT_WHITE);
-    if(sv.el.jk == J_HUNT){ d = num(b, "JOB: HUNT ", sv.el.jp, "/"); d = u16s(d, sv.el.jn); pad(d, b, 18); }
-    else if(sv.el.jk == J_SEND){ d = scat(b, "JOB: GO TO "); d = world_name(d, world_seed(sv.el.jd)); pad(d, b, 18); }
-    else scat(b, "NO JOB");
-    txt_line(1, 15, b, 18); txt_color(1, 15, 18, 1, TXT_GOLD);
-    txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
+    d = scat(b, kind_name[KIND(here)]); d = scat(d, " WORLD"); pad(d, b, 18); txt_line(1, 2, b, 18); txt_color(1, 2, 18, 1, TXT_GREY);
+    u32s(v, sv.gold > 999999999UL ? 999999999UL : sv.gold); lv(1, 3, 18, "GOLD", v, TXT_GOLD);
+    d = u16s(v, sv.el.fuel); d = scat(d, "/"); u16s(d, TANK_CAP()); lv(1, 4, 18, "FUEL", v, sv.el.fuel < 3 ? TXT_RED : TXT_WHITE);
+    rank_at(v, fame_rank()); lv(1, 5, 18, "RANK", v, TXT_WHITE);
+    for(i = 0; i < 7; i++){
+        d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, item[i]);
+        if(i == 5){ d = pad(d, b, 8); d = scat(d, !V3_OPEN ? "LOCKED" : V3_ON ? "3D  A:2D" : "2D  A:3D"); }
+        pad(d, b, 18); txt_line(1, 8 + i, b, 18);
+        txt_color(1, 8 + i, 18, 1, i == sel ? TXT_GOLD : (i == 5 && !V3_OPEN) ? TXT_GREY : TXT_WHITE);
+    }
+    if(sv.el.jk == J_HUNT){ d = num(b, "JOB  HUNT ", sv.el.jp, "/"); d = u16s(d, sv.el.jn); pad(d, b, 19); }
+    else if(sv.el.jk == J_SEND){ d = scat(b, "JOB  GO TO "); d = world_name(d, world_seed(sv.el.jd)); pad(d, b, 19); }
+    else { scat(b, "NO JOB TAKEN"); }
+    txt_line(1, 16, b, 19); txt_color(1, 16, 19, 1, sv.el.jk != J_NONE ? TXT_GOLD : TXT_GREY);
+    txt_line(1, 17, msg ? msg : "", 19); txt_color(1, 17, 19, 1, TXT_RED);
     txt_win(0);
 }
+static void dock_frame(void){ txt_win(1); txt_cls(); txt_win(0); move_win(7, 0); SHOW_WIN; }
 
 UINT8 elite_dock(UINT8 star) BANKED {
     UINT8 sel = 0, sprites = LCDC_REG & LCDCF_OBJON, go = 0; char b[32], *d; const char *msg = 0;
@@ -244,7 +252,7 @@ UINT8 elite_dock(UINT8 star) BANKED {
     if(job_done(here)){ UINT16 g = job_pay(); d = num(b, "JOB DONE! +", g, " GOLD"); msg = b; sfx(SFX_FANFARE); }
     { UINT8 u = unlocks_update();                                    /* new at this rank? */
       if(u){ msg = (u & 4) ? "ARENA OPEN! (EXTRAS)" : "3D VIEW UNLOCKED!"; sfx(SFX_FANFARE); } }
-    frame_clear(); dock_draw(sel, msg);
+    dock_frame(); dock_draw(sel, msg);
     for(;;){
         wait_vbl_done(); input_poll();
         if(HIT(J_UP))   { sel = sel ? sel - 1 : 6; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
@@ -259,7 +267,7 @@ UINT8 elite_dock(UINT8 star) BANKED {
                 dock_draw(sel, msg); continue;
             }
             if(sel == 0) market(); else if(sel == 1) service(); else if(sel == 2) shop_run(1); else if(sel == 3) jobs(); else lounge();
-            frame_clear(); msg = 0; dock_draw(sel, msg);
+            dock_frame(); msg = 0; dock_draw(sel, msg);
         }
     }
     sfx(SFX_BACK);

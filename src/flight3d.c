@@ -320,13 +320,19 @@ static void page_wait(const char *foot){ txt_line(2, 16, foot, 16); DISPLAY_ON; 
 static UINT8 ar_intro(void){
     char b[24], *d;
     page_start();
-    txt_line(5, 2, "THE ARENA", 10); txt_color(5, 2, 10, 1, TXT_GOLD);
-    txt_line(1, 4, "WAVES OF PIRATES", 18); txt_line(1, 5, "FLY AT YOU. HOVER.", 18);
-    txt_line(1, 7, "D-PAD  AIM", 18); txt_line(1, 8, "A      FIRE", 18); txt_line(1, 9, "B      BOMB ALL", 18); txt_line(1, 10, "START  CASH OUT", 18);
-    txt_line(1, 12, "EVERY 4TH WAVE HAS", 18); txt_line(1, 13, "A BOSS. BIG PAY!", 18);
+    txt_box(0, 0, 20, 18);
+    txt_line(5, 1, "THE ARENA", 9); txt_color(5, 1, 9, 1, TXT_GOLD);
+    txt_line(2, 3, "WAVES OF PIRATES", 16); txt_line(2, 4, "FLY AT YOU.", 16);
+    txt_line(2, 6, "D-PAD", 16); txt_line(8, 6, "AIM", 8);
+    txt_line(2, 7, "A", 16); txt_line(8, 7, "FIRE", 8);
+    txt_line(2, 8, "B", 16); txt_line(8, 8, "BOMB ALL", 10);
+    txt_line(2, 9, "START", 16); txt_line(8, 9, "CASH OUT", 10);
+    txt_color(2, 6, 5, 4, TXT_GOLD); txt_color(8, 6, 10, 4, TXT_WHITE);
+    txt_line(2, 11, "EVERY 4TH WAVE HAS", 16); txt_line(2, 12, "A BOSS. BIG PAY!", 16); txt_color(2, 11, 16, 2, TXT_GREY);
     d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0;
-    txt_line(1, 15, b, 18); txt_color(1, 15, 18, 1, TXT_GOLD);
-    page_wait("A: GO   B: BACK");
+    txt_line(2, 14, b, 16); txt_color(2, 14, 16, 1, TXT_GOLD);
+    txt_line(2, 16, "A: GO   B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
+    DISPLAY_ON;
     for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A)) return 1; if(HIT(J_B)) return 0; }
 }
 static UINT8 ar_cash(void){                                                 /* START: cash out? */
@@ -336,13 +342,14 @@ static UINT8 ar_cash(void){                                                 /* S
 static void ar_results(UINT8 wreck, UINT8 cleared){
     char b[24], *d;
     page_start();
+    txt_box(0, 0, 20, 18);
     txt_line(4, 2, wreck ? "SHIP WRECKED!" : "CASHED OUT", 12); txt_color(4, 2, 12, 1, wreck ? TXT_RED : TXT_GOLD);
-    d = scat(b, "WAVES CLEARED "); d = u16s(d, cleared); *d = 0; txt_line(2, 5, b, 18);
-    d = scat(b, "PIRATES SHOT "); d = u16s(d, ar_kills); *d = 0; txt_line(2, 6, b, 18);
-    d = scat(b, "GOLD EARNED "); d = u16s(d, ar_gold); *d = 0; txt_line(2, 8, b, 18); txt_color(2, 8, 18, 1, TXT_GOLD);
-    if(wreck) txt_line(2, 9, "HALF LOST IN WRECK", 18);
+    d = scat(b, "WAVES CLEARED "); d = u16s(d, cleared); *d = 0; txt_line(2, 5, b, 16);
+    d = scat(b, "PIRATES SHOT "); d = u16s(d, ar_kills); *d = 0; txt_line(2, 6, b, 16);
+    d = scat(b, "GOLD EARNED "); d = u16s(d, ar_gold); *d = 0; txt_line(2, 8, b, 16); txt_color(2, 8, 16, 1, TXT_GOLD);
+    if(wreck) txt_line(2, 9, "HALF LOST", 16);
     if(cleared > ARENA_BEST){ txt_line(2, 11, "NEW BEST WAVE!", 14); txt_color(2, 11, 14, 1, TXT_GOLD); }
-    else { d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(2, 11, b, 18); }
+    else { d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(2, 11, b, 16); }
     page_wait("A: CONTINUE");
     for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
 }
@@ -395,18 +402,22 @@ void arena_run(void) BANKED {
 static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
     char b[24], *d;
     txt_cls();
-    txt_line(6, 1, "EXTRAS", 8); txt_color(6, 1, 8, 1, TXT_GOLD);
-    txt_line(1, 3, sel == 0 ? S_CURSOR "3D VIEW" : " 3D VIEW", 18);
-    if(V3_OPEN){ txt_line(3, 4, V3_ON ? "ON    A: TURN OFF" : "OFF   A: TURN ON", 17); txt_color(3, 4, 17, 1, TXT_GOLD); }
-    else { txt_line(3, 4, "LOCKED", 17); txt_color(3, 4, 17, 1, TXT_RED); txt_line(3, 5, "NEED RANK POOR", 17); }
-    txt_line(1, 7, sel == 1 ? S_CURSOR "ARENA" : " ARENA", 18);
+    txt_box(0, 0, 20, 18);
+    txt_line(7, 1, "EXTRAS", 6); txt_color(7, 1, 6, 1, TXT_GOLD);
+    txt_line(1, 2, "UNLOCKED EXTRAS", 18); txt_color(1, 2, 18, 1, TXT_GREY);
+    txt_box(1, 4, 18, 5);                                              /* one card per extra */
+    txt_line(3, 5, sel == 0 ? S_CURSOR "3D VIEW" : " 3D VIEW", 15); txt_color(3, 5, 15, 1, sel == 0 ? TXT_GOLD : TXT_WHITE);
+    if(V3_OPEN){ txt_line(4, 6, V3_ON ? "ON" : "OFF", 14); txt_color(4, 6, 14, 1, TXT_GOLD); txt_line(4, 7, "A: SWITCH", 14); txt_color(4, 7, 14, 1, TXT_GREY); }
+    else { txt_line(4, 6, "LOCKED", 14); txt_color(4, 6, 14, 1, TXT_RED); txt_line(4, 7, "NEED RANK POOR", 14); txt_color(4, 7, 14, 1, TXT_GREY); }
+    txt_box(1, 9, 18, 5);
+    txt_line(3, 10, sel == 1 ? S_CURSOR "ARENA" : " ARENA", 15); txt_color(3, 10, 15, 1, sel == 1 ? TXT_GOLD : TXT_WHITE);
     if(ARENA_OPEN){
-        d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(3, 8, b, 17); txt_color(3, 8, 17, 1, TXT_GOLD);
-        txt_line(3, 9, in_space ? "A: PLAY" : "PLAY FROM SPACE", 17);
-    } else { txt_line(3, 8, "LOCKED", 17); txt_color(3, 8, 17, 1, TXT_RED); txt_line(3, 9, "NEED RANK AVERAGE", 17); }
-    txt_line(1, 12, "SHOOT PIRATES TO", 18); txt_line(1, 13, "RANK UP.", 18);
-    txt_line(1, 15, msg, 18); txt_color(1, 15, 18, 1, TXT_GOLD);
-    txt_line(2, 16, "B: BACK", 16);
+        d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(4, 11, b, 14); txt_color(4, 11, 14, 1, TXT_GOLD);
+        txt_line(4, 12, in_space ? "A: PLAY" : "PLAY IN SPACE", 14); txt_color(4, 12, 14, 1, TXT_GREY);
+    } else { txt_line(4, 11, "LOCKED", 14); txt_color(4, 11, 14, 1, TXT_RED); txt_line(4, 12, "NEED RANK AVERAGE", 14); txt_color(4, 12, 14, 1, TXT_GREY); }
+    txt_line(2, 14, "RANK UP IN SPACE", 16); txt_color(2, 14, 16, 1, TXT_GREY);
+    txt_line(2, 15, msg, 16); txt_color(2, 15, 16, 1, TXT_RED);
+    txt_line(2, 16, "B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
 }
 UINT8 extras_run(UINT8 in_space) BANKED {
     UINT8 sel = 0, on = 0, d = 1;

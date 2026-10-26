@@ -41,17 +41,17 @@ static void sk_draw(UINT8 sel, const char *msg){
     UINT8 i; char b[24], *d;
     txt_win(1);
     txt_line(1, 1, "SKILLS", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    d = num(b, "LV ", sv.level, "  POINTS "); d = u16s(d, skills_free()); pad(d, b, 18); txt_line(1, 2, b, 18);
+    d = num(b, "LV ", sv.level, "  POINTS "); d = u16s(d, skills_free()); pad(d, b, 18); txt_line(1, 2, b, 18); txt_color(1, 2, 18, 1, TXT_GREY);
     for(i = 0; i < NPERK; i++){
         d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, sk_name[i]); d = pad(d, b, 8); pips(d, sv.up[i], 10);
-        txt_line(1, 4 + i, b, 18);
+        txt_line(1, 4 + i, b, 18); txt_color(1, 4 + i, 18, 1, i == sel ? TXT_GOLD : TXT_WHITE);
     }
-    txt_line(1, 10, sk_what[sel], 18); txt_color(1, 10, 18, 1, TXT_GOLD);
-    d = scat(b, "NOW  "); sk_effect(sel, sv.up[sel], d); txt_line(1, 11, b, 18);
+    txt_line(1, 10, sk_what[sel], 18); txt_color(1, 10, 18, 1, TXT_WHITE);
+    d = scat(b, "NOW  "); sk_effect(sel, sv.up[sel], d); txt_line(1, 11, b, 18); txt_color(1, 11, 18, 1, TXT_GREY);
     if(sv.up[sel] < 10){ d = scat(b, "NEXT "); sk_effect(sel, sv.up[sel] + 1, d); } else scat(b, "FULLY TRAINED");
-    txt_line(1, 12, b, 18);
+    txt_line(1, 12, b, 18); txt_color(1, 12, 18, 1, TXT_GOLD);
     txt_line(1, 14, msg ? msg : "", 18); txt_color(1, 14, 18, 1, TXT_RED);
-    txt_line(1, 15, "A:TRAIN SEL:RESET", 18); txt_line(1, 16, "B:BACK", 18);
+    txt_line(1, 15, "A:TRAIN SEL:RESET", 18); txt_color(1, 15, 18, 1, TXT_GREY); txt_line(1, 16, "B:BACK", 18); txt_color(1, 16, 18, 1, TXT_GREY);
     txt_win(0);
 }
 void skills_run(void) BANKED {
@@ -135,16 +135,16 @@ static void shop_draw(UINT8 cur, const char *msg){
         d = scat(b, i == cur ? S_CURSOR : " "); d = scat(d, it_name[it]); d = pad(d, b, 8);
         if(it == I_POTION){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= 9) scat(d, "FULL"); else num(d, "", POTION_COST, ""); }
         else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", s_price(it, lv), ""); else scat(d, "MAX"); }
-        txt_line(1, 3 + i, b, 18);
+        txt_line(1, 3 + i, b, 18); txt_color(1, 3 + i, 18, 1, i == cur ? TXT_GOLD : TXT_WHITE);
     }
     it = s_first + cur;
-    txt_line(1, r, it_what[it], 18); txt_color(1, r, 18, 1, TXT_GOLD);
-    if(it == I_POTION){ txt_line(1, r + 1, "SELECT DRINKS ONE", 18); txt_line(1, r + 2, "", 18); }
+    txt_line(1, r, it_what[it], 18); txt_color(1, r, 18, 1, TXT_WHITE);
+    if(it == I_POTION){ txt_line(1, r + 1, "SELECT DRINKS ONE", 18); txt_color(1, r + 1, 18, 1, TXT_GREY); txt_line(1, r + 2, "", 18); }
     else {
         lv = sv.up[it_up[it]];
-        d = scat(b, "NOW  "); it_effect(it, lv, d); txt_line(1, r + 1, b, 18);
+        d = scat(b, "NOW  "); it_effect(it, lv, d); txt_line(1, r + 1, b, 18); txt_color(1, r + 1, 18, 1, TXT_GREY);
         if(lv < SHOP_MAXLV){ d = scat(b, "NEXT "); it_effect(it, lv + 1, d); } else scat(b, "FULLY UPGRADED");
-        txt_line(1, r + 2, b, 18);
+        txt_line(1, r + 2, b, 18); txt_color(1, r + 2, 18, 1, TXT_GOLD);
     }
     txt_line(1, r + 3, msg ? msg : "", 18); txt_color(1, r + 3, 18, 1, TXT_RED);
     txt_win(0);
