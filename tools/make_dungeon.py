@@ -32,13 +32,10 @@ def grid(v=0):
 def art(n):
     g = grid(1)
     if n in ("FLOOR", "FLOOR2"):                # no mortar grid: worn stone with specks, a few short seams and cracks (it must not look like tiles)
-        for _ in range(9 if n == "FLOOR" else 14): g[R.randrange(16)][R.randrange(16)] = 2
-        for _ in range(3 if n == "FLOOR" else 5):
+        for _ in range(3 if n == "FLOOR" else 5): g[R.randrange(16)][R.randrange(16)] = 2
+        for _ in range(1 if n == "FLOOR" else 2):
             x, y = R.randrange(11), R.randrange(16)
             for k in range(R.randrange(2, 5)): g[y][x + k] = 0
-        if n == "FLOOR2":
-            x, y = R.randrange(4, 10), R.randrange(2, 8)
-            for k in range(6): g[y + k][x + (k * 2) // 3] = 3
     elif n == "WALL":                            # the top of a wall: dark, with a lit rim
         g = grid(0)
         for _ in range(10): g[R.randrange(16)][R.randrange(16)] = 1
@@ -48,26 +45,33 @@ def art(n):
             for x in range(16):
                 if y % 5 == 4 or (x + (4 if (y // 5) % 2 else 0)) % 8 == 0: g[y][x] = 3
         for x in range(16): g[0][x] = 2; g[15][x] = 0
-    elif n in ("DOWN", "UP"):                    # stairs: steps going down into the dark, or up into light
-        g = grid(0 if n == "DOWN" else 2)
+    elif n in ("DOWN", "UP"):                    # a stair set into the floor: a dark opening with a few thin steps
+        g = grid(0)
         for k in range(4):
-            for x in range(1 + k, 15 - k): g[2 + k * 3][x] = 2 if n == "DOWN" else 0
-            for x in range(1 + k, 15 - k): g[3 + k * 3][x] = 1
-        for y in range(16): g[y][0] = g[y][15] = 3
-    elif n in ("CHEST", "OPEN"):
+            y = (3 + k * 3) if n == "DOWN" else (12 - k * 3)
+            for x in range(2 + k, 14 - k): g[y][x] = 2 if n == "UP" else 1
+            for x in range(2 + k, 14 - k): g[y + 1][x] = 1 if n == "UP" else 0
+        for y in range(1, 15): g[y][1] = g[y][14] = 1
+        for x in range(1, 15): g[1][x] = g[14][x] = 1
+    elif n in ("CHEST", "OPEN"):                 # a rounded treasure chest, lit from above, on a dark rug
         g = grid(0)
         for y in range(16):
-            for x in range(16): g[y][x] = 1 if 2 <= x <= 13 and 5 <= y <= 14 else 0
-        for x in range(2, 14): g[5][x] = 0; g[9][x] = 0 if n == "CHEST" else 1
-        for y in range(5, 15): g[y][2] = g[y][13] = 0
+            for x in range(16):
+                if (x * 7 + y * 3) % 5 == 0 and (x < 2 or x > 13 or y > 13 or y < 2): g[y][x] = 0
+        def inb(x, y): return 2 <= x <= 13 and 4 <= y <= 13 and not ((x in (2, 13)) and (y in (4, 13)))
+        for y in range(4, 14):
+            for x in range(2, 14):
+                if inb(x, y): g[y][x] = 0 if (x in (2, 13) or y in (4, 13)) else 1
+        for x in range(3, 13): g[5][x] = 2                      # lid highlight
+        for x in range(3, 13): g[8][x] = 0 if n == "CHEST" else 1
+        for y in range(5, 13): g[y][5] = g[y][10] = 2             # gold straps
         if n == "CHEST":
-            g[9][7] = g[9][8] = g[10][7] = g[10][8] = 2; g[9][7] = 3
-            for x in range(3, 13): g[4][x] = 1
-            for x in range(3, 13): g[3][x] = 0
+            g[8][7] = g[8][8] = g[9][7] = g[9][8] = 3
+            g[6][3] = g[6][4] = 3
         else:
-            for y in range(6, 9):
+            for y in range(5, 8):
                 for x in range(3, 13): g[y][x] = 0
-            g[7][6] = g[6][9] = 2; g[7][10] = 3
+            g[6][6] = g[5][8] = 3; g[6][9] = 2
     elif n in ("CAGE", "FREED"):
         g = grid(0)
         if n == "CAGE":                          # a little caged friend: a round bug in the friend's colour

@@ -26,8 +26,11 @@
 #include "planet.h"
 #include "dungeon.h"
 #include "shop.h"
+#include "econ.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
+#define CRIT_TILE0 120           /* the sparkle and butterfly sprites (bank 1, after the ship) */
+#define CRIT_OAM0  28            /* sprites 28..37: 6 sparkles, 3 butterflies, the golden moth */
 #define SHIP_OAM0  20
 #define SHIP_PAL   0
 #define VIEW_W     11            /* metatiles drawn across (160 px + one for scrolling) */
@@ -184,9 +187,11 @@ static void load_gfx(void){
     VBK_REG = VBK_BANK_1;
     set_bkg_data(0, PL_NTILES, planet_tiles);
     set_sprite_data(SHIP_TILE0, 16, ship_tiles);
+    set_sprite_data(CRIT_TILE0, 8, crit_tiles);
     VBK_REG = VBK_BANK_0;
     set_bkg_palette(4, 4, &planet_pals[wk * 16]);
     set_sprite_palette(SHIP_PAL, 1, ship_pal);
+    set_sprite_palette(1, 2, crit_pal);
     for(i = 0; i < 8; i++){ set_sprite_tile(SHIP_OAM0 + i, SHIP_TILE0 + i * 2); set_sprite_prop(SHIP_OAM0 + i, SHIP_PAL | 0x08); }
 }
 static void camera(void){ cam_x = (bx - BUG_SX) & 4095; cam_y = (by - BUG_SY) & 4095; }
@@ -210,6 +215,103 @@ static UINT8 near_ship(void){
     return dx < 28 && dy < 40;
 }
 
+
+/* ------------------------------------------------------------ things to find: treasure sparkles, butterflies, a golden moth
+   Every landing hides 6 treasures within 20 metatiles of the ship (different each time): they twinkle on the map. Walk over one for a
+   prize (gold, a potion, XP, a heal, fuel); find all 6 for a bonus. Sometimes a golden moth flutters about: it runs from you, so
+   hold B to chase it. Butterflies are just for the look. */
+#define NTRE 6
+#define NBUT 3
+static UINT8  tre_x[NTRE], tre_y[NTRE], tre_got, tre_n, tre_found;
+static UINT16 but_x[NBUT], but_y[NBUT]; static INT8 but_vx[NBUT], but_vy[NBUT];
+static UINT16 moth_x, moth_y; static UINT8 moth_on, note_t;
+static UINT16 prng;
+static UINT8 pr(void){ prng ^= prng << 7; prng ^= prng >> 9; prng ^= prng << 8; return (UINT8)prng; }
+static INT16 wd(UINT16 a, UINT16 b){ INT16 d = (INT16)((a - b) & 4095); return d > 2048 ? d - 4096 : d; }   /* a - b, the short way round */
+static INT16 iabs(INT16 v){ return v < 0 ? -v : v; }
+static void note(const char *t){                                 /* a line under the HUD for a moment: the HUD slides up 8 px to show it */
+    txt_win(1); txt_line(0, 2, t, 20); txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0);
+    hud_pos(HUD_Y - 8); note_t = 110;
+}
+static void note_off(void){ txt_win(1); txt_line(0, 2, "", 20); txt_win(0); hud_pos(HUD_Y); }
+static void place_things(void){
+    UINT8 i, tries;
+    prng = (UINT16)(sv.secs ^ ((UINT16)DIV_REG << 8) ^ seed_a ^ 0xACE1u); if(!prng) prng = 1;
+    tre_got = 0; tre_n = 0; tre_found = 0;
+    for(i = 0; i < NTRE; i++){
+        for(tries = 0; tries < 80; tries++){
+            INT8 dx = (INT8)(pr() % 41) - 20, dy = (INT8)(pr() % 41) - 20; UINT8 x = ship_mx + dx, y = ship_my + dy, g;
+            if(dx > -4 && dx < 4 && dy > -4 && dy < 4) continue;
+            g = ground(x, y);
+            if(g == MT_SAND || g == MT_GRASS || g == MT_GRASS2 || g == MT_FLOWERS){ tre_x[i] = x; tre_y[i] = y; tre_n++; break; }
+        }
+        if(tries == 80) tre_got |= 1 << i;                       /* (no room: that one is simply not there) */
+    }
+    for(i = 0; i < NBUT; i++){ but_x[i] = bx + (UINT8)pr() - 128; but_y[i] = by + (UINT8)pr() / 2 - 64; but_vx[i] = (INT8)(pr() % 3) - 1; but_vy[i] = (INT8)(pr() % 3) - 1; }
+    moth_on = (pr() & 3) == 0 ? 0 : 1;                           /* three landings in four */
+    moth_x = (((UINT16)ship_mx << 4) + 8 + (INT16)(INT8)pr() * 2) & 4095; moth_y = (((UINT16)ship_my << 4) - 80 - (pr() & 63)) & 4095;
+}
+static void prize(UINT8 i){
+    char b[24], *d; UINT16 g; UINT8 t = pr() % 6, mx = 0;
+    tre_got |= 1 << i; tre_found++; sfx(SFX_COIN);
+    if(t == 1 && sv.potions >= 9) t = 0;
+    if(t == 0 || t == 5){ g = t ? 40 + sv.level * 6 : 15 + sv.level * 3; sv.gold += g; d = scat(b, "+"); d = u16s(d, g); d = scat(d, " GOLD"); }
+    else if(t == 1){ sv.potions++; d = scat(b, "A HEALTH POTION"); }
+    else if(t == 2){ g = 10 + sv.level * 2; gain_xp(g); d = scat(b, "+"); d = u16s(d, g); d = scat(d, " XP"); }
+    else if(t == 3){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); d = scat(b, "FULLY HEALED"); }
+    else { sv.el.fuel += 2; if(sv.el.fuel > TANK_CAP()) sv.el.fuel = TANK_CAP(); d = scat(b, "+2 SHIP FUEL"); }
+    (void)mx;
+    d = scat(d, "  "); d = u16s(d, tre_found); d = scat(d, "/"); u16s(d, tre_n);
+    note(b);
+    if(tre_found >= tre_n){
+        sv.gold += 100 + sv.level * 10; if(sv.potions < 9) sv.potions++; sfx(SFX_FANFARE);
+        dlg_say("BOLT", "ALL THE TREASURE IS FOUND! HERE IS A BONUS: GOLD AND A POTION.");
+    }
+}
+static void crit_step(UINT8 frame){
+    UINT8 i;
+    for(i = 0; i < NTRE; i++) if(!(tre_got & (1 << i))){
+        INT16 dx = wd(bx, ((UINT16)tre_x[i] << 4) + 8), dy = wd(by - 6, ((UINT16)tre_y[i] << 4) + 8);
+        if(iabs(dx) < 10 && iabs(dy) < 10){ prize(i); break; }
+    }
+    for(i = 0; i < NBUT; i++){
+        INT16 dx = wd(but_x[i], bx), dy = wd(but_y[i], by);
+        if(!((frame + i * 11) & 31)){ but_vx[i] = (INT8)(pr() % 3) - 1; but_vy[i] = (INT8)(pr() % 3) - 1; }
+        if(dx > 100) but_vx[i] = -1; else if(dx < -100) but_vx[i] = 1;
+        if(dy > 70) but_vy[i] = -1; else if(dy < -70) but_vy[i] = 1;
+        if(frame & 1){ but_x[i] = (but_x[i] + but_vx[i]) & 4095; but_y[i] = (but_y[i] + but_vy[i]) & 4095; }
+    }
+    if(moth_on){
+        INT16 dx = wd(moth_x, bx), dy = wd(moth_y, by - 6), dist = iabs(dx) + iabs(dy);
+        if(dist < 16){
+            UINT16 g = 60 + sv.level * 8; char b[24], *d;
+            moth_on = 0; sv.gold += g; gain_xp(20 + sv.level); sfx(SFX_FANFARE);
+            d = scat(b, "GOLDEN MOTH! +"); d = u16s(d, g); scat(d, " GOLD"); note(b);
+        } else if(dist < 70){                                     /* it flees: as fast as you walk, so run (B) to catch it */
+            INT8 mx = dx > 0 ? 1 : -1, my = dy > 0 ? 1 : -1;
+            if(!(frame & 7)){ if(pr() & 1) mx = -mx; else my = -my; }       /* a swerve now and then */
+            moth_x = (moth_x + mx) & 4095; moth_y = (moth_y + my) & 4095;
+        } else if(!(frame & 3)){ moth_x = (moth_x + (INT8)(pr() % 3) - 1) & 4095; moth_y = (moth_y + (INT8)(pr() % 3) - 1) & 4095; }
+    }
+    if(note_t && !--note_t) note_off();
+}
+static void crit_put(UINT8 oam, UINT16 wx, UINT16 wy, UINT8 tile, UINT8 pal){
+    INT16 sx = (INT16)((wx - cam_x) & 4095), sy = (INT16)((wy - cam_y) & 4095);
+    if(sx > 2048) sx -= 4096; if(sy > 2048) sy -= 4096;
+    sx -= 4; sy -= 4;
+    if(sx < -8 || sx > 168 || sy < -8 || sy > 120){ move_sprite(oam, 0, 0); return; }
+    set_sprite_tile(oam, tile); set_sprite_prop(oam, pal | 0x08); move_sprite(oam, (UINT8)(sx + 8), (UINT8)(sy + 16));
+}
+static void crit_draw(UINT8 frame){
+    UINT8 i, sp = CRIT_TILE0 + ((frame >> 4) & 1) * 2, bt = CRIT_TILE0 + 4 + ((frame >> 3) & 1) * 2;
+    for(i = 0; i < NTRE; i++){
+        if(tre_got & (1 << i)) move_sprite(CRIT_OAM0 + i, 0, 0);
+        else crit_put(CRIT_OAM0 + i, ((UINT16)tre_x[i] << 4) + 8, ((UINT16)tre_y[i] << 4) + 8, sp, 1);
+    }
+    for(i = 0; i < NBUT; i++) crit_put(CRIT_OAM0 + NTRE + i, but_x[i], but_y[i], bt, 2);
+    if(moth_on) crit_put(CRIT_OAM0 + NTRE + NBUT, moth_x, moth_y, bt, 1); else move_sprite(CRIT_OAM0 + NTRE + NBUT, 0, 0);
+}
+
 static void leave(void){                                       /* clear the screen for the next scene */
     UINT8 k;
     fade_out(); DISPLAY_OFF;
@@ -229,11 +331,12 @@ static void enter(void){                                       /* the planet ont
     fade_in();
 }
 int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
-    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0; char msg[140], *d;
+    UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0, tick = 0; char msg[140], *d;
     fade_out(); DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
     world_setup();
+    place_things(); note_t = 0;
     enter();
     play_reset(sv.secs);
     ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
@@ -258,6 +361,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
+        crit_step(++tick);
         if(ox == door_mx && oy == door_my){ if(!was_door){ int r;
                 was_door = 1; sfx(SFX_STAIRS);
                 r = dungeon_run();                                 /* down you go */
@@ -270,7 +374,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         wait_vbl_done();
         SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;
         bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, frame);
-        ship_show();
+        ship_show(); crit_draw(tick);
         hud_update();
         if(HIT(J_A) && near_ship()){
             sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); if(sv.el.fuel < 6) sv.el.fuel = 6; slot_write(cur_slot); sfx(SFX_FANFARE);

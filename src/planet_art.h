@@ -14,6 +14,8 @@ extern const palette_color_t planet_pals[PL_NWORLD * 16];
 extern const char *const planet_world_name[PL_NWORLD];
 extern const UINT8 ship_tiles[16 * 16];            /* 8 sprites of 8x16, column by column */
 extern const palette_color_t ship_pal[4];
+extern const UINT8 crit_tiles[8 * 16];             /* sparkle x2, butterfly x2: 8x16 sprites, the picture in the top tile */
+extern const palette_color_t crit_pal[8];          /* sprite palette 1: gold and white (sparkles, the golden moth); 2: pink (butterflies) */
 extern const UINT8 planet_perm[256];               /* a shuffle of 0..255: the noise hashes with it, no multiplying */
 extern const UINT8 planet_ease[256];               /* 3t^2 - 2t^3, so hills are round */
 #endif
