@@ -28,6 +28,7 @@
 #include "warp.h"
 #include "econ.h"
 #include "elite.h"
+#include "xtra.h"
 #include "space_int.h"
 #include "space3d_art.h"
 #include "kart.h"
@@ -406,7 +407,7 @@ void arena_run(void) BANKED {
 #define HELL_OPEN (sv.level >= 8)
 #define MOON_OPEN (sv.level >= 10)
 #define KART_OPEN (sv.level >= 5)
-#define EX_N 5
+#define EX_N 9
 static void ex_card(UINT8 y, UINT8 on, const char *nm, const char *st, UINT8 c1, const char *info){
     txt_box(1, y, 18, 4);
     txt_line(3, y + 1, on ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, on ? TXT_GOLD : TXT_WHITE);
@@ -423,6 +424,10 @@ static void ex_one(UINT8 i, UINT8 y, UINT8 on){
             else ex_card(y, on, "HELL DEEP", "LOCK", TXT_RED, "NEED LEVEL 8"); break;
     case 3: if(MOON_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_MOON); *d = 0; ex_card(y, on, "MOON DEEP", "OPEN", TXT_GOLD, b); }
             else ex_card(y, on, "MOON DEEP", "LOCK", TXT_RED, "NEED LEVEL 10"); break;
+    case 5: ex_card(y, on, "MINING", "OPEN", TXT_GOLD, "SWING THE PICK"); break;
+    case 6: ex_card(y, on, "LOUNGE", "OPEN", TXT_GOLD, "RUMOURS, A DRINK"); break;
+    case 7: d = u16s(b, xtra_relics()); d = scat(d, " OF 12 FOUND"); *d = 0; ex_card(y, on, "RELICS", "OPEN", TXT_GOLD, b); break;
+    case 8: if(xtra_dbg_open(0)) ex_card(y, on, "DEBUG", "OPEN", TXT_GOLD, "CHEATS"); else ex_card(y, on, "DEBUG", "LOCK", TXT_RED, "SELECT+A OPENS"); break;
     default: if(KART_OPEN){ if(EX_KART){ d = scat(b, "BEST LAP "); d = u16s(d, EX_KART / 60); d = scat(d, "."); d = u16s(d, (EX_KART % 60) * 10 / 60); *d = 0; } else scat(b, "3D KART RACE"); ex_card(y, on, "KART WORLD", "OPEN", TXT_GOLD, b); }
             else ex_card(y, on, "KART WORLD", "LOCK", TXT_RED, "NEED LEVEL 5"); break;
     }
@@ -457,6 +462,11 @@ UINT8 extras_run(UINT8 in_space) BANKED {
                 else if(!in_space){ msg = "FLY TO PLAY IT"; sfx(SFX_HURT); }
                 else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "REPAIR FIRST"; sfx(SFX_HURT); }
                 else return 2;
+            } else if(sel >= 5){
+                fade_out(); DISPLAY_OFF;
+                if(sel == 5) xtra_mine(); else if(sel == 6) xtra_lounge(); else if(sel == 7) xtra_relic_screen();
+                else if(xtra_dbg_open(HELD(J_SELECT))) xtra_debug(); else { msg = "HOLD SELECT, PRESS A"; sfx(SFX_HURT); }
+                DISPLAY_OFF; txt_win(0); txt_pal_reset(); on = 0;
             } else if(sel == 4){
                 if(!KART_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
                 else { fade_out(); DISPLAY_OFF; kart_run(); DISPLAY_OFF; txt_pal_reset(); on = 0; }

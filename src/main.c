@@ -20,6 +20,7 @@
 #include "planet.h"
 #include "dungeon.h"
 #include "kart.h"
+#include "space3d.h"
 #include "space.h"
 #include "ending.h"
 
@@ -67,7 +68,9 @@ void main(void){
 #ifdef TEST_LVL
     sv.level = TEST_LVL; sv.hp = hud_hpmax(TEST_LVL); sv.mp = hud_mpmax(TEST_LVL); sv.zone = 0;
 #endif
-#ifdef TEST_KART
+#ifdef TEST_EXTRAS
+    cpu_fast(); sv.level = 12; sv.gold = 500; sv.hp = 3; extras_run(0);
+#elif defined(TEST_KART)
     cpu_fast(); kart_run();
 #elif defined(TEST_MOON)
     cpu_fast(); dungeon_hell(1);
