@@ -145,12 +145,39 @@ U['ai1'] = add(sized(rear, 16, 16, 16, 11))
 U['ai2'] = add(sized(rear, 24, 16, 24, 16))
 for k, sh in enumerate((-2, 0, 2)): U['me%d' % k] = add(sized(rear, 24, 16, 24, 16, sh=sh))
 
+def itembox(w, h):                                       # a golden "?" cube
+    c = canvas(w, h)
+    rect(c, 0, 0, w, h, 1); rect(c, 1, 1, w - 1, h - 1, 2)
+    if w >= 12:
+        q = max(1, w // 6); mx = w // 2
+        rect(c, mx - q * 1.5, h * 0.2, mx + q * 1.5, h * 0.2 + q, 3); rect(c, mx + q * 0.5, h * 0.2 + q, mx + q * 1.5, h * 0.2 + q * 2.2, 3)
+        rect(c, mx - q * 0.5, h * 0.2 + q * 2.2, mx + q * 0.5, h * 0.2 + q * 3.2, 3); rect(c, mx - q * 0.5, h * 0.2 + q * 4.0, mx + q * 0.5, h * 0.2 + q * 5.0, 3)
+    else: rect(c, 2, 1, 4, 3, 3)
+    return c
+def oilspot(w, h):                                       # a flat dark slick
+    c = canvas(w, h); hh = max(2, h // 2)
+    ell(c, w / 2.0, h - hh / 2.0, w / 2.0, hh / 2.0, 1)
+    ell(c, w * 0.38, h - hh * 0.65, max(1, w * 0.12), max(0.6, hh * 0.15), 3)
+    return c
+def shell(w, h):                                         # a red shell with a shine
+    c = canvas(w, h)
+    ell(c, w / 2.0, h / 2.0, w / 2.0, h / 2.0, 1)
+    ell(c, w / 2.0, h / 2.0, max(1, w / 2.0 - 1), max(1, h / 2.0 - 1), 2)
+    ell(c, w * 0.38, h * 0.35, max(0.7, w * 0.14), max(0.7, h * 0.14), 3)
+    return c
+for nm, fn, ws in (('box', itembox, ((6, 6), (12, 12), (20, 16))), ('oil', oilspot, ((8, 4), (14, 7), (22, 10))), ('sh', shell, ((5, 5), (9, 9), (14, 14)))):
+    U[nm + '0'] = add(sized(fn, 8, 16, *ws[0]))
+    U[nm + '1'] = add(sized(fn, 16, 16, *ws[1]))
+    U[nm + '2'] = add(sized(fn, 24, 16, *ws[2]))
+
 spal = [0, c15(110, 70, 35), c15(35, 130, 50), c15(80, 190, 80),                      # 0 trees
         0, c15(70, 70, 80), c15(130, 130, 140), c15(190, 190, 200),                  # 1 rocks
         0, c15(30, 30, 40), c15(220, 50, 50), c15(255, 235, 140),                    # 2 red kart
         0, c15(30, 30, 40), c15(60, 100, 230), c15(255, 235, 140),                   # 3 blue kart
         0, c15(30, 30, 40), c15(240, 200, 40), c15(255, 255, 220),                   # 4 yellow kart
-        0, c15(30, 30, 40), c15(60, 200, 90), c15(255, 255, 220)]                    # 5 you (the body colour is replaced by your bug's shell colour)
+        0, c15(30, 30, 40), c15(60, 200, 90), c15(255, 255, 220),                    # 5 you (the body colour is replaced by your bug's shell colour)
+        0, c15(60, 40, 10), c15(255, 200, 40), c15(255, 255, 255),                   # 6 item boxes
+        0, c15(25, 25, 40), c15(230, 40, 40), c15(255, 255, 255)]                    # 7 shells and oil slicks
 
 def arr(name, vals, typ='UINT8', per=16):
     s = 'static const %s %s[%d] = {\n' % (typ, name, len(vals))
