@@ -19,6 +19,7 @@
 #include "bugmake.h"
 #include "planet.h"
 #include "dungeon.h"
+#include "kart.h"
 #include "space.h"
 #include "ending.h"
 
@@ -66,8 +67,12 @@ void main(void){
 #ifdef TEST_LVL
     sv.level = TEST_LVL; sv.hp = hud_hpmax(TEST_LVL); sv.mp = hud_mpmax(TEST_LVL); sv.zone = 0;
 #endif
-#ifdef TEST_HELL
-    cpu_fast(); dungeon_hell();
+#ifdef TEST_KART
+    cpu_fast(); kart_run();
+#elif defined(TEST_MOON)
+    cpu_fast(); dungeon_hell(1);
+#elif defined(TEST_HELL)
+    cpu_fast(); dungeon_hell(0);
 #else
     cpu_fast(); dungeon_run();
 #endif

@@ -30,7 +30,10 @@
 #include "elite.h"
 #include "space_int.h"
 #include "space3d_art.h"
+#include "kart.h"
+
 #include "space3d.h"
+
 #include "space3d_int.h"
 
 static UINT8 msg_t, told3, lab_t;           /* the message timer, the how-to-fly talk (once), frames since the target line was drawn */
@@ -401,22 +404,36 @@ void arena_run(void) BANKED {
 
 /* ================================================================ EXTRAS: what you have unlocked */
 #define HELL_OPEN (sv.level >= 8)
-static void ex_card(UINT8 sel, UINT8 i, UINT8 y, const char *nm, const char *st, UINT8 c1, const char *info){
+#define MOON_OPEN (sv.level >= 10)
+#define KART_OPEN (sv.level >= 5)
+#define EX_N 5
+static void ex_card(UINT8 y, UINT8 on, const char *nm, const char *st, UINT8 c1, const char *info){
     txt_box(1, y, 18, 4);
-    txt_line(3, y + 1, sel == i ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, sel == i ? TXT_GOLD : TXT_WHITE);
+    txt_line(3, y + 1, on ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, on ? TXT_GOLD : TXT_WHITE);
     txt_line(14, y + 1, st, 4); txt_color(14, y + 1, 4, 1, c1);
     txt_line(4, y + 2, info, 14); txt_color(4, y + 2, 14, 1, TXT_GREY);
 }
-static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
+static void ex_one(UINT8 i, UINT8 y, UINT8 on){
     char b[24], *d;
+    switch(i){
+    case 0: if(V3_OPEN) ex_card(y, on, "3D VIEW", V3_ON ? "ON" : "OFF", TXT_GOLD, "A: SWITCH"); else ex_card(y, on, "3D VIEW", "LOCK", TXT_RED, "NEED RANK POOR"); break;
+    case 1: if(ARENA_OPEN){ d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; ex_card(y, on, "ARENA", "OPEN", TXT_GOLD, b); }
+            else ex_card(y, on, "ARENA", "LOCK", TXT_RED, "NEED RANK AVER"); break;
+    case 2: if(HELL_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_HELL); *d = 0; ex_card(y, on, "HELL DEEP", "OPEN", TXT_GOLD, b); }
+            else ex_card(y, on, "HELL DEEP", "LOCK", TXT_RED, "NEED LEVEL 8"); break;
+    case 3: if(MOON_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_MOON); *d = 0; ex_card(y, on, "MOON DEEP", "OPEN", TXT_GOLD, b); }
+            else ex_card(y, on, "MOON DEEP", "LOCK", TXT_RED, "NEED LEVEL 10"); break;
+    default: if(KART_OPEN){ if(EX_KART){ d = scat(b, "BEST LAP "); d = u16s(d, EX_KART / 60); d = scat(d, "."); d = u16s(d, (EX_KART % 60) * 10 / 60); *d = 0; } else scat(b, "3D KART RACE"); ex_card(y, on, "KART WORLD", "OPEN", TXT_GOLD, b); }
+            else ex_card(y, on, "KART WORLD", "LOCK", TXT_RED, "NEED LEVEL 5"); break;
+    }
+}
+static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
+    UINT8 top = sel > 2 ? sel - 2 : 0, k;
     txt_cls();
     txt_box(0, 0, 20, 18);
     txt_line(7, 1, "EXTRAS", 6); txt_color(7, 1, 6, 1, TXT_GOLD);
-    if(V3_OPEN) ex_card(sel, 0, 3, "3D VIEW", V3_ON ? "ON" : "OFF", TXT_GOLD, "A: SWITCH"); else ex_card(sel, 0, 3, "3D VIEW", "LOCK", TXT_RED, "NEED RANK POOR");
-    if(ARENA_OPEN){ d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; ex_card(sel, 1, 7, "ARENA", "OPEN", TXT_GOLD, b); }
-    else ex_card(sel, 1, 7, "ARENA", "LOCK", TXT_RED, "NEED RANK AVER");
-    if(HELL_OPEN){ d = scat(b, "BEST DEPTH "); d = u16s(d, EX_HELL); *d = 0; ex_card(sel, 2, 11, "HELL DEEP", "OPEN", TXT_GOLD, b); }
-    else ex_card(sel, 2, 11, "HELL DEEP", "LOCK", TXT_RED, "NEED LEVEL 8");
+    for(k = 0; k < 3; k++) ex_one(top + k, 3 + k * 4, top + k == sel);
+    txt_line(18, 3, top ? "^" : " ", 1); txt_line(18, 13, top + 3 < EX_N ? "v" : " ", 1);
     txt_line(2, 15, msg, 16); txt_color(2, 15, 16, 1, TXT_RED);
     txt_line(2, 16, "A: GO  B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
 }
@@ -428,8 +445,8 @@ UINT8 extras_run(UINT8 in_space) BANKED {
         if(d){ ex_draw(sel, in_space, msg); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) return 0;
-        if(HIT(J_UP)){ sel = sel ? sel - 1 : 2; msg = ""; d = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_UP)){ sel = sel ? sel - 1 : EX_N - 1; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_DOWN)){ sel = sel < EX_N - 1 ? sel + 1 : 0; msg = ""; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_A)){
             d = 1; msg = "";
             if(sel == 0){
@@ -440,11 +457,14 @@ UINT8 extras_run(UINT8 in_space) BANKED {
                 else if(!in_space){ msg = "FLY TO PLAY IT"; sfx(SFX_HURT); }
                 else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "REPAIR FIRST"; sfx(SFX_HURT); }
                 else return 2;
+            } else if(sel == 4){
+                if(!KART_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
+                else { fade_out(); DISPLAY_OFF; kart_run(); DISPLAY_OFF; txt_pal_reset(); on = 0; }
             } else {
-                if(!HELL_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
+                if(sel == 2 ? !HELL_OPEN : !MOON_OPEN){ msg = "NOT YET UNLOCKED"; sfx(SFX_HURT); }
                 else if(in_space){ msg = "LAND ON A WORLD"; sfx(SFX_HURT); }
                 else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "HEAL FIRST"; sfx(SFX_HURT); }
-                else return 3;
+                else return sel == 2 ? 3 : 4;
             }
         }
     }

@@ -458,8 +458,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         if(HIT(J_START)){
             { int sr = sysmenu_run(redraw);
               if(sr == SYS_TITLE){ leave(); return PL_TITLE; }
-              if(sr == SYS_HELL){                                  /* EXTRAS > HELL DEPTHS */
-                  int r = dungeon_hell();
+              if(sr == SYS_HELL || sr == SYS_MOON){                                  /* EXTRAS > HELL DEPTHS */
+                  int r = dungeon_hell(sr == SYS_MOON);
                   if(r == DG_TITLE){ leave(); return PL_TITLE; }
                   if(r == DG_FAINT){ bx = ((UINT16)ship_mx << 4) + 8; by = ((UINT16)ship_my << 4) + 40; }
                   was_door = 1; camera(); enter(); continue; } }

@@ -53,15 +53,15 @@ UINT8 diff_dmg(UINT8 n) BANKED {
     return r > 255 ? 255 : (UINT8)r;
 }
 /* ------------------------------------------------------------ the HELL DEPTHS: an endless stair down, tougher every four floors */
-void hell_set(UINT8 depth) BANKED { hell_t = 1 + depth / 4; if(hell_t > 10) hell_t = 10; }
+void hell_set(UINT8 depth, UINT8 moon) BANKED { hell_t = moon ? 1 + depth / 5 : 1 + depth / 4; if(hell_t > (moon ? 8 : 10)) hell_t = moon ? 8 : 10; }
 UINT16 hell_hp(UINT16 hp) BANKED { return hp + hp * hell_t / 2 + hell_t * 3; }
-void hell_end(UINT8 r, UINT8 depth) BANKED {
-    char b[40], *d; UINT16 g = (UINT16)depth * depth * 4;
+void hell_end(UINT8 r, UINT8 depth, UINT8 moon) BANKED {
+    char b[40], *d; UINT16 g = (UINT16)depth * depth * (moon ? 6 : 4);
     hell_t = 0;
-    if(depth > EX_HELL) EX_HELL = depth;
+    if(moon){ if(depth > EX_MOON) EX_MOON = depth; } else if(depth > EX_HELL) EX_HELL = depth;
     if(r == DG_FAINT) g /= 2;
     sv.gold += g;
-    d = scat(b, "DEPTH "); d = u16s(d, depth); d = scat(d, ". +"); d = u16s(d, g); d = scat(d, "G. BEST "); d = u16s(d, EX_HELL); *d = 0;
+    d = scat(b, "DEPTH "); d = u16s(d, depth); d = scat(d, ". +"); d = u16s(d, g); d = scat(d, "G. BEST "); d = u16s(d, moon ? EX_MOON : EX_HELL); *d = 0;
     dlg_say(0, b);
 }
 

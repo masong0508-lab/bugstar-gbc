@@ -462,12 +462,12 @@ int dungeon_run(void) BANKED {
     feats_check();
     return r;
 }
-int dungeon_hell(void) BANKED {
+int dungeon_hell(UINT8 moon) BANKED {
     int r;
-    kind = world_kind(world_seed(sv.star)); floors = 99; depth = 1; inv = 0; atk = 0; face = 3; hell = 1;
-    for(;;){ hell_set(depth); r = play_floor(); if(r == DG_DOWN){ depth++; continue; } break; }
+    kind = world_kind(world_seed(sv.star)); if(moon) kind = (kind + 3) % 6; floors = 99; depth = 1; inv = 0; atk = 0; face = 3; hell = 1 + moon;
+    for(;;){ hell_set(depth, moon); r = play_floor(); if(r == DG_DOWN){ depth++; continue; } break; }
     hell = 0; { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
-    if(r == DG_EXIT || r == DG_FAINT) hell_end(r, depth); else hell_t = 0;
+    if(r == DG_EXIT || r == DG_FAINT) hell_end(r, depth, moon); else hell_t = 0;
     return r;
 }
 int dungeon_pit(UINT8 tier) BANKED {                                 /* the city pit: returns (waves cleared << 4) | how it ended (DG_WIN: all ten, DG_EXIT: gave up, DG_FAINT) */

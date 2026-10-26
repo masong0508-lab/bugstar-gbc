@@ -12,3 +12,8 @@ static void lcd_isr(void){
 void wave_start(void){ CRITICAL { STAT_REG = 0x08; add_LCD(lcd_isr); } set_interrupts(IE_REG | LCD_IFLAG); }
 void wave_stop(void){ set_interrupts(IE_REG & ~LCD_IFLAG); CRITICAL { remove_LCD(lcd_isr); STAT_REG = 0; } SCX_REG = 0; }
 void wave_tick(void){ phase++; }
+
+UINT8 road_scx[144];
+static void road_isr(void){ UINT8 l = LY_REG + 1; SCX_REG = l < 144 ? road_scx[l] : 0; }
+void road_start(void){ CRITICAL { STAT_REG = 0x08; add_LCD(road_isr); } set_interrupts(IE_REG | LCD_IFLAG); }
+void road_stop(void){ set_interrupts(IE_REG & ~LCD_IFLAG); CRITICAL { remove_LCD(road_isr); STAT_REG = 0; } SCX_REG = 0; }
