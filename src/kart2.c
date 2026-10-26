@@ -152,3 +152,31 @@ void kart_run(void) BANKED {
     txt_win(0); VBK_REG = 0; txt_cls();
     SCX_REG = 0; SCY_REG = 0;
 }
+
+/* ---- the stunt jump (it lives here, in bank 25, because bank 24 is full) ---- */
+#define AIRN 44
+static const UINT16 PADM[3] = { 450, 1100, 1700 };                     /* where the jump pads are in a lap */
+static const INT8   PADL[3] = { 70, -70, 0 };
+UINT8 air_t, air_trick;
+static UINT8 pad_done;                                                  /* a bit per pad you have already taken this pass */
+void kart_air_reset(void) BANKED { air_t = air_trick = pad_done = 0; }
+UINT8 kart_air(UINT16 pm, INT16 lx, INT16 v, UINT8 b) BANKED {
+    UINT8 i, r = 0;
+    if(air_t){
+        if(b && !air_trick && air_t > 6){ air_trick = 1; sfx(SFX_MOVE); }
+        if(++air_t >= AIRN){ r = air_trick; air_t = 0; air_trick = 0; sfx(SFX_THUD); }
+        return r;
+    }
+    for(i = 0; i < 3; i++){
+        INT16 d = (INT16)pm - (INT16)PADM[i], dl = lx - PADL[i];
+        if(d > 14 || d < -14){ pad_done &= ~(1 << i); continue; }
+        if(pad_done & (1 << i)) continue;
+        if(dl > -48 && dl < 48 && v > 120){ pad_done |= 1 << i; air_t = 1; air_trick = 0; sfx(SFX_LEVEL); }
+    }
+    return 0;
+}
+INT16 kart_pad(UINT16 pm, INT16 *lat) BANKED {
+    UINT8 i, nb = 0; INT16 bd = 999, dz;
+    for(i = 0; i < 3; i++){ dz = (INT16)PADM[i] - (INT16)pm; if(dz < 0) dz += 2048; if(dz < bd){ bd = dz; nb = i; } }
+    *lat = PADL[nb]; return bd;
+}

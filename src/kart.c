@@ -234,7 +234,7 @@ static void drive(UINT8 go){
         if(HELD(J_DOWN)) v -= 8;
         if(HELD(J_LEFT)) dir = -1;
         if(HELD(J_RIGHT)) dir = 1;
-        if(HIT(J_B) && hold) use_item();
+        if(HIT(J_B) && hold && !air_t) use_item();
         if(dir && v > 160 && HELD(J_A)){ if(drift_t < 250) drift_t++; }              /* a long, held bend charges a little turbo */
         else { if(drift_t > 60){ boost_t = 36; sfx(SFX_LASER); } drift_t = 0; }
     } else if(!go) v = 0; else { v -= (v >> 3) + 1; drift_t = 0; }
@@ -243,6 +243,7 @@ static void drive(UINT8 go){
     lx[0] += dir * ((v >> 6) + (v > 0 ? 1 : 0));
     lx[0] -= (cur * v) >> 12;
     if(lx[0] > 200) lx[0] = 200; if(lx[0] < -200) lx[0] = -200;
+    if(kart_air((UINT16)(tm[0] & (LAPM - 1)), lx[0], v, HIT(J_B))){ boost_t = 60; sfx(SFX_LASER); }
     vel[0] = v; add_pos(0, v);
     head += (cur * v) >> 10;
     stripe_acc += (UINT16)v;
@@ -300,6 +301,7 @@ static void scene(void){
       bd = 999;                                                              /* the nearest oil slick */
       for(b = 0; b < 3; b++) if(oil[b].life){ dz = (INT16)(oil[b].m - tm[0]); if(dz > 0 && dz < bd){ bd = dz; nb = b; } }
       if(bd < 999) show3(15, bd, oil[nb].lane, KU_OIL0, KU_OIL1, KU_OIL2, 7, px); else show3(15, 0, 0, 0, 0, 0, 7, px);
+      { INT16 pl, pd = kart_pad(pm, &pl); show3(37, pd, pl, KU_OIL0, KU_OIL1, KU_OIL2, 6, px); }
       if(shl.life) show3(18, (INT16)(shl.m - tm[0]), shl.lane, KU_SH0, KU_SH1, KU_SH2, 7, px); else show3(18, 0, 0, 0, 0, 0, 7, px);
     }
     { UINT8 n0 = (UINT8)(pm / 40U), q; INT16 dz;
@@ -321,7 +323,8 @@ static void scene(void){
 
 static void me_draw(INT8 dir){
     if(stun[0]) dir = (INT8)((frame >> 2) % 3) - 1;                          /* spinning out */
-    put_obj(0, KU_ME0 + 3 * (UINT8)(dir + 1), 3, 1, 5, 80, 141 - ((frame >> 2) & (vel[0] > 0 ? 1 : 0)) - (boost_t ? 2 : 0));
+    if(air_trick) dir = (INT8)((frame >> 1) % 3) - 1;                        /* a trick: spin in the air */
+    put_obj(0, KU_ME0 + 3 * (UINT8)(dir + 1), 3, 1, 5, 80, 141 - air_h() - ((frame >> 2) & (vel[0] > 0 ? 1 : 0)) - (boost_t ? 2 : 0));
 }
 
 static void flip(void){
@@ -338,7 +341,7 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
     track_pal(t);
     for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)(k * 5 + KX_T0); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; stun[k] = 0; aicd[k] = 120 + ((UINT16)krnd() << 1); }   /* the start grid: you at the back */
     head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; lapn = KX_L0; nextlap = LAPM * (KX_L0 + 1); bump_cd = 0; frame = 0;
-    hold = 0; boost_t = 0; drift_t = 0; got = 0; shl.life = 0; for(k = 0; k < 3; k++) oil[k].life = 0;
+    kart_air_reset(); hold = 0; boost_t = 0; drift_t = 0; got = 0; shl.life = 0; for(k = 0; k < 3; k++) oil[k].life = 0;
     rs ^= (UINT16)frames32() | 1;
 #ifdef KX_ITEM
     hold = KX_ITEM;
@@ -367,6 +370,9 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
             tcount++; if(tcount == 45) HIDE_WIN;
             tot_t++; lap_t++;
             drive(1);
+#ifdef KX_JUMP
+            if(tot_t == 40) air_t = 1;
+#endif
             if(tm[0] >= nextlap && lapn < NLAPS){ nextlap += LAPM;                  /* across the line */
                 if(!best_run || lap_t < best_run) best_run = lap_t;
                 lap_t = 0; lapn++; got = 0;

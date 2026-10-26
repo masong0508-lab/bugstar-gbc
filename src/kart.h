@@ -14,6 +14,11 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED; /* (bank 24) one race: tra
 extern UINT16 tot_t, best_run;                        /* this race's time and best lap, in 60ths of a second */
 extern UINT8 rivals_on;
 void kart_results(UINT8 place, UINT8 saved, UINT8 gpn) BANKED;   /* (bank 25) the box after a race; pays the prize */
+extern UINT8 air_t, air_trick;                        /* the stunt jump: frames in the air (0 = on the ground), and whether you did a trick */
+UINT8 kart_air(UINT16 pm, INT16 lx, INT16 v, UINT8 b) BANKED;   /* (bank 25) once a frame: starts a jump off a pad, flies, tricks with B; returns 1 on a landing after a trick (boost!) */
+INT16 kart_pad(UINT16 pm, INT16 *lat) BANKED;         /* (bank 25) the next jump pad ahead: its distance (999 = none) and lane */
+void kart_air_reset(void) BANKED;
+#define air_h() (air_t ? (UINT8)(((UINT16)air_t * (UINT8)(44 - air_t)) >> 3) : 0)   /* how high you are, in pixels (AIRN is 44) */
 void kart_setup(void) BANKED;
 void kart_pal0(void) BANKED;
 void kart_ks_save(void) BANKED;
