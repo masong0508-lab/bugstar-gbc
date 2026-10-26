@@ -428,6 +428,9 @@ static int play_floor(void){                                       /* returns DG
         show_bug(); show_mons(); show_bite(); pet_push(bx, by); { UINT8 po[3]; po[0] = 2; po[1] = 3; po[2] = 15; pet_draw(po, cam_x, cam_y, 0); }
         hud_update();
         while(stop){ stop--; wait_vbl_done(); }
+#ifdef TEST_FAINT
+        { static UINT16 tf; if(++tf == 400) sv.hp = 0; }
+#endif
         if(!sv.hp) return DG_FAINT;
         if(depth == floors){ UINT8 q; for(q = 0; q < NMON; q++) if(mon[q].alive && mon[q].kind == K_QUEEN) break;
             if(q == NMON && mon[NMON - 1].kind == K_QUEEN && ground_at(bx, by) != D_CAGE){
