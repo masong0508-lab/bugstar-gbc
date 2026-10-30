@@ -140,22 +140,36 @@ static void draw_mt(UINT8 x, UINT8 y){                          /* metatile (x, 
     VBK_REG = VBK_BANK_1; set_bkg_tiles(bx2, by2, 2, 2, a);
     VBK_REG = VBK_BANK_0; set_bkg_tiles(bx2, by2, 2, 2, t);
 }
+/* Scrolling: the cache is two metatiles wider than the screen and the drawn window one, on every side. A new column or row is worked
+   out and drawn ahead of the time it shows (16 px of walking = 5+ frames), a few cells a frame, instead of 26 at once. A job is
+   (kind, cache line, draw line, steps done); it is finished before the window moves again, so the window it uses is always the current one. */
+static UINT8 scj_k, scj_c, scj_d, scj_s;
+static void job_run(UINT8 n){
+    while(n-- && scj_k){
+        UINT8 nc = scj_k == 1 ? VIEW_H + 5 : VIEW_W + 4, nd = scj_k == 1 ? VIEW_H + 3 : VIEW_W + 2, s = scj_s;
+        if(s < nc){ if(scj_k == 1) cell_fill(scj_c, top_mt - 2 + s); else cell_fill(left_mt - 2 + s, scj_c); }
+        else { s -= nc; if(scj_k == 1) draw_mt(scj_d, top_mt - 1 + s); else draw_mt(left_mt - 1 + s, scj_d); }
+        if(++scj_s >= nc + nd) scj_k = 0;
+    }
+}
 static void draw_all(void){
     UINT8 i, j;
-    left_mt = (UINT8)(cam_x >> 4); top_mt = (UINT8)(cam_y >> 4);
-    for(j = 0; j < VIEW_H + 3; j++) for(i = 0; i < VIEW_W + 2; i++) cell_fill(left_mt - 1 + i, top_mt - 1 + j);
-    for(j = 0; j < VIEW_H + 1; j++) for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + j);
+    left_mt = (UINT8)(cam_x >> 4); top_mt = (UINT8)(cam_y >> 4); scj_k = 0;
+    for(j = 0; j < VIEW_H + 5; j++) for(i = 0; i < VIEW_W + 4; i++) cell_fill(left_mt - 2 + i, top_mt - 2 + j);
+    for(j = 0; j < VIEW_H + 3; j++) for(i = 0; i < VIEW_W + 2; i++) draw_mt(left_mt - 1 + i, top_mt - 1 + j);
 }
-static void scroll_fill(void){                                   /* draw the column or row that has just come into view */
-    UINT8 l = (UINT8)(cam_x >> 4), t = (UINT8)(cam_y >> 4), i;
-    while(l != left_mt){
-        if((UINT8)(l - left_mt) < 128){ left_mt++; cache_col(left_mt + VIEW_W); for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt + VIEW_W - 1, top_mt + i); }
-        else { left_mt--; cache_col(left_mt - 1); for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt, top_mt + i); }
+static void scroll_fill(void){
+    UINT8 l = (UINT8)(cam_x >> 4), t = (UINT8)(cam_y >> 4);
+    while(l != left_mt || t != top_mt){
+        job_run(255);
+        if(l != left_mt){ scj_k = 1; scj_s = 0;
+            if((UINT8)(l - left_mt) < 128){ left_mt++; scj_c = left_mt + VIEW_W + 1; scj_d = left_mt + VIEW_W; }
+            else { left_mt--; scj_c = left_mt - 2; scj_d = left_mt - 1; } }
+        else { scj_k = 2; scj_s = 0;
+            if((UINT8)(t - top_mt) < 128){ top_mt++; scj_c = top_mt + VIEW_H + 2; scj_d = top_mt + VIEW_H + 1; }
+            else { top_mt--; scj_c = top_mt - 2; scj_d = top_mt - 1; } }
     }
-    while(t != top_mt){
-        if((UINT8)(t - top_mt) < 128){ top_mt++; cache_row(top_mt + VIEW_H + 1); for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + VIEW_H); }
-        else { top_mt--; cache_row(top_mt - 1); for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt); }
-    }
+    job_run(7);
 }
 static void ship_show(void){                                   /* the ship sprite, if it is near the screen */
     INT16 sx = (INT16)((((UINT16)ship_mx << 4) - 8 - cam_x) & 4095), sy = (INT16)((((UINT16)ship_my << 4) - 8 - cam_y) & 4095);
@@ -238,10 +252,10 @@ static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; S
 
 /* ------------------------------------------------------------ walking */
 /* The ground under a metatile. Working it out from the noise costs thousands of cycles (it used to run for every collision test, every
-   life sim and twice more each frame: 10 to 25 times a frame), so anything inside the drawn window (the ring buffer MTC, one metatile
-   beyond the screen on every side) is simply read back from it; only far-away spots are worked out. */
+   life sim and twice more each frame: 10 to 25 times a frame), so anything inside the drawn window (the ring buffer MTC, the cells
+   the screen shows) is simply read back from it; only far-away spots are worked out. */
 static UINT8 mt_at(UINT8 mx, UINT8 my){
-    if((UINT8)(mx - left_mt + 1) < VIEW_W + 2 && (UINT8)(my - top_mt + 1) < VIEW_H + 3) return cell(mx, my);
+    if((UINT8)(mx - left_mt) < VIEW_W && (UINT8)(my - top_mt) < VIEW_H + 1) return cell(mx, my);       /* (the screen's own cells: always complete, even while a new column is being filled) */
     return ground(mx, my);
 }
 static UINT8 at(UINT16 x, UINT16 y){ return mt_at((UINT8)((x & 4095) >> 4), (UINT8)((y & 4095) >> 4)); }

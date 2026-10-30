@@ -154,16 +154,24 @@ static void camera(void){
     if(cy < 0) cy = 0; if(cy > DW * 16 - 128) cy = DW * 16 - 128;
     cam_x = (UINT16)cx; cam_y = (UINT16)cy;
 }
+/* Scrolling: the drawn window is one metatile wider than the screen needs on every side, so a new column or row is drawn ahead of
+   the time it shows (16 px of scrolling = 5+ frames) and is spread over frames, 4 tiles a frame, instead of 10 at once. */
+static UINT8 scj_k, scj_x, scj_y, scj_n;                          /* the column (1) or row (2) being drawn: its next tile, tiles left */
+static void job_run(UINT8 n){ while(n-- && scj_n){ draw_mt(scj_x, scj_y); if(scj_k == 1) scj_y++; else scj_x++; scj_n--; } }
 static void draw_all(void){
-    UINT8 i, j; left_mt = (UINT8)(cam_x >> 4); top_mt = (UINT8)(cam_y >> 4);
-    for(j = 0; j < VIEW_H + 1; j++) for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + j);
+    UINT8 i, j; left_mt = (UINT8)(cam_x >> 4); top_mt = (UINT8)(cam_y >> 4); scj_n = 0;
+    for(j = 0; j < VIEW_H + 3; j++) for(i = 0; i < VIEW_W + 2; i++) draw_mt(left_mt - 1 + i, top_mt - 1 + j);
 }
 static void scroll_fill(void){
-    UINT8 l = (UINT8)(cam_x >> 4), t = (UINT8)(cam_y >> 4), i;
-    while(l > left_mt){ left_mt++; for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt + VIEW_W - 1, top_mt + i); }
-    while(l < left_mt){ left_mt--; for(i = 0; i < VIEW_H + 1; i++) draw_mt(left_mt, top_mt + i); }
-    while(t > top_mt){ top_mt++; for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt + VIEW_H); }
-    while(t < top_mt){ top_mt--; for(i = 0; i < VIEW_W; i++) draw_mt(left_mt + i, top_mt); }
+    UINT8 l = (UINT8)(cam_x >> 4), t = (UINT8)(cam_y >> 4);
+    while(l != left_mt || t != top_mt){
+        job_run(255);                                              /* (a new step before the last one is drawn: finish it first) */
+        if(l != left_mt){ scj_k = 1; scj_y = top_mt - 1; scj_n = VIEW_H + 3;
+            if((UINT8)(l - left_mt) < 128){ left_mt++; scj_x = left_mt + VIEW_W; } else { left_mt--; scj_x = left_mt - 1; } }
+        else { scj_k = 2; scj_x = left_mt - 1; scj_n = VIEW_W + 2;
+            if((UINT8)(t - top_mt) < 128){ top_mt++; scj_y = top_mt + VIEW_H + 1; } else { top_mt--; scj_y = top_mt - 1; } }
+    }
+    job_run(4);
 }
 static void set_mt(UINT8 x, UINT8 y, UINT8 mt){ DM(x, y) = mt; draw_mt(x, y); }
 static UINT8 show_fx(UINT8 o);
