@@ -385,7 +385,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     ex.seen[sv.star >> 3] |= 1 << (sv.star & 7);
     enter(); pet_reset(bx, by);
     play_reset(sv.secs);
-    ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, 0);
+    ship_show(); bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - BUGSPR_UP, flip, 0);
     d = scat(msg, "WE LANDED ON "); d = world_name(d, world_seed(sv.star)); d = scat(d, ", A "); d = scat(d, planet_world_name[wk]);
     d = scat(d, world_freed(sv.star) ? " WORLD. IT IS FREE NOW, THANKS TO YOU." : " WORLD. FIND THE DOOR DOWN TO ITS QUEEN.");
     scat(d, " PRESS A AT THE SHIP TO SAVE OR TAKE OFF.");
@@ -451,7 +451,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         else was_door = 0;
         wait_vbl_done();
         SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;
-        bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - 36, flip, frame);
+        bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - BUGSPR_UP, flip, frame);
         ship_show(); crit_draw(tick); life_draw(cam_x, cam_y); { UINT8 po[3]; po[0] = 0; po[1] = 1; po[2] = 2; pet_draw(po, cam_x, cam_y, 1); }
         if(!(tick & (wv ? 7 : 63))) apply_pal();
         hud_update();

@@ -100,3 +100,21 @@ Each step ends with a ROM that boots in an emulator.
 - feat.c (bank 20): clock (480 s day, ex.off), pets (follow history ring), fishing, queen tricks (ex.tricks bits), memory words.
 - Save: Extra block at SRAM offset 256 of each slot (own magic/sum), see save.h.
 - dungeon.c: tricks, boss variants per world kind, pets chip at monsters, dungeon_pit(tier).
+
+## 11. Shrink the player and the other assets, and run smoother (an undertaking, so in sub-steps)
+Everything is drawn at roughly twice the size the 160x144 screen wants (the bug alone was 48x38 px, a third of the screen wide), and the
+per-frame work (sprite setup, scrolling, many small objects) is heavier than it needs to be. Each sub-step ends with a ROM that builds
+and boots; the save format does not change, so old saves keep working.
+- 11a. The player at half size: DONE (host-rendered and host-tested; not yet seen in an emulator). bug_build() (src/bugbuild.c) still draws the
+  full canvas (the creator's big preview and the part art are untouched), then boils it down 2x2 -> 1 and cuts it into 8x16 cells by
+  (column, region): wings / shell / hat / face. The bug is now at most 24x17 px, up to 8 sprites (was up to 11), never more than 5 on one scanline
+  (was up to 6), so each frame needs fewer OAM writes and leaves more of the 10-per-line budget for pets, pirates and monsters.
+  Placement: BUGSPR_UP (src/bugspr.h) replaces the old 36 px lift in planet.c and dungeon.c. Tuning knobs at the top of bugbuild.c:
+  MINI_THR, MINI_THIN, MINI_TIE_FILL (how thin lines and ties are kept when 4 pixels become 1).
+- 11b. Planet objects to match: ship, pets, critters, life sims, berry/forest tiles' sprite parts (src/planet.c, feat.c, life.c).
+- 11c. Dungeon: monsters, bite flash, damage numbers, the queen and her spiderlings (src/dungeon*.c); then re-check the metatile size.
+- 11d. Space: ship, pirates, pods, stations in the 2D and 3D views (space*.c, flight3d.c); the warp tunnel keeps its size.
+- 11e. Smoother: measure first (frames per second on planet, dungeon, space in an emulator with a frame counter), then fix the worst:
+  scroll_fill and sprite updates after wait_vbl_done, work that can run every second frame (crit_step, life_step, pets), and anything that
+  overruns VBlank.
+- Open question for 11b..11d: which assets feel too big, so the order follows what is most in the way.

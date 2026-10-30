@@ -224,7 +224,7 @@ static void show_bite(void){
       move_sprite(OAM_BITE, (UINT8)(sx + 8), (UINT8)(sy + 16)); move_sprite(OAM_BITE + 1, (UINT8)(sx + 16), (UINT8)(sy + 16)); }
 }
 static void show_bug(void){
-    INT16 sx = (INT16)bx - (INT16)cam_x - bugspr_w() / 2, sy = (INT16)by - (INT16)cam_y - 36;
+    INT16 sx = (INT16)bx - (INT16)cam_x - bugspr_w() / 2, sy = (INT16)by - (INT16)cam_y - BUGSPR_UP;
     if(inv & 4) bugspr_show(0, 200, face == 1, frame);           /* blink while you can't be hurt */
     else bugspr_show((UINT8)sx, (UINT8)sy, face == 1, frame);
 }

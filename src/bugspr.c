@@ -25,7 +25,7 @@ void bugspr_show(UINT8 x, UINT8 y, UINT8 flip, UINT8 frame){
         nb = BUGSPR_OAM0 + i;
         set_sprite_tile(nb, BUGSPR_TILE0 + (frame * BUG_MAXCELL + s->cell) * 2);
         set_sprite_prop(nb, (BUGSPR_PAL0 + s->pal) | (flip ? S_FLIPX : 0));
-        move_sprite(nb, sx + 8, y + s->y + 16 - (frame & 1));
+        move_sprite(nb, sx + 8, y + s->y + 8 - (frame & 1));     /* s->y carries a bias of 8 (see bugbuild.c) */
     }
     for(; i < BUG_MAXCELL; i++) move_sprite(BUGSPR_OAM0 + i, 0, 0);
 }

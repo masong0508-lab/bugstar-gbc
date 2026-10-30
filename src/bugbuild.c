@@ -10,6 +10,15 @@ BugSet bug_set;
 #define PX(x, y) bpx[(UINT16)(y) * BUG_BW + (x)]
 #define HEAD_UP 1                                  /* the head sits level with the shell: its oval (rows 0..9 of its cell) is centred on the body */
 #define HEAD_LO 17
+#ifndef MINI_THR
+#define MINI_THR 2          /* a 2x2 block needs this many opaque pixels to stay opaque ... */
+#endif
+#ifndef MINI_THIN
+#define MINI_THIN 1         /* ... except a single outline pixel (keeps thin legs and feelers) */
+#endif
+#ifndef MINI_TIE_FILL
+#define MINI_TIE_FILL 1     /* on a tie the later (fill) colour wins over the outline */
+#endif
 
 static UINT8 part_px(const BugPart *p, UINT8 x, UINT8 y){ UINT16 i = (UINT16)y * p->w + x; return (p->px[i >> 2] >> ((i & 3) << 1)) & 3; }
 static void stamp(const BugPart *p, UINT8 x0, UINT8 y0){
@@ -94,8 +103,6 @@ static void draw_legs(const BugLook *l, UINT8 x0, UINT8 W, UINT8 f){      /* spl
     }
 }
 
-static UINT8 cell_x(UINT8 c, UINT8 tc, UINT8 hc){ return c < 4 ? (tc + c) * 8 : c < 8 ? (tc + c - 4) * 8 : c == 8 ? 0 : hc * 8; }
-static UINT8 cell_y(UINT8 c){ return c < 4 ? 0 : c < 9 ? 16 : c == 9 ? HEAD_UP : HEAD_LO; }
 UINT8 bug_cell_pal(UINT8 c){ return c < 4 ? 3 : c < 9 ? 0 : c == 9 ? 2 : 1; }
 
 static void draw_canvas(const BugLook *l, UINT8 f, UINT8 tc, UINT8 hc, UINT8 W){
@@ -115,17 +122,45 @@ static void draw_canvas(const BugLook *l, UINT8 f, UINT8 tc, UINT8 hc, UINT8 W){
     stamp(&bp_horn[l->pt[BP_HORN]], hc * 8, HEAD_UP);
     stamp(&bp_hat[l->pt[BP_HAT]], hc * 8, HEAD_UP);
 }
-static void cut_cells(UINT8 f, UINT8 tc, UINT8 hc, UINT8 W, UINT8 *used){
-    UINT8 c, r, x, v, lo, hi, nz, *t, x0, y0;
-    for(c = 0; c < BUG_MAXCELL; c++){
-        x0 = cell_x(c, tc, hc); y0 = cell_y(c); t = bug_set.tiles[f][c]; nz = 0;
-        if((c < 4 && c >= (W >> 3)) || (c >= 4 && c < 8 && c - 4 >= (W >> 3)) || (c == 8 && !tc)){ memset(t, 0, 32); continue; }
-        for(r = 0; r < 16; r++){
-            lo = hi = 0;
-            for(x = 0; x < 8; x++){ v = PX(x0 + x, y0 + r); lo = (lo << 1) | (v & 1); hi = (hi << 1) | (v >> 1); nz |= v; }
-            t[r * 2] = lo; t[r * 2 + 1] = hi;
-        }
-        if(nz) used[c] = 1;
+
+/* ---- half-size sprites (step 11): the full canvas above is boiled down 2x2 -> 1 and cut into 8x16 cells by (column, region).
+   Mini picture: body columns of 8 px (up to 3) then the head in the right half of its own cell, so w = hc * 4 + 4.
+   Regions (= palettes): 3 wings (mini rows 0..7), 0 shell (8..15), 2 hat (0..8), 1 face (8..16).
+   Cells never overlap vertically inside a column: wing cell top = -8, shell top = 8, hat top = -7, face top = 8.
+   BugSpr.y is that top + MINI_BIAS so it stays unsigned. Cells keep their old numbers: wings 0..2, shell 4..6, hat 9, face 10. */
+#define MINI_BIAS 8
+static UINT8 mini_px(UINT8 mx, UINT8 my, UINT8 hc, UINT8 *reg){
+    UINT8 cnt[4], rg[4], dx, dy, x, y, v, r, tot, best, i;
+    cnt[0] = cnt[1] = cnt[2] = cnt[3] = 0; rg[1] = rg[2] = rg[3] = 0;
+    for(dy = 0; dy < 2; dy++) for(dx = 0; dx < 2; dx++){
+        x = mx * 2 + dx; y = my * 2 + dy;
+        if(x >= BUG_BW || y >= BUG_BH) continue;
+        v = PX(x, y); if(!v) continue;
+        if(x >= hc * 8){ if(y < 1 || y >= 33) continue; r = y < HEAD_LO ? 2 : 1; }
+        else { if(y >= 32) continue; r = y < 16 ? 3 : 0; }
+        if(!cnt[v]) rg[v] = r;
+        cnt[v]++;
+    }
+    tot = cnt[1] + cnt[2] + cnt[3];
+    if(!tot || (tot < MINI_THR && !(cnt[1] && MINI_THIN))) return 0;
+    best = 1;
+    for(i = 2; i < 4; i++) if(cnt[i] > cnt[best] || (cnt[i] == cnt[best] && MINI_TIE_FILL)) best = i;
+    *reg = rg[best];
+    return best;
+}
+static void mini_cut(UINT8 f, UINT8 hc, UINT8 *used){
+    UINT8 mx, my, v, r, c, cx, row, *t, bw = hc * 4;
+    for(c = 0; c < BUG_MAXCELL; c++) memset(bug_set.tiles[f][c], 0, 32);
+    for(my = 0; my < 17; my++) for(mx = 0; mx < bw + 4; mx++){
+        v = mini_px(mx, my, hc, &r);
+        if(!v) continue;
+        if(mx >= bw){ c = r == 2 ? 9 : 10; cx = mx - (bw - 4); }
+        else { c = (r == 3 ? 0 : 4) + (mx >> 3); cx = mx & 7; }
+        row = r == 3 ? my + 8 : r == 2 ? my + 7 : my - 8;
+        if(row > 15) continue;
+        t = bug_set.tiles[f][c] + row * 2;
+        t[0] |= (v & 1) << (7 - cx); t[1] |= (v >> 1) << (7 - cx);
+        used[c] = 1;
     }
 }
 
@@ -133,12 +168,14 @@ void bug_build(const BugLook *l) BANKED {
     UINT8 W = 16 + 8 * l->pt[BP_LENGTH], tc = l->pt[BP_TAIL] ? 1 : 0, hc = tc + (W >> 3), c, n = 0;
     UINT8 used[BUG_MAXCELL];
     memset(used, 0, sizeof used);
-    draw_canvas(l, 1, tc, hc, W); cut_cells(1, tc, hc, W, used);
-    draw_canvas(l, 0, tc, hc, W); cut_cells(0, tc, hc, W, used);       /* frame 0 last: it stays in bpx for previews */
+    draw_canvas(l, 1, tc, hc, W); mini_cut(1, hc, used);
+    draw_canvas(l, 0, tc, hc, W); mini_cut(0, hc, used);       /* frame 0 last: it stays in bpx for previews */
     for(c = 0; c < BUG_MAXCELL; c++) if(used[c]){
-        bug_set.s[n].x = cell_x(c, tc, hc); bug_set.s[n].y = cell_y(c); bug_set.s[n].cell = c; bug_set.s[n].pal = bug_cell_pal(c); n++;
+        bug_set.s[n].x = c < 4 ? c * 8 : c < 8 ? (c - 4) * 8 : hc * 4 - 4;
+        bug_set.s[n].y = c < 4 ? 0 : c < 8 ? 16 : c == 9 ? 1 : 16;
+        bug_set.s[n].cell = c; bug_set.s[n].pal = bug_cell_pal(c); n++;
     }
-    bug_set.n = n; bug_set.w = (hc + 1) * 8;
+    bug_set.n = n; bug_set.w = hc * 4 + 4;
 }
 UINT8 bug_hc(const BugLook *l) BANKED { return (l->pt[BP_TAIL] ? 1 : 0) + ((16 + 8 * l->pt[BP_LENGTH]) >> 3); }
 void bug_canvas(const BugLook *l, UINT8 f) BANKED {          /* frame f in bpx, each pixel = region * 4 + colour (0 stays clear): for the big preview */
