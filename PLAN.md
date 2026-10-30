@@ -122,4 +122,9 @@ and boots; the save format does not change, so old saves keep working.
   interrupt to wake up on the line before the logo, HBlank interrupts for the logo's lines only, then back to LYC: 26 interrupts a frame.
   The kart road ISR got the same register-level start/stop (smaller; bank 0 has only 4 bytes free). Next in 11e: measure the planet, dungeon and
   space loops before changing them.
+- 11e, second fix DONE (ROM builds; not yet timed in an emulator): the planet's walking loop. Every collision test, every life sim and two
+  per-frame tile checks called ground(), which works the terrain out from three layers of value noise (thousands of cycles each): 10 to 25
+  calls per frame even when standing still, plus a spike each time a column scrolled in. at() now reads the drawn window (the MTC ring buffer,
+  one metatile beyond the screen) through mt_at() in src/planet.c and only works far-away spots out. Same results (the ring is filled with
+  ground() itself), far less CPU. Still to measure: the scroll spike (12 ground() calls per new column), dungeon and space loops.
 - Open question for 11b..11d: which assets feel too big, so the order follows what is most in the way.

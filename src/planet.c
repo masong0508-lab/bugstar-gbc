@@ -237,7 +237,14 @@ static void camera(void){ cam_x = (bx - BUG_SX) & 4095; cam_y = (by - BUG_SY) & 
 static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); apply_pal(); draw_all(); }
 
 /* ------------------------------------------------------------ walking */
-static UINT8 at(UINT16 x, UINT16 y){ return ground((UINT8)((x & 4095) >> 4), (UINT8)((y & 4095) >> 4)); }
+/* The ground under a metatile. Working it out from the noise costs thousands of cycles (it used to run for every collision test, every
+   life sim and twice more each frame: 10 to 25 times a frame), so anything inside the drawn window (the ring buffer MTC, one metatile
+   beyond the screen on every side) is simply read back from it; only far-away spots are worked out. */
+static UINT8 mt_at(UINT8 mx, UINT8 my){
+    if((UINT8)(mx - left_mt + 1) < VIEW_W + 2 && (UINT8)(my - top_mt + 1) < VIEW_H + 3) return cell(mx, my);
+    return ground(mx, my);
+}
+static UINT8 at(UINT16 x, UINT16 y){ return mt_at((UINT8)((x & 4095) >> 4), (UINT8)((y & 4095) >> 4)); }
 static UINT8 blocked(UINT16 x, UINT16 y){                       /* the bug's feet: a box 10 wide and 4 tall */
     return solid(at(x - 5, y - 3)) || solid(at(x + 4, y - 3)) || solid(at(x - 5, y)) || solid(at(x + 4, y));
 }
@@ -410,11 +417,11 @@ int planet_run(void) BANKED {                                    /* returns PL_T
           if(vx || vy){ if(++step >= 6){ step = 0; frame ^= 1; } } }
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
-        if(ground(ox, oy) == MT_BERRY) eat_berry(ox, oy);
+        if(mt_at(ox, oy) == MT_BERRY) eat_berry(ox, oy);
         crit_step(++tick); pet_push(bx, by);
         if(!(tick & 1)){ UINT8 i; UINT16 lx, ly; life_step(bx, by, tick); for(i = 0; i < 4; i++) if(life_peek(i, &lx, &ly) && blocked(lx, ly)) life_back(i); }
         if(wv && !(tick & 63)) weird_tick(wv, tick);
-        if(ground(ox, oy) == MT_GATE){
+        if(mt_at(ox, oy) == MT_GATE){
             if(!was_gate){ UINT8 i; was_gate = 1;
                 for(i = 0; i < tw_n; i++) if((UINT8)(ox - tw_x[i]) < tw_w[tw_t[i]] && (UINT8)(oy - tw_y[i]) < tw_w[tw_t[i]]) break;
                 if(i < tw_n){
