@@ -125,9 +125,9 @@ static void label(UINT8 s){
 
 /* ------------------------------------------------------------ the stations: one beside every planet */
 static UINT8 near_station(void){                                 /* the star whose station the ship is at, or 255 */
-    UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j;
-    for(j = 0; j < 3; j++) for(i = 0; i < 3; i++){
-        UINT8 s = (UINT8)((((cy + j - 1) & 15) << 4) | ((cx + i - 1) & 15)), q = star_j[s];
+    UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i;
+    for(i = 0; i < 2; i++){                                      /* a station is 3 metatiles right of its planet (cell x 88..248, y 40..200), so only this cell's or the left neighbour's can be in reach */
+        UINT8 s = (UINT8)((cy << 4) | ((cx - i) & 15)), q = star_j[s];
         INT16 dx = wrapd(px, ((UINT16)(s & 15) << 8) + (((q & 15) + 3) << 4) + 8), dy = wrapd(py, ((UINT16)(s >> 4) << 8) + ((q >> 4) << 4) + 8);
         if(dx > -22 && dx < 22 && dy > -22 && dy < 22) return s;
     }
@@ -157,11 +157,13 @@ static INT16 drag(INT16 v){
 }
 static UINT8  aim_ok, aim_beast;  /* where the arrow points (and SELECT warps to): a world, or the beast */
 static UINT16 aim_x, aim_y;
+static UINT8  arrow_best, arrow_t;  /* the world the arrow chose, and a counter: the search of 9 cells is redone every 8th frame, the arrow follows the chosen one in between */
 static void arrow(void){                                         /* point at the nearest other world (one not freed yet, if there is one near), if it is off the screen */
     UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j, best = 255, d;
     INT16 bdx = 0, bdy = 0; UINT16 bd = 0xFFFF;
     aim_beast = 0;
     if(b_on && !b_dead){ bdx = wrapd(b_x, px); bdy = wrapd(b_y, py); best = 0; aim_beast = 1; goto aim; }
+    if(arrow_t++ & 7){ best = arrow_best; if(best != 255){ bdx = wrapd(star_px(best), px); bdy = wrapd(star_py(best), py); } goto aim; }
     for(j = 0; j < 3; j++) for(i = 0; i < 3; i++){
         UINT8 s = (UINT8)((((cy + j - 1) & 15) << 4) | ((cx + i - 1) & 15));
         INT16 dx = wrapd(star_px(s), px), dy = wrapd(star_py(s), py);
@@ -170,6 +172,7 @@ static void arrow(void){                                         /* point at the
         if(sv.el.jk == J_SEND && s == sv.el.jd) m = 41;             /* the job's world first */
         if(m > 40 && m < bd){ bd = m; best = s; bdx = dx; bdy = dy; }
     }
+    arrow_best = best;
 aim:
     aim_ok = best != 255; aim_x = (px + bdx) & 4095; aim_y = (py + bdy) & 4095;
     if(!opt.arrow || best == 255 || (bdx > -88 && bdx < 88 && bdy > -72 && bdy < 72)){ hide2(OAM_ARR); return; }
@@ -216,6 +219,7 @@ UINT8 space_laser_add(UINT16 x, UINT16 y, INT8 dx, INT8 dy) BANKED {
 void space_restore(void) BANKED { gfx_tiles(); SPRITES_8x16; txt_pal_reset(); pals(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all(); hud_init(); shown = 255; }
 static void gfx(void){                                           /* everything onto the screen (LCD off): it fades in */
     UINT8 i;
+    arrow_t = 0;                                                 /* (the arrow picks its world afresh) */
     gfx_tiles();
     SPRITES_8x16;
     txt_pal_reset(); pals();

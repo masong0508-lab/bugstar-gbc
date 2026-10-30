@@ -62,8 +62,10 @@ static UINT8  left_mt, top_mt;
 static UINT8 rnd8(void){ rng ^= rng << 7; rng ^= rng >> 9; rng ^= rng << 8; return (UINT8)rng; }
 static UINT8 rndn(UINT8 n){ return n ? (UINT8)(((UINT16)rnd8() * n) >> 8) : 0; }
 #define DM(x, y) dmap[((y) & 31) * DW + ((x) & 31)]
-static UINT8 solid_mt(UINT8 t){ return t == D_WALL || t == D_FACE || t == D_CAGE || t == D_CHEST || t == D_OPEN || t == D_FREED; }
-static UINT8 ground_at(UINT16 x, UINT16 y){ if(x >= DW * 16 || y >= DW * 16) return D_WALL; return DM(x >> 4, y >> 4); }
+static const UINT8 solid_tab[DG_NMT] = { 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0 };   /* by tile: wall, face, cage, chest, opened chest and freed cage stop you */
+#define solid_mt(t) solid_tab[t]
+/* (x >> 4 done as (x >> 1) >> 3 on a byte, and the row as a mask and one shift: 16-bit shifts by 4 are slow on this CPU, and this runs for every step of every monster) */
+static UINT8 ground_at(UINT16 x, UINT16 y){ if((x | y) >= DW * 16) return D_WALL; return dmap[(UINT16)((y & 0x1F0) << 1) + (UINT8)(((UINT8)(x >> 1)) >> 3)]; }
 
 /* ------------------------------------------------------------ making a floor */
 static void carve(UINT8 x, UINT8 y){ if(x > 0 && y > 0 && x < DW - 1 && y < DW - 1 && (DM(x, y) == D_WALL)) DM(x, y) = (rnd8() & 3) ? D_FLOOR : D_FLOOR2; }
@@ -436,9 +438,9 @@ static int play_floor(void){                                       /* returns DG
 #endif
         if(!sv.hp) return DG_FAINT;
         if(depth == floors){ UINT8 q; for(q = 0; q < NMON; q++) if(mon[q].alive && mon[q].kind == K_QUEEN) break;
-            if(q == NMON && mon[NMON - 1].kind == K_QUEEN && ground_at(bx, by) != D_CAGE){
-                UINT8 cx, cy, f = 0; for(cy = 0; cy < DW && !f; cy++) for(cx = 0; cx < DW; cx++) if(DM(cx, cy) == D_FREED){ f = 1; break; }
-                if(f) return DG_WIN; } }
+            if(q == NMON && mon[NMON - 1].kind == K_QUEEN && ground_at(bx, by) != D_CAGE){     /* the queen is down: has the cage been bitten open? (one look at where make_floor put it; this used to scan all 1024 tiles every frame) */
+                Room *r = &rooms[nrooms - 1];
+                if(DM(r->x + r->w / 2, r->y + 1) == D_FREED) return DG_WIN; } }
         if(HIT(J_START)){
             if(sysmenu_run(redraw) == SYS_TITLE) return DG_TITLE;
             bugspr_load(&sv.look);
