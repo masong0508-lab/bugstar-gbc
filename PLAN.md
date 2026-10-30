@@ -117,4 +117,9 @@ and boots; the save format does not change, so old saves keep working.
 - 11e. Smoother: measure first (frames per second on planet, dungeon, space in an emulator with a frame counter), then fix the worst:
   scroll_fill and sprite updates after wait_vbl_done, work that can run every second frame (crit_step, life_step, pets), and anything that
   overruns VBlank.
+- 11e, first fix DONE (host-checked logic, ROM builds; not yet timed in an emulator): the title's logo wave (src/raster.c) took an HBlank
+  interrupt on all 144 lines of every frame to wave 24 of them, roughly half the CPU, which is why the title lagged. It now uses the LY=LYC
+  interrupt to wake up on the line before the logo, HBlank interrupts for the logo's lines only, then back to LYC: 26 interrupts a frame.
+  The kart road ISR got the same register-level start/stop (smaller; bank 0 has only 4 bytes free). Next in 11e: measure the planet, dungeon and
+  space loops before changing them.
 - Open question for 11b..11d: which assets feel too big, so the order follows what is most in the way.
