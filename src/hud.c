@@ -5,6 +5,7 @@
 #include "text.h"
 #include "hud.h"
 #include "dialog.h"
+#include "wram.h"
 
 /* window map columns */
 #define HP_BAR_X 1      /* 6 tiles incl. caps */
@@ -71,7 +72,7 @@ void hud_update(void){
 }
 
 void gain_xp(UINT16 n){
-    char b[80], *d; UINT16 need;
+    char *b = WRAM_AT(WRAM_FADE + 160, char), *d; UINT16 need;   /* (not on the stack: it overflowed into cur_slot) */
     { static const UINT8 xm[3] = {1, 2, 5}; n *= xm[opt.xpm]; }               /* OPTIONS > XP SPEED: x1 / x2 / x5 */
     if(!opt.diff) n += n;                                                     /* BABY doubles */
     sv.xp += n;
