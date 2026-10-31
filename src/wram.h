@@ -9,7 +9,7 @@
      D820  a dungeon floor map (dungeon.c)   1024
      DC20  the stars of space (space.c)       512
      DE20  the bug creator's second scratch   480  (WRAM_MAKE2)
-   WRAM banks 2..7 (24 KB) are free for later: switch with wram_bank(n), and switch back to 1 before anything above is used.
+   WRAM banks 2..7: see the bank map below. Switch with wram_bank(n), and switch back to 1 before anything above is used.
    Nothing in an interrupt touches these. */
 #ifdef __SDCC
 #include <gb/gb.h>
@@ -26,4 +26,14 @@ static unsigned char wram_host[4096];                    /* (the PC host tests: 
 #define WRAM_DMAP  0xD820
 #define WRAM_STARS 0xDC20
 #define WRAM_MAKE2 0xDE20
+#define WRAM_TXT   0xDE20   /* transient text scratch (480 bytes; shares WRAM_MAKE2, which only the bug creator uses). Build a message, say it, done: never keep it across a call that can open the creator. */
+/* WRAM bank map (D000-DFFF window; bank 1 is always selected, so every function that switches must switch back to 1 before it returns):
+     1  the fixed buffers above
+     2  wild.h XA (D000: kills, bank, visits...) + life.c animals (D100)       - nothing else may use bank 2
+     3  WB_SCRATCH: fleet.c ship drawing (D000 src, D100 turned, D200 tiles)
+     4  WB_ARENA:   fleet_battle.c arena (D000)
+     5,6 free (8 KB)
+     7  fleet.c save block (D000) + wingmen (D100) */
+#define WB_SCRATCH 3
+#define WB_ARENA   4
 #endif

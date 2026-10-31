@@ -80,7 +80,7 @@ static const char *const gun_nm[3]  = { "NONE", "NOSE", "TWIN" };
 static const char *const col_nm[6]  = { "CLASSIC", "SKY", "LIME", "GOLD", "VIOLET", "SNOW" };
 static const INT16 cs[8] = { 256, 181, 0, -181, -256, -181, 0, 181 };
 static const INT16 sn[8] = { 0, 181, 256, 181, 0, -181, -256, -181 };
-#define SRC WRAM_AT(0xD000, UINT8)                  /* the ship facing up, 16x16 (WRAM bank 2) */
+#define SRC WRAM_AT(0xD000, UINT8)                  /* the ship facing up, 16x16 (WRAM bank WB_SCRATCH) */
 #define ROT WRAM_AT(0xD100, UINT8)                  /* ... turned */
 #define TIL WRAM_AT(0xD200, UINT8)                  /* ... as 4 tiles */
 
@@ -124,7 +124,7 @@ static void to_tiles(const UINT8 *px){                /* the 16x16 pixels into 4
     }
 }
 static UINT8 *fleet_ship_tiles(UINT8 dir) {
-    wram_bank(2);
+    wram_bank(WB_SCRATCH);
     draw_up(); turn(dir & 7); to_tiles(ROT);
     return TIL;
 }

@@ -43,14 +43,14 @@ static void hud_line(void){
     for(i = 0; b[i]; i++); while(i < 20) b[i++] = ' '; b[20] = 0;
     wram_bank(1);
     txt_win(1); txt_line(0, 0, b, 20); txt_color(0, 0, 20, 1, TXT_WHITE); txt_win(0);
-    wram_bank(2);
+    wram_bank(WB_ARENA);
 }
 static void say(const char *m){                         /* a word on the bottom line */
     char b[21]; UINT8 i = 0;
     while(m[i] && i < 20){ b[i] = m[i]; i++; } while(i < 20) b[i++] = ' '; b[20] = 0;
     wram_bank(1);
     txt_win(1); txt_line(0, 0, b, 20); txt_color(0, 0, 20, 1, TXT_GOLD); txt_win(0);
-    wram_bank(2);
+    wram_bank(WB_ARENA);
 }
 static void wave_start(void){
     UINT8 n = 3 + A->wave * 2 + (A->boss && A->wave == 3 ? 0 : 0);
@@ -70,7 +70,7 @@ static UINT8 foes_alive(void){ UINT8 i, n = 0; for(i = 0; i < NFOE; i++) if(A->f
 
 static void draw(void){
     UINT8 i; Shot *s = A->s; Foe *f = A->f;
-    wram_bank(2);
+    wram_bank(WB_ARENA);
     if(A->inv & 4) hide2(O_PL); else spr16(O_PL, SP_T_SHIP(A->dir), A->px, A->py);
     for(i = 0; i < 3; i++){
         if(i < fh.wm) spr16(O_WG + i * 2, SP_T_SHIP(0), A->w[i].x, A->w[i].y); else hide2(O_WG + i * 2);
@@ -95,7 +95,7 @@ static void props(void){
 
 UINT8 fleet_battle(UINT8 tier, UINT8 boss, UINT8 *kills) BANKED {
     UINT8 i, res = 0, frame = 0, end = 0; Foe *f; Shot *s;
-    wram_bank(2);
+    wram_bank(WB_ARENA);
     memset(A, 0, sizeof(Arena));
     A->rng = (UINT16)play_secs() * 31 + 7 + tier; A->boss = boss;
     A->px = 80; A->py = 112; A->dir = 0;
@@ -106,7 +106,7 @@ UINT8 fleet_battle(UINT8 tier, UINT8 boss, UINT8 *kills) BANKED {
     HIDE_SPRITES; for(i = 0; i < 40; i++) move_sprite(i, 0, 0);
     SPRITES_8x16; props();
     SHOW_BKG; SHOW_SPRITES;
-    wram_bank(1); txt_win(1); txt_cls(); txt_win(0); wram_bank(2);
+    wram_bank(1); txt_win(1); txt_cls(); txt_win(0); wram_bank(WB_ARENA);
     move_win(7, 136); SHOW_WIN; SCX_REG = 0; SCY_REG = 0;
     hud_line();
     DISPLAY_ON;

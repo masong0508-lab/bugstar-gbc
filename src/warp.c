@@ -16,6 +16,7 @@
 #include "text.h"
 #include "menus.h"
 #include "dialog.h"
+#include "wram.h"
 #include "fx.h"
 #include "sound.h"
 #include "space_art.h"
@@ -286,7 +287,7 @@ void warp_run(UINT16 frames, WarpResult *res) BANKED {
 }
 
 void warp_report(WarpResult *r) BANKED {
-    char b[100], *d;
+    char *b = WRAM_AT(WRAM_TXT, char), *d;
     d = scat(b, r->wrecked ? "WE MADE IT... BARELY. " : "WARP DONE! ");
     d = scat(d, "METEORS "); d = u16s(d, r->rocks); d = scat(d, ", PIRATES "); d = u16s(d, r->pirates);
     d = scat(d, ", HITS "); d = u16s(d, r->hits); d = scat(d, ". +"); d = u16s(d, r->gold); d = scat(d, " GOLD");

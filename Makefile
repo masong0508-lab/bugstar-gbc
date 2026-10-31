@@ -20,6 +20,7 @@ $(BUILD)/%.o: src/%.c $(HDRS)
 $(OUT): $(OBJS)
 	$(LCC) $(FLAGS) -Wl-m -o $@ $(OBJS)
 	python3 tools/check_banks.py $(basename $(OUT)).map
+	-python3 tools/ram_report.py $(basename $(OUT)).map
 clean:
 	rm -rf build build_* host_test bugstar.gbc test*.gbc *.map *.sym *.noi *.lst *.ihx *.o *.asm
 # Regenerate the title art (needs python3 + numpy + pillow); the generated src/title_art.* are committed.

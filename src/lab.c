@@ -3,13 +3,14 @@
    dm = the 32x32 floor map (all wall on entry), rooms = 5 x {x, y, w, h}; the stairs up are in rooms[0], the stairs down in rooms[4]. */
 #include <gb/gb.h>
 #include <string.h>
+#include "wram.h"
 #include "lab.h"
 
 static UINT16 s;
 static UINT8 rr(void){ s ^= s << 7; s ^= s >> 9; s ^= s << 8; return (UINT8)s; }
 
 void lab_make(UINT8 *dm, UINT8 *rooms, UINT16 seed, UINT8 wall, UINT8 f0, UINT8 f1) BANKED {
-    UINT8 stack[225], sp = 0, x, y, i; static const INT8 dx[4] = { 0, 2, 0, -2 }, dy[4] = { -2, 0, 2, 0 };
+    UINT8 *stack = WRAM_AT(WRAM_TXT, UINT8), sp = 0, x, y, i; static const INT8 dx[4] = { 0, 2, 0, -2 }, dy[4] = { -2, 0, 2, 0 };
     static const UINT8 R[20] = { 1, 1, 3, 3,   27, 1, 3, 3,   1, 27, 3, 3,   13, 13, 5, 5 };     /* chambers 0..3; the 5th is made below */
     s = seed ? seed : 1;
     memset(dm, wall, 32 * 32);

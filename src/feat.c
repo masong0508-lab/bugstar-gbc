@@ -8,6 +8,7 @@
 #include "text.h"
 #include "hud.h"
 #include "dialog.h"
+#include "wram.h"
 #include "menus.h"
 #include "bugspr.h"
 #include "fx.h"
@@ -123,7 +124,7 @@ static const char *const memory[8] = {      /* what each data core gives back to
 static const char *const trick_nm[6] = { "VINE GRIP: POTIONS HEAL MORE", "SAND DASH: B RUNS FASTER", "FROST FANG: YOUR BITE HITS HARDER",
                                          "THORN SHELL: YOU TAKE LESS DAMAGE", "TIDE LUNGS: YOU HEAL SLOWLY ON YOUR OWN", "SHADOW STEP: SAFE LONGER AFTER A HIT" };
 void dungeon_won(UINT8 kind) BANKED {                 /* the queen is beaten and the cage is open */
-    char b[100], *d;
+    char *b = WRAM_AT(WRAM_TXT, char), *d;
     if(kind < 6 && !TRICK(kind)){                       /* the first time this kind of queen falls she gives a trick, and it stays */
         ex.tricks |= 1 << kind;
         d = scat(b, "A NEW TRICK! "); scat(d, trick_nm[kind]); sfx(SFX_LEVEL);

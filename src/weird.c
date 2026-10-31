@@ -97,7 +97,7 @@ UINT8 weird_tick(UINT8 w, UINT8 tick) BANKED {
     sv.hp--; return 1;
 }
 void weird_land(UINT8 w) BANKED {
-    char b[80], *d; UINT8 first;
+    char *b = WRAM_AT(WRAM_TXT, char), *d; UINT8 first;
     if(!w) return;
     wild_load();
     wram_bank(2); first = !(XAP->wseen & (1U << (w & 15))); XAP->wseen |= 1U << (w & 15); wram_bank(1);
