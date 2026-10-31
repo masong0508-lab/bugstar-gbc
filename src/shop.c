@@ -1,5 +1,5 @@
 #pragma bank 15
-/* BUGSTAR GBC - upgrades. The ship's menu (FLY / SHOP / SKILLS / STAY), Bolt's shop and the SKILLS page.
+/* BUGSTAR GBC - upgrades. The ship's menu (tabs GO / SHOP / YOU, like the GBA), Bolt's shop and the SKILLS page.
    SKILLS: every level gives 1 skill point (and every 5th level 2 more); five skills, 10 ranks each, 1 point a rank.
    SHOP: gold buys potions and 7 pieces of gear (5 levels each): FANG and SHELL for the bug, LASER GUNS ENGINE TURBO HULL MAGNET for the ship.
    The levels live in sv.up[] (save.h). Everything is drawn in the window layer, like the SYSTEM menu. */
@@ -177,34 +177,50 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
 }
 
 /* ---------------------------------------------------------------- the ship's menu */
-static void menu_draw(UINT8 sel){
-    UINT8 i; static const char *const it[4] = { "FLY INTO SPACE", "BOLT'S SHOP", "SKILLS", "STAY HERE" };
-    char b[24], *d;
+/* ---------------------------------------------------------------- the ship menu (tabs like the GBA: GO / SHOP / YOU) */
+#define SM_H 7                                               /* box height in tiles: border, tabs, 3 rows, tip, border */
+static const char *const tab_row[3][2] = { { "FLY INTO SPACE", "STAY HERE" }, { "BOLT'S SHOP", 0 }, { "SKILLS", "SAVE GAME" } };
+static const char *const tab_tip[3][2] = { { "TAKE OFF FOR SPACE", "CLOSE THIS MENU" }, { "POTIONS AND GEAR", 0 }, { "SPEND SKILL POINTS", "WRITE TO YOUR SLOT" } };
+static void sm_draw(UINT8 tab, UINT8 sel, const char *msg){
+    UINT8 i; char b[24], *d; const char *tip = tab_tip[tab][sel];
     txt_win(1);
-    for(i = 0; i < 4; i++){ d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, it[i]);
-        if(i == 2 && skills_free()){ d = pad(d, b, 9); num(d, "(", skills_free(), " NEW)"); }
-        txt_line(1, 1 + i, b, 18); }
+    txt_line(1, 1, " GO   SHOP   YOU ", 18); txt_color(1, 1, 18, 1, TXT_GREY);
+    if(tab == 0) txt_color(2, 1, 2, 1, TXT_GOLD); else if(tab == 1) txt_color(7, 1, 4, 1, TXT_GOLD); else txt_color(14, 1, 3, 1, TXT_GOLD);
+    if(tab != 2 && skills_free()) txt_put(17, 1, "!");              /* new skill points wait on the YOU tab */
+    for(i = 0; i < 3; i++){
+        if(i < 2 && tab_row[tab][i]){
+            d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, tab_row[tab][i]);
+            if(tab == 2 && i == 0 && skills_free()){ d = pad(d, b, 9); num(d, "(", skills_free(), " NEW)"); }
+            txt_line(1, 2 + i, b, 18); txt_color(1, 2 + i, 18, 1, i == sel ? TXT_GOLD : TXT_WHITE);
+        } else { txt_line(1, 2 + i, "", 18); }
+    }
+    txt_line(1, 5, msg ? msg : tip ? tip : "", 18); txt_color(1, 5, 18, 1, msg ? TXT_RED : TXT_GREY);
     txt_win(0);
 }
-static void menu_frame(UINT8 sel){ txt_win(1); txt_cls(); txt_box(0, 0, 20, 6); txt_win(0); menu_draw(sel); move_win(7, 144 - 48); SHOW_WIN; }
+static void sm_frame(UINT8 tab, UINT8 sel, const char *msg){ txt_win(1); txt_cls(); txt_box(0, 0, 20, SM_H); txt_win(0); sm_draw(tab, sel, msg); move_win(7, 144 - SM_H * 8); HIDE_SPRITES; SHOW_WIN; }   /* (no critters drawn over the box) */
 
-UINT8 ship_menu(void) BANKED {                                 /* 1 = fly into space */
-    UINT8 sel = 0, out = 0;
-    menu_frame(sel);
+UINT8 ship_menu(void) BANKED {                                 /* 1 = fly into space. LEFT/RIGHT: tab, UP/DOWN: row, START: take off from any tab */
+    UINT8 tab = 0, sel = 0, out = 0, rows, sprites = LCDC_REG & LCDCF_OBJON; const char *msg = 0;
+    sm_frame(tab, sel, 0);
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : 3; sfx(SFX_MOVE); menu_draw(sel); }
-        if(HIT(J_DOWN)) { sel = sel < 3 ? sel + 1 : 0; sfx(SFX_MOVE); menu_draw(sel); }
+        rows = tab == 1 ? 1 : 2;
+        if(HIT(J_START)){ sfx(SFX_OK); out = 1; break; }
         if(HIT(J_B)) break;
+        if(HIT(J_LEFT))  { tab = tab ? tab - 1 : 2; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HIT(J_RIGHT)) { tab = tab < 2 ? tab + 1 : 0; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HIT(J_UP) && rows > 1)   { sel = sel ? sel - 1 : rows - 1; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HIT(J_DOWN) && rows > 1) { sel = sel < rows - 1 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
         if(HIT(J_A)){
             sfx(SFX_OK);
-            if(sel == 0){ out = 1; break; }
-            if(sel == 3) break;
-            if(sel == 1) shop_run(0); else skills_run();
-            menu_frame(sel);
+            if(tab == 0){ if(sel == 0) out = 1; break; }
+            if(tab == 1){ shop_run(0); sm_frame(tab, sel, 0); }
+            else if(sel == 0){ skills_run(); sm_frame(tab, sel, 0); }
+            else { slot_write(cur_slot); msg = "SAVED!"; sfx(SFX_COIN); sm_draw(tab, sel, msg); }
         }
     }
     txt_win(1); txt_cls(); txt_win(0);
+    if(sprites) SHOW_SPRITES;
     hud_redraw(); hud_pos(HUD_Y);
     return out;
 }

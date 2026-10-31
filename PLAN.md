@@ -138,3 +138,7 @@ and boots; the save format does not change, so old saves keep working.
 - OPTIONS > HINTS: on the planet a gold line says what A does when you come up to your ship ("A: YOUR SHIP") or to water ("A: FISH IN THE WATER").
 - Still dead options (saved, but nothing reads them): HUNGER (no food in the GBC game), MINIMAP, CAMERA (the GBC planet is top-down).
 - Bank 0 (the _HOME bank) has about 1 byte left after this patch: gain_xp in src/hud.c was made smaller to pay for the XP multiplier. Move something out of bank 0 before adding more there.
+
+## Interface parity: the ship menu (tabs, like the GBA)
+- ship_menu (src/shop.c, bank 15) is now tabbed: GO (FLY INTO SPACE / STAY HERE), SHOP (BOLT'S SHOP), YOU (SKILLS / SAVE GAME). LEFT/RIGHT change tab, UP/DOWN rows, A picks, B closes, START takes off from any tab (the GBA's rule). A line under the list says what the highlighted row does; a "!" on the tab bar shows new skill points; sprites are hidden while the box is open.
+- Not yet ported from the GBA ship menu: the CARE tab (identify, workbench, trophy case), MIRROR/hangar/Bolt on the YOU tab (they need the scene to reload its tiles, see sys_gfx_lost in sysmenu.c), row prices/states (FULL, LOCKED, NEW).
