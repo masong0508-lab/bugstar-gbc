@@ -277,7 +277,7 @@ void warp_run(UINT16 frames, WarpResult *res) BANKED {
         if(!sv.hp){ R->wrecked = 1; sv.hp = 1; break; }
     }
     if(!R->hits) R->gold += 50;                           /* a clean run */
-    sv.gold += R->gold;
+    sv.gold += (UINT32)R->gold * GMULT();
     wait_vbl_done();
     for(i = 4; i < 8; i++) set_bkg_palette(i, 1, white4);           /* out of the tunnel: a flash */
     for(i = 0; i < 40; i++) move_sprite(i, 0, 0);

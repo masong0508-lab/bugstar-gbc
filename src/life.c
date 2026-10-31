@@ -110,7 +110,7 @@ UINT8 life_pat(UINT16 bx, UINT16 by) BANKED {
     }
     wram_bank(1);
     if(r == 1 || r == 2){
-        sv.gold += 3 + sv.level / 2 + r; gain_xp(1 + sv.level / 8); sfx(SFX_OK);
+        sv.gold += (3 + sv.level / 2 + r) * GMULT(); gain_xp(1 + sv.level / 8); sfx(SFX_OK);
         wild_load();
         wram_bank(2); if(XAP->petn < 255) XAP->petn++; wram_bank(1);
         wild_save();

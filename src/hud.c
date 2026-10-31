@@ -71,12 +71,13 @@ void hud_update(void){
 }
 
 void gain_xp(UINT16 n){
-    char b[80], *d;
-    if(!opt.diff) n *= 2;
+    char b[80], *d; UINT16 need;
+    { static const UINT8 xm[3] = {1, 2, 5}; n *= xm[opt.xpm]; }               /* OPTIONS > XP SPEED: x1 / x2 / x5 */
+    if(!opt.diff) n += n;                                                     /* BABY doubles */
     sv.xp += n;
-    while(sv.xp >= (UINT32)sv.level * 12 && sv.level < 99){
-        sv.xp -= (UINT32)sv.level * 12; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
-        sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); d = u16s(d, sv.level); d = scat(d, (sv.level % 5) ? ". +1 SKILL POINT" : ". +3 SKILL POINTS"); scat(d, "! SPEND IT IN SYSTEM > SKILLS."); dlg_say(0, b);
+    while(sv.level < 99 && sv.xp >= (need = sv.level * 12)){
+        sv.xp -= need; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
+        sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); d = u16s(d, sv.level); d = scat(d, (sv.level % 5) ? ". +1 SKILL POINT! " : ". +3 SKILL POINTS! "); scat(d, "SPEND IT IN SYSTEM > SKILLS."); dlg_say(0, b);
     }
 }
 

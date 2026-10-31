@@ -267,9 +267,9 @@ static void eat_berry(UINT8 x, UINT8 y){
     else { memmove(picked[0], picked[1], 31 * 2); picked[31][0] = x; picked[31][1] = y; }
     cell_fill(x, y); draw_mt(x, y); sfx(SFX_PICK);
     { UINT16 mx = hud_hpmax(sv.level); sv.hp = sv.hp + 3 > mx ? mx : sv.hp + 3; }
-    sv.gold += 2; sv.xp += 1;
+    sv.gold += 2 * GMULT(); sv.xp += 1;
 }
-static UINT8 fish_hint;
+static UINT8 fish_hint, hint_z;
 static UINT8 water_near(void){                                   /* water within a short step of the bug's feet */
     UINT8 a = at(bx - 14, by - 2), b = at(bx + 14, by - 2), c = at(bx, by - 14), d = at(bx, by + 12);
     return a == MT_SHALLOW || a == MT_DEEP || b == MT_SHALLOW || b == MT_DEEP || c == MT_SHALLOW || c == MT_DEEP || d == MT_SHALLOW || d == MT_DEEP;
@@ -320,7 +320,7 @@ static void prize(UINT8 i){
     char b[24], *d; UINT16 g; UINT8 t = pr() % 6, mx = 0;
     tre_got |= 1 << i; tre_found++; sfx(SFX_COIN);
     if(t == 1 && sv.potions >= 9) t = 0;
-    if(t == 0 || t == 5){ g = t ? 40 + sv.level * 6 : 15 + sv.level * 3; sv.gold += g; d = scat(b, "+"); d = u16s(d, g); d = scat(d, " GOLD"); }
+    if(t == 0 || t == 5){ g = (t ? 40 + sv.level * 6 : 15 + sv.level * 3) * GMULT(); sv.gold += g; d = scat(b, "+"); d = u16s(d, g); d = scat(d, " GOLD"); }
     else if(t == 1){ sv.potions++; d = scat(b, "A HEALTH POTION"); }
     else if(t == 2){ g = 10 + sv.level * 2; gain_xp(g); d = scat(b, "+"); d = u16s(d, g); d = scat(d, " XP"); }
     else if(t == 3){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); d = scat(b, "FULLY HEALED"); }
@@ -329,7 +329,7 @@ static void prize(UINT8 i){
     d = scat(d, "  "); d = u16s(d, tre_found); d = scat(d, "/"); u16s(d, tre_n);
     note(b);
     if(tre_found >= tre_n){
-        sv.gold += 100 + sv.level * 10; if(sv.potions < 9) sv.potions++; sfx(SFX_FANFARE);
+        sv.gold += (100 + sv.level * 10) * GMULT(); if(sv.potions < 9) sv.potions++; sfx(SFX_FANFARE);
         dlg_say("BOLT", "ALL THE TREASURE IS FOUND! HERE IS A BONUS: GOLD AND A POTION.");
     }
 }
@@ -349,7 +349,7 @@ static void crit_step(UINT8 frame){
     if(moth_on){
         INT16 dx = wd(moth_x, bx), dy = wd(moth_y, by - 6), dist = iabs(dx) + iabs(dy);
         if(dist < 16){
-            UINT16 g = 60 + sv.level * 8; char b[24], *d;
+            UINT16 g = (60 + sv.level * 8) * GMULT(); char b[24], *d;
             moth_on = 0; sv.gold += g; gain_xp(20 + sv.level); sfx(SFX_FANFARE);
             d = scat(b, "GOLDEN MOTH! +"); d = u16s(d, g); scat(d, " GOLD"); note(b);
         } else if(dist < 70){                                     /* it flees: as fast as you walk, so run (B) to catch it */
@@ -401,7 +401,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
     world_setup();
-    place_things(); note_t = 0; fish_hint = 0;
+    place_things(); note_t = 0; fish_hint = 0; hint_z = 0;
     life_load(wk, ((UINT16)ship_mx << 4) + 8, ((UINT16)ship_my << 4) + 8);
     ex.seen[sv.star >> 3] |= 1 << (sv.star & 7);
     enter(); pet_reset(bx, by);
@@ -483,7 +483,10 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         }
         else if(HIT(J_A) && (k = life_pat(bx, by))){ note(k == 1 ? "A HAPPY PAT! +GOLD" : k == 2 ? "NUZZLE! +GOLD" : k == 3 ? "SHY! IT RAN AWAY." : "IT LIKES YOU ALREADY"); }
         else if(HIT(J_A) && water_near()){ fish_run(wk); }
-        else if(!(tick & 31) && !fish_hint && water_near()){ fish_hint = 1; note("PRESS A AT THE WATER TO FISH"); }
+        if(opt.hints && !note_t && !(tick & 15)){                    /* OPTIONS > HINTS: a gold line says what A will do, once each time you come up to something */
+            UINT8 z = near_ship() ? 1 : water_near() ? 2 : 0;
+            if(z != hint_z){ hint_z = z; if(z == 1) note("A: YOUR SHIP (HEAL, SAVE, FLY)"); else if(z == 2) note("A: FISH IN THE WATER"); }
+        }
         if(HIT(J_START)){
             { int sr = sysmenu_run(redraw);
               if(sr == SYS_TITLE){ leave(); return PL_TITLE; }

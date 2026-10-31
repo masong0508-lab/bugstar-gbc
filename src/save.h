@@ -84,8 +84,9 @@ extern const UINT8 hold_tab[6], tank_tab[6];                                   /
 #define ARENA_BEST (sv.el.rsv[1])           /* the best number of waves cleared */
 #define HOLD_CAP() (hold_tab[UPG(UP_HOLD) > 5 ? 5 : UPG(UP_HOLD)])
 #define TANK_CAP() (tank_tab[UPG(UP_TANK) > 5 ? 5 : UPG(UP_TANK)])
-#define LUCKY(g)  (((g) << (opt.diff ? 0 : 1)) + (UINT16)((g) * UPG(SK_LUCK) / 16))   /* (BABY pays double) */                    /* gold with the LUCK skill (6% a rank) */
-#define SP_GOLD(g) ((g) + (UINT16)((g) * (UPG(SK_LUCK) + 2 * UPG(UP_MAGNET)) / 16))   /* and the MAGNET in space (12% a level) */
+#define GMULT()   (opt.goldm == 2 ? 5 : opt.goldm + 1)          /* OPTIONS > GOLD: x1 / x2 / x5 */
+#define LUCKY(g)  ((UINT16)((((g) << (opt.diff ? 0 : 1)) + (UINT16)((g) * UPG(SK_LUCK) / 16)) * GMULT()))   /* (BABY pays double) */                    /* gold with the LUCK skill (6% a rank) */
+#define SP_GOLD(g) ((UINT16)(((g) + (UINT16)((g) * (UPG(SK_LUCK) + 2 * UPG(UP_MAGNET)) / 16)) * GMULT()))   /* and the MAGNET in space (12% a level) */
 #define ST_INTRO 1               /* Bolt has told the story so far */
 #define ST_BEAST 2               /* ...and met the Technobeast */
 #define ST_DONE  4               /* the Technobeast is beaten: the ending was seen */

@@ -132,3 +132,9 @@ and boots; the save format does not change, so old saves keep working.
 - 11c DONE (builds; not seen in an emulator): dungeon monsters 8x8 (one sprite), queen 16x16 (two), bite flash and death bursts 8x8; damage digits were already small. tools/make_dungeon.py halves the art; src/dungeon.c draws it around the same centres. Hit reaches and the 16 px metatile are unchanged (re-check in play).
 - 11d DONE for the 2D flight view (builds; not seen in an emulator): ship, pirates, lasers, bursts, mines, darts and the arrow are 8x8 (spr8 in space_int.h). Tiles: VRAM bank 1 slots 52..61 and 236..255, bank 0 sprite tiles 128..159 (darts, arrow), loaded by space_half_load. Not done: stations, the 3D view, fleet battles (custom ship designs share the full-size tiles). The warp, fleet battles and title still use the full-size art.
 - Still open: 11e measuring in an emulator, 11a..11d play-test, hardware test.
+## Options that now do something (GBA parity)
+- OPTIONS > XP SPEED (x1/x2/x5) multiplies XP in gain_xp (src/hud.c); OPTIONS > GOLD (x1/x2/x5) multiplies gold through GMULT() in save.h (kills, chests, fish, space kills, berries, treasures, the moth, pets, the warp).
+- OPTIONS > LOSE STUFF WHEN YOU FAINT off: fainting in the dungeon keeps your gold. OPTIONS > DAMAGE NUMBERS off: no floating numbers in the dungeon.
+- OPTIONS > HINTS: on the planet a gold line says what A does when you come up to your ship ("A: YOUR SHIP") or to water ("A: FISH IN THE WATER").
+- Still dead options (saved, but nothing reads them): HUNGER (no food in the GBC game), MINIMAP, CAMERA (the GBC planet is top-down).
+- Bank 0 (the _HOME bank) has about 1 byte left after this patch: gain_xp in src/hud.c was made smaller to pay for the XP multiplier. Move something out of bank 0 before adding more there.

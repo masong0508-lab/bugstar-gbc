@@ -194,6 +194,7 @@ static void show_mons(void){                                       /* every mons
     while(o < 40) move_sprite(o++, 0, 0);
 }
 static void fx_add(UINT16 x, UINT16 y, UINT8 n, UINT8 pal){
+    if(n != 255 && !opt.nums) return;                                 /* OPTIONS > DAMAGE NUMBERS off */
     UINT8 i, best = 0;
     for(i = 1; i < NFX; i++) if(fxs[i].t < fxs[best].t) best = i;      /* a free one, or the oldest */
     fxs[best].x = x; fxs[best].y = y; fxs[best].n = n; fxs[best].pal = pal; fxs[best].t = n == 255 ? 16 : 32;
@@ -471,7 +472,7 @@ int dungeon_run(void) BANKED {
         break;
     }
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
-    if(r == DG_FAINT){ if(opt.diff) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT OF YOUR POCKETS."); }
+    if(r == DG_FAINT){ if(opt.diff && opt.faint) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT OF YOUR POCKETS."); }
     else if(r == DG_WIN) dungeon_won(kind);
     else if(r == DG_EXIT) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     feats_check();
