@@ -1,5 +1,5 @@
 #pragma bank 15
-/* BUGSTAR GBC - upgrades. The ship's menu (tabs GO / SHOP / YOU, like the GBA), Bolt's shop and the SKILLS page.
+/* BUGSTAR GBC - upgrades. The ship's menu (tabs GO / SHOP / CARE / YOU, like the GBA), Bolt's shop and the SKILLS page.
    SKILLS: every level gives 1 skill point (and every 5th level 2 more); five skills, 10 ranks each, 1 point a rank.
    SHOP: gold buys potions and 7 pieces of gear (5 levels each): FANG and SHELL for the bug, LASER GUNS ENGINE TURBO HULL MAGNET for the ship.
    The levels live in sv.up[] (save.h). Everything is drawn in the window layer, like the SYSTEM menu. */
@@ -177,44 +177,61 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
 }
 
 /* ---------------------------------------------------------------- the ship's menu */
-/* ---------------------------------------------------------------- the ship menu (tabs like the GBA: GO / SHOP / YOU) */
+/* ---------------------------------------------------------------- the ship menu (four tabs like the GBA: GO / SHOP / CARE / YOU) */
 #define SM_H 7                                               /* box height in tiles: border, tabs, 3 rows, tip, border */
-static const char *const tab_row[3][2] = { { "FLY INTO SPACE", "STAY HERE" }, { "BOLT'S SHOP", 0 }, { "SKILLS", "SAVE GAME" } };
-static const char *const tab_tip[3][2] = { { "TAKE OFF FOR SPACE", "CLOSE THIS MENU" }, { "POTIONS AND GEAR", 0 }, { "SPEND SKILL POINTS", "WRITE TO YOUR SLOT" } };
+#define TAB_GO 0
+#define TAB_SHOP 1
+#define TAB_CARE 2
+#define TAB_YOU 3
+static const UINT8 tab_n[4] = { 2, 1, 3, 2 };
+static const char *const tab_row[4][3] = { { "FLY INTO SPACE", "STAY HERE", 0 }, { "BOLT'S SHOP", 0, 0 }, { "HEAL", "TROPHIES", "MINING" }, { "SKILLS", "SAVE GAME", 0 } };
+static const char *const tab_tip[4][3] = { { "TAKE OFF FOR SPACE", "CLOSE THIS MENU", 0 }, { "POTIONS AND GEAR", 0, 0 }, { "FULL HEARTS + MANA", "YOUR FEATS", "MINE ORE FOR GOLD" }, { "SPEND SKILL POINTS", "WRITE TO YOUR SLOT", 0 } };
+static UINT8 hurt(void){ return sv.hp < hud_hpmax(sv.level) || sv.mp < hud_mpmax(sv.level); }
 static void sm_draw(UINT8 tab, UINT8 sel, const char *msg){
     UINT8 i; char b[24], *d; const char *tip = tab_tip[tab][sel];
     txt_win(1);
-    txt_line(1, 1, " GO   SHOP   YOU ", 18); txt_color(1, 1, 18, 1, TXT_GREY);
-    if(tab == 0) txt_color(2, 1, 2, 1, TXT_GOLD); else if(tab == 1) txt_color(7, 1, 4, 1, TXT_GOLD); else txt_color(14, 1, 3, 1, TXT_GOLD);
-    if(tab != 2 && skills_free()) txt_put(17, 1, "!");              /* new skill points wait on the YOU tab */
+    txt_line(1, 1, " GO SHOP CARE YOU", 18); txt_color(1, 1, 18, 1, TXT_GREY);
+    if(skills_free()) txt_color(15, 1, 3, 1, TXT_GOLD);                  /* new skill points wait on the YOU tab */
+    if(hurt()) txt_color(10, 1, 4, 1, TXT_RED);                          /* the CARE tab can heal you */
+    if(tab == 0) txt_color(2, 1, 2, 1, TXT_GOLD); else if(tab == 1) txt_color(5, 1, 4, 1, TXT_GOLD); else if(tab == 2) txt_color(10, 1, 4, 1, TXT_GOLD); else txt_color(15, 1, 3, 1, TXT_GOLD);
     for(i = 0; i < 3; i++){
-        if(i < 2 && tab_row[tab][i]){
+        if(i < tab_n[tab]){
             d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, tab_row[tab][i]);
-            if(tab == 2 && i == 0 && skills_free()){ d = pad(d, b, 9); num(d, "(", skills_free(), " NEW)"); }
+            if(tab == TAB_YOU && i == 0 && skills_free()){ d = pad(d, b, 9); num(d, "(", skills_free(), " NEW)"); }
+            if(tab == TAB_CARE && i == 0 && !hurt()){ d = pad(d, b, 9); scat(d, "(FULL)"); }
             txt_line(1, 2 + i, b, 18); txt_color(1, 2 + i, 18, 1, i == sel ? TXT_GOLD : TXT_WHITE);
         } else { txt_line(1, 2 + i, "", 18); }
     }
-    txt_line(1, 5, msg ? msg : tip ? tip : "", 18); txt_color(1, 5, 18, 1, msg ? TXT_RED : TXT_GREY);
+    txt_line(1, 5, msg ? msg : tip ? tip : "", 18); txt_color(1, 5, 18, 1, msg ? TXT_GOLD : TXT_GREY);
     txt_win(0);
 }
 static void sm_frame(UINT8 tab, UINT8 sel, const char *msg){ txt_win(1); txt_cls(); txt_box(0, 0, 20, SM_H); txt_win(0); sm_draw(tab, sel, msg); move_win(7, 144 - SM_H * 8); HIDE_SPRITES; SHOW_WIN; }   /* (no critters drawn over the box) */
 
-UINT8 ship_menu(void) BANKED {                                 /* 1 = fly into space. LEFT/RIGHT: tab, UP/DOWN: row, START: take off from any tab */
-    UINT8 tab = 0, sel = 0, out = 0, rows, sprites = LCDC_REG & LCDCF_OBJON; const char *msg = 0;
+/* start = tab * 4 + row (the planet re-opens the menu on the CARE tab after a full-screen page).
+   Returns 0 closed, 1 fly into space, 2 the caller shows the FEATS page, 3 the caller runs MINING (both need the planet to repaint afterwards). */
+UINT8 ship_menu(UINT8 start) BANKED {
+    UINT8 tab = start >> 2, sel = start & 3, out = 0, rows, sprites = LCDC_REG & LCDCF_OBJON; const char *msg = 0;
+    if(tab > 3 || sel >= tab_n[tab]){ tab = 0; sel = 0; }
     sm_frame(tab, sel, 0);
     for(;;){
         wait_vbl_done(); input_poll();
-        rows = tab == 1 ? 1 : 2;
-        if(HIT(J_START)){ sfx(SFX_OK); out = 1; break; }
+        rows = tab_n[tab];
+        if(HIT(J_START)){ sfx(SFX_OK); out = 1; break; }              /* START takes off from any tab, like the GBA */
         if(HIT(J_B)) break;
-        if(HIT(J_LEFT))  { tab = tab ? tab - 1 : 2; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
-        if(HIT(J_RIGHT)) { tab = tab < 2 ? tab + 1 : 0; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HIT(J_LEFT))  { tab = tab ? tab - 1 : 3; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HIT(J_RIGHT)) { tab = tab < 3 ? tab + 1 : 0; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
         if(HIT(J_UP) && rows > 1)   { sel = sel ? sel - 1 : rows - 1; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
         if(HIT(J_DOWN) && rows > 1) { sel = sel < rows - 1 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
         if(HIT(J_A)){
             sfx(SFX_OK);
-            if(tab == 0){ if(sel == 0) out = 1; break; }
-            if(tab == 1){ shop_run(0); sm_frame(tab, sel, 0); }
+            if(tab == TAB_GO){ if(sel == 0) out = 1; break; }
+            if(tab == TAB_SHOP){ shop_run(0); sm_frame(tab, sel, 0); }
+            else if(tab == TAB_CARE){
+                if(sel == 0){
+                    if(hurt()){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); msg = "YOU ARE HEALED!"; sfx(SFX_FANFARE); } else msg = "ALREADY FULL";
+                    sm_draw(tab, sel, msg);
+                } else { out = sel + 1; break; }
+            }
             else if(sel == 0){ skills_run(); sm_frame(tab, sel, 0); }
             else { slot_write(cur_slot); msg = "SAVED!"; sfx(SFX_COIN); sm_draw(tab, sel, msg); }
         }

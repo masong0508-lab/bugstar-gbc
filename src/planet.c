@@ -29,6 +29,8 @@
 #include "econ.h"
 #include "town.h"
 #include "feat.h"
+#include "spell.h"
+#include "xtra.h"
 #include "wild.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
@@ -249,6 +251,13 @@ static void load_gfx(void){
 }
 static void camera(void){ cam_x = (bx - BUG_SX) & 4095; cam_y = (by - BUG_SY) & 4095; }
 static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); apply_pal(); draw_all(); }
+static void care_page(UINT8 r){                       /* the ship menu's CARE tab: 2 = FEATS, 3 = MINING. Same dance as the SYSTEM menu's pages. */
+    UINT8 sx = SCX_REG, sy = SCY_REG;
+    HIDE_WIN; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0;
+    if(r == 2){ txt_cls(); feats_run(); txt_cls(); SCX_REG = sx; SCY_REG = sy; redraw(); }
+    else { DISPLAY_OFF; txt_cls(); sys_gfx_lost = 1; xtra_mine(); DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy; redraw(); sys_gfx_lost = 0; DISPLAY_ON; }
+    SHOW_SPRITES; SHOW_WIN;
+}
 
 /* ------------------------------------------------------------ walking */
 /* The ground under a metatile. Working it out from the noise costs thousands of cycles (it used to run for every collision test, every
@@ -477,9 +486,11 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         if(!(tick & (wv ? 7 : 63))) apply_pal();
         hud_update();
         if(HIT(J_A) && near_ship()){
-            sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); if(sv.el.fuel < 6) sv.el.fuel = 6; slot_write(cur_slot); sfx(SFX_FANFARE);
-            dlg_say("BOLT", "HOME SWEET SHIP. YOU ARE HEALED, AND THE GAME IS SAVED.");
-            if(ship_menu()){ leave(); return PL_LAUNCH; }
+            UINT8 sm = 0, r;
+            if(sv.el.fuel < 6) sv.el.fuel = 6; slot_write(cur_slot); sfx(SFX_FANFARE);
+            dlg_say("BOLT", "HOME SWEET SHIP. THE CARE TAB HEALS YOU. THE GAME IS SAVED.");
+            while((r = ship_menu(sm)) >= 2){ care_page(r); sm = (2 << 2) | (r - 1); }      /* FEATS / MINING are full pages: the scene repaints, then the menu comes back */
+            if(r){ leave(); return PL_LAUNCH; }
         }
         else if(HIT(J_A) && (k = life_pat(bx, by))){ note(k == 1 ? "A HAPPY PAT! +GOLD" : k == 2 ? "NUZZLE! +GOLD" : k == 3 ? "SHY! IT RAN AWAY." : "IT LIKES YOU ALREADY"); }
         else if(HIT(J_A) && water_near()){ fish_run(wk); }
