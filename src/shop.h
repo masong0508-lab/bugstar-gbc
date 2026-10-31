@@ -7,4 +7,5 @@ UINT8 ship_menu(UINT8 start) BANKED;   /* start = tab * 4 + row; 0 closed, 1 fly
 void  skills_run(void) BANKED;
 UINT8 skills_free(void) BANKED;
 void  shop_run(UINT8 mode) BANKED;   /* 0: the planet shop (potions, bug gear); 1: a station's shipyard (ship parts, fame discount) */
+void status_run(void) BANKED;                     /* the STATUS page: bars, gold, rank, gear, time (the pause menu's first page, like the GBA's BUG tab) */
 #endif

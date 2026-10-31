@@ -124,18 +124,21 @@ static void it_effect(UINT8 it, UINT8 lv, char *out){
     }
 }
 #define SHOP_MAXLV 5
-static UINT8 s_mode, s_n, s_first, s_disc;                   /* 0 the planet's shop (potions, bug gear), 1 the shipyard of a station (ship parts) */
+static UINT8 s_mode, s_n, s_first, s_disc, s_ask;                   /* 0 the planet's shop (potions, bug gear), 1 the shipyard of a station (ship parts) */
 static UINT16 s_price(UINT8 it, UINT8 lv){ return (UINT16)((UINT32)it_cost[it][it ? lv : 0] * (100 - s_disc) / 100); }
+static const char s_thanks[] = "THANK YOU!";
 static void shop_draw(UINT8 cur, const char *msg){
     UINT8 i, it = s_first + cur, lv, r = 4 + s_n; char b[24], *d;
     txt_win(1);
     d = scat(b, s_mode ? "YARD  GOLD " : "SHOP  GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
+    txt_line(1, 2, s_ask ? "A: YES   B: NO" : "A: BUY   B: BACK", 18); txt_color(1, 2, 18, 1, s_ask ? TXT_GOLD : TXT_GREY);   /* what the buttons do, like the GBA's footer */
     for(i = 0; i < s_n; i++){
         it = s_first + i; lv = it ? sv.up[it_up[it]] : sv.potions;
         d = scat(b, i == cur ? S_CURSOR : " "); d = scat(d, it_name[it]); d = pad(d, b, 8);
         if(it == I_POTION){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= 9) scat(d, "FULL"); else num(d, "", POTION_COST, ""); }
         else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", s_price(it, lv), ""); else scat(d, "MAX"); }
         txt_line(1, 3 + i, b, 18); txt_color(1, 3 + i, 18, 1, i == cur ? TXT_GOLD : TXT_WHITE);
+        if(it ? lv < SHOP_MAXLV : lv < 9){ if(sv.gold < s_price(it, it ? lv : 0)) txt_color(14, 3 + i, 5, 1, TXT_RED); }   /* a price you cannot pay is red */
     }
     it = s_first + cur;
     txt_line(1, r, it_what[it], 18); txt_color(1, r, 18, 1, TXT_WHITE);
@@ -146,8 +149,25 @@ static void shop_draw(UINT8 cur, const char *msg){
         if(lv < SHOP_MAXLV){ d = scat(b, "NEXT "); it_effect(it, lv + 1, d); } else scat(b, "FULLY UPGRADED");
         txt_line(1, r + 2, b, 18); txt_color(1, r + 2, 18, 1, TXT_GOLD);
     }
-    txt_line(1, r + 3, msg ? msg : "", 18); txt_color(1, r + 3, 18, 1, TXT_RED);
+    lv = it ? sv.up[it_up[it]] : sv.potions;
+    if(s_ask){ msg = "MOST OF YOUR GOLD!"; }
+    if(msg){ txt_line(1, r + 3, msg, 18); txt_color(1, r + 3, 18, 1, msg == s_thanks ? TXT_GOLD : TXT_RED); }
+    else if(it ? lv < SHOP_MAXLV : lv < 9){                                   /* what the gold will be, or what is missing (the GBA's PRICE / LEFT / NEED line) */
+        UINT16 pr = s_price(it, it ? lv : 0);
+        if(sv.gold >= pr){ d = scat(b, "LEFT "); u32s(d, sv.gold - pr); txt_line(1, r + 3, b, 18); txt_color(1, r + 3, 18, 1, TXT_GREY); }
+        else { d = scat(b, "NEED "); d = u32s(d, pr - sv.gold); scat(d, " MORE"); txt_line(1, r + 3, b, 18); txt_color(1, r + 3, 18, 1, TXT_RED); }
+    } else { txt_line(1, r + 3, "", 18); }
     txt_win(0);
+}
+static UINT8 shop_sure(UINT8 cur){                              /* a big buy asks first (the GBA: "THAT IS MOST OF YOUR GOLD"): A yes, B no */
+    UINT8 yes = 0;
+    s_ask = 1; shop_draw(cur, 0); sfx(SFX_MOVE);
+    for(;;){
+        wait_vbl_done(); input_poll();
+        if(HIT(J_A)){ yes = 1; break; }
+        if(HIT(J_B) || HIT(J_START)) break;
+    }
+    s_ask = 0; return yes;
 }
 void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a station's shipyard */
     UINT8 cur = 0, sprites = LCDC_REG & LCDCF_OBJON, h; const char *msg = 0;
@@ -164,8 +184,9 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
             UINT8 it = s_first + cur, lv = it ? sv.up[it_up[it]] : sv.potions, mx = it ? SHOP_MAXLV : 9;
             if(lv >= mx){ msg = it ? "ALREADY THE BEST!" : "POCKETS FULL!"; sfx(SFX_BACK); }
             else if(sv.gold < s_price(it, lv)){ msg = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
+            else if(s_price(it, lv) >= 60 && (UINT32)s_price(it, lv) * 2 > sv.gold && !shop_sure(cur)){ msg = "MAYBE LATER"; sfx(SFX_BACK); }
             else {
-                sv.gold -= s_price(it, lv); msg = "THANK YOU!"; sfx(SFX_COIN);
+                sv.gold -= s_price(it, lv); msg = s_thanks; sfx(SFX_COIN);
                 if(!it) sv.potions++; else sv.up[it_up[it]]++;
                 if(it == I_SHIELD) sv.mp = hud_mpmax(sv.level);
             }
@@ -174,6 +195,34 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
     }
     sfx(SFX_BACK);
     if(sprites) SHOW_SPRITES;
+}
+
+/* ---------------------------------------------------------------- the STATUS page (the GBA's BUG tab: you, your bars, your numbers) */
+static void st_bar(char *b, const char *lab, UINT32 v, UINT32 mx){
+    char *d = scat(b, lab); UINT8 f = mx ? (UINT8)(v >= mx ? 6 : (v * 6) / mx) : 0;
+    if(v && !f) f = 1;                                              /* some hearts left always shows a pip */
+    d = pips(d, f, 6); d = scat(d, " "); d = u32s(d, v); d = scat(d, "/"); u32s(d, mx);
+}
+void status_run(void) BANKED {
+    char b[24], *d; UINT32 t = play_secs(); UINT8 r = fame_rank();
+    txt_win(0); txt_cls(); txt_box(0, 0, 20, 18);
+    txt_line(2, 1, "STATUS", 8); txt_color(2, 1, 8, 1, TXT_GOLD); txt_line(11, 1, "B: BACK", 8); txt_color(11, 1, 8, 1, TXT_GREY);
+    d = scat(b, sv.name); d = pad(d, b, 11); num(d, "LV ", sv.level, ""); txt_line(2, 2, b, 17); txt_color(2, 2, 17, 1, TXT_WHITE); txt_color(2, 2, 8, 1, TXT_GOLD);
+    st_bar(b, "HP ", sv.hp, hud_hpmax(sv.level));  txt_line(2, 4, b, 17); txt_color(2, 4, 17, 1, TXT_RED);
+    st_bar(b, "MP ", sv.mp, hud_mpmax(sv.level));  txt_line(2, 5, b, 17); txt_color(2, 5, 17, 1, TXT_WHITE);
+    st_bar(b, "XP ", sv.xp, (UINT32)sv.level * 12); txt_line(2, 6, b, 17); txt_color(2, 6, 17, 1, TXT_GOLD);
+    d = scat(b, "GOLD  "); u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); txt_line(2, 8, b, 17); txt_color(2, 8, 17, 1, TXT_GOLD);
+    b[0] = 0; rank_label(r, b); txt_line(2, 9, b, 17); txt_color(2, 9, 17, 1, TXT_GOLD);
+    d = num(b, "FAME ", sv.el.fame, ""); d = pad(d, b, 10); num(d, "KILLS ", sv.el.kills, ""); txt_line(2, 10, b, 17); txt_color(2, 10, 17, 1, TXT_WHITE);
+    d = num(b, "JOBS ", sv.el.jobs, ""); d = pad(d, b, 10); num(d, "JUMPS ", sv.el.jumps, ""); txt_line(2, 11, b, 17); txt_color(2, 11, 17, 1, TXT_WHITE);
+    d = num(b, "DEEP ", sv.deepest, ""); d = pad(d, b, 8); num(d, "CORES ", sv.cores, "/8"); txt_line(2, 12, b, 17); txt_color(2, 12, 17, 1, TXT_WHITE);
+    b[0] = 0; it_effect(I_FANG, sv.up[it_up[I_FANG]], b); d = b; while(*d) d++; d = pad(d, b, 9); it_effect(I_SHELL, sv.up[it_up[I_SHELL]], d); txt_line(2, 13, b, 17); txt_color(2, 13, 17, 1, TXT_WHITE);
+    d = num(b, "POTIONS ", sv.potions, ""); d = pad(d, b, 11); num(d, "BUGS ", sv.friends, ""); txt_line(2, 14, b, 17); txt_color(2, 14, 17, 1, TXT_WHITE);
+    num(b, "SKILL POINTS ", skills_free(), ""); txt_line(2, 15, b, 17); txt_color(2, 15, 17, 1, skills_free() ? TXT_GOLD : TXT_GREY);
+    d = num(b, "TIME ", (UINT16)(t / 3600), ":"); if((t / 60) % 60 < 10) d = scat(d, "0"); u16s(d, (UINT16)((t / 60) % 60)); txt_line(2, 16, b, 17); txt_color(2, 16, 17, 1, TXT_GREY);
+    txt_pal_reset(); SHOW_BKG; DISPLAY_ON;
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_B) || HIT(J_A) || HIT(J_START)) break; }
+    sfx(SFX_BACK);
 }
 
 /* ---------------------------------------------------------------- the ship's menu */

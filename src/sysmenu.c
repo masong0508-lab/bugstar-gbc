@@ -17,10 +17,10 @@
 UINT8 sys_gfx_lost;
 UINT8 sys_space;
 
-#define NITEM 9
+#define NITEM 10
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "FEATS", "GUIDE", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "STATUS", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "FEATS", "GUIDE", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -79,14 +79,20 @@ int sysmenu_run(void (*redraw)(void)){
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             if(sel == 0) break;
-            if(sel == 1){ slot_write(cur_slot); status("SAVED!"); sfx(SFX_COIN); }
-            else if(sel == 2){
+            if(sel == 1){
+                HIDE_WIN;
+                { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;
+                  SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; status_run(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
+                if(redraw) redraw();
+                SHOW_WIN; cores();
+            } else if(sel == 2){ slot_write(cur_slot); status("SAVED!"); sfx(SFX_COIN); }
+            else if(sel == 3){
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;   /* the options page is drawn unscrolled, without sprites over it */
                   SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; txt_cls(); options_screen(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
                 if(redraw) redraw();
                 SHOW_WIN; cores();
-            } else if(sel == 3){
+            } else if(sel == 4){
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG; BugLook l = sv.look; char nm[9];
                   strcpy(nm, sv.name);
@@ -98,13 +104,13 @@ int sysmenu_run(void (*redraw)(void)){
                   sys_gfx_lost = 0;
                   SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
-            } else if(sel == 4){
+            } else if(sel == 5){
                 skills_run();                                        /* (it hides the sprites and brings them back) */
                 txt_win(1); txt_cls(); txt_box(0, 0, SM_W, SM_H);
                 txt_line(1, 1, "SYSTEM", SM_W - 2); txt_color(1, 1, SM_W - 2, 1, TXT_GOLD);
                 txt_win(0);
                 move_win(SM_WX, SM_WY); draw_items(sel); cores();
-            } else if(sel == 5){
+            } else if(sel == 6){
                 UINT8 r;
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG;                    /* a full page of its own, like MIRROR: the scene repaints afterwards */
@@ -117,13 +123,13 @@ int sysmenu_run(void (*redraw)(void)){
                   SHOW_SPRITES; DISPLAY_ON; }
                 SHOW_WIN; cores();
                 if(r){ result = r == 1 ? SYS_FLIP : r == 2 ? SYS_ARENA : r == 3 ? SYS_HELL : SYS_MOON; break; }
-            } else if(sel == 6){
+            } else if(sel == 7){
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG, sp = LCDC_REG & LCDCF_OBJON;
                   SCX_REG = 0; SCY_REG = 0; HIDE_SPRITES; txt_cls(); feats_run(); txt_cls(); SCX_REG = sx; SCY_REG = sy; if(sp) SHOW_SPRITES; }
                 if(redraw) redraw();
                 SHOW_WIN; cores();
-            } else if(sel == 7){
+            } else if(sel == 8){
                 HIDE_WIN;
                 { UINT8 sx = SCX_REG, sy = SCY_REG;                    /* the guide borrows sprite tiles: the scene repaints afterwards */
                   DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_cls();

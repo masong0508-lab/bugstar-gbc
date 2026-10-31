@@ -17,6 +17,7 @@
 #include "econ.h"
 UINT8 bugmake_run(BugLook *look, char *name, UINT8 first){ return 0; }
 void skills_run(void){ }
+void status_run(void){ }
 void guide_run(void){ }
 UINT8 extras_run(UINT8 in_space){ return 0; }                                          /* (and the skills page) */   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
@@ -63,12 +64,12 @@ static UINT8 pad_dlg(int f){
 static void d_blip(void){ d_blips++; }
 static int snap_is(int pg, int y, const char *want){ for(int i = 0; want[i]; i++) if(d_snap[pg][y][1 + i] != (UINT8)want[i]) return 0; return strlen(want) >= 18 || d_snap[pg][y][1 + (int)strlen(want)] == T_BLANK; }   /* a full 18-column line runs into the frame */
 /* ---- SYSTEM menu test pad: each step is one press then one release; every poll snapshots the window and state */
-static const UINT8 *sq; static int sq_n, sq_calls, sq_win[40], sq_wx[40]; static UINT8 sq_snap[40][13][12];
+static const UINT8 *sq; static int sq_n, sq_calls, sq_win[40], sq_wx[40]; static UINT8 sq_snap[40][14][12];
 static int redraws;
 static UINT8 pad_seq(int f){
     (void)f; int i = sq_n / 2; UINT8 k = sq[i];
     if(k == 0xFF){ fprintf(stderr, "sysmenu script ended\n"); exit(2); }
-    if(sq_n < 40){ for(int y = 0; y < 13; y++) memcpy(sq_snap[sq_n][y], wmap[y], 12); sq_win[sq_n] = stub_win; sq_wx[sq_n] = stub_wx; }
+    if(sq_n < 40){ for(int y = 0; y < 14; y++) memcpy(sq_snap[sq_n][y], wmap[y], 12); sq_win[sq_n] = stub_win; sq_wx[sq_n] = stub_wx; }
     return (sq_n++ & 1) ? 0 : k;
 }
 static void sm_repaint(void){ redraws++; }
@@ -229,14 +230,14 @@ int main(void){
     dlg_set_speed(2);
     /* ---- SYSTEM menu */
     memset(sram_buf, 0xFF, sizeof sram_buf); save_init(); new_game(0, 1, 0, 0); cur_slot = 0; memset(&sv.rsv, 0, sizeof sv.rsv); sv.friends = sv.deepest = sv.potions = 0;
-    CHECK(SM_WX == 71 && SM_WY == 40);
+    CHECK(SM_WX == 71 && SM_WY == 32);
     { /* open with the HUD showing, resume with B: layout, then HUD is back */
       static const UINT8 q1[] = { J_B, 0xFF };
       hud_init(); sv.level = 1; sv.hp = 10; hud_update();
       CHECK(sm_run(q1) == SYS_RESUME);
       CHECK(sq_wx[0] == SM_WX && stub_wx == 7 && stub_wy == HUD_Y && stub_win == 1 && wmap[0][0] == T_HEART && wrow_is(0, 11, "LV 1"));
-      CHECK(sq_snap[0][0][0] == T_BOX_TL && sq_snap[0][0][11] == T_BOX_TR && sq_snap[0][12][0] == T_BOX_BL && sq_snap[0][12][11] == T_BOX_BR);
-      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "SAVE") && sq_is(0, 5, 2, "OPTIONS") && sq_is(0, 6, 2, "MIRROR") && sq_is(0, 7, 2, "SKILLS") && sq_is(0, 8, 2, "EXTRAS") && sq_is(0, 9, 2, "FEATS") && sq_is(0, 10, 2, "GUIDE") && sq_is(0, 11, 2, "TO TITLE"));
+      CHECK(sq_snap[0][0][0] == T_BOX_TL && sq_snap[0][0][11] == T_BOX_TR && sq_snap[0][13][0] == T_BOX_BL && sq_snap[0][13][11] == T_BOX_BR);
+      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "STATUS") && sq_is(0, 5, 2, "SAVE") && sq_is(0, 6, 2, "OPTIONS") && sq_is(0, 7, 2, "MIRROR") && sq_is(0, 8, 2, "SKILLS") && sq_is(0, 9, 2, "EXTRAS") && sq_is(0, 10, 2, "FEATS") && sq_is(0, 11, 2, "GUIDE") && sq_is(0, 12, 2, "TO TITLE"));
       CHECK(sq_snap[0][3][1] == T_CURSOR && sq_snap[0][4][1] == ' ');
       CHECK(wamap[0][0] == TXT_WHITE);
     }
@@ -247,30 +248,35 @@ int main(void){
       CHECK(sm_run(q2b) == SYS_RESUME);
     }
     { /* DOWN, A = save; stays open showing SAVED!; cursor moved; then B */
-      static const UINT8 q3[] = { J_DOWN, J_A, J_B, 0xFF };
+      static const UINT8 q3[] = { J_DOWN, J_DOWN, J_A, J_B, 0xFF };
       UINT16 before = 0; Save t; slot_peek(0, &t); before = t.saves;
       sv.level = 17;
       CHECK(sm_run(q3) == SYS_RESUME);
-      CHECK(sq_snap[2][4][1] == T_CURSOR && sq_snap[2][3][1] == ' ');
-      CHECK(sq_is(4, 2, 1, "SAVED!") && sq_is(4, 4, 1, "") && sq_snap[4][4][1] == T_CURSOR);
+      CHECK(sq_snap[4][5][1] == T_CURSOR && sq_snap[4][3][1] == ' ');
+      CHECK(sq_is(6, 2, 1, "SAVED!") && sq_is(6, 5, 1, "") && sq_snap[6][5][1] == T_CURSOR);
       slot_peek(0, &t); CHECK(t.saves == before + 1 && t.level == 17);
+    }
+    { /* STATUS: DOWN, A opens the page (a stub here), the menu stays open with the cursor on it, then B */
+      static const UINT8 q3s[] = { J_DOWN, J_A, J_B, 0xFF };
+      CHECK(sm_run(q3s) == SYS_RESUME);
+      CHECK(sq_snap[4][4][1] == T_CURSOR && sq_is(4, 4, 2, "STATUS"));
     }
     { /* cursor wraps both ways and clears the status line */
       static const UINT8 q4[] = { J_UP, J_DOWN, J_DOWN, J_B, 0xFF };
       CHECK(sm_run(q4) == SYS_RESUME);
-      CHECK(sq_snap[2][11][1] == T_CURSOR && sq_snap[4][3][1] == T_CURSOR && sq_snap[6][4][1] == T_CURSOR);
+      CHECK(sq_snap[2][12][1] == T_CURSOR && sq_snap[4][3][1] == T_CURSOR && sq_snap[6][4][1] == T_CURSOR);
     }
     { /* OPTIONS: overlay hides, options page runs (B inside it), repaint hook fires, overlay returns */
-      static const UINT8 q5[] = { J_DOWN, J_DOWN, J_A, J_B, J_B, 0xFF };
+      static const UINT8 q5[] = { J_DOWN, J_DOWN, J_DOWN, J_A, J_B, J_B, 0xFF };
       opt.sfx = 1; hud_hide();
       CHECK(sm_run(q5) == SYS_RESUME);
-      CHECK(redraws == 1 && sq_win[6] == 0 /* hidden while the options page polls */ && sq_win[8] == 1 && stub_win == 0);
+      CHECK(redraws == 1 && sq_win[8] == 0 /* hidden while the options page polls */ && sq_win[10] == 1 && stub_win == 0);
     }
     { /* TO TITLE: B cancels the prompt, A confirms, autosave writes the slot */
       static const UINT8 q6[] = { J_UP, J_A, J_B, J_B, 0xFF };
       CHECK(sm_run(q6) == SYS_RESUME);
       CHECK(sq_is(4, 4, 1, "SURE?") && sq_is(4, 5, 1, " A: YES") && sq_is(4, 6, 1, " B: NO"));   /* prompt shows while waiting */
-      CHECK(sq_snap[6][11][1] == T_CURSOR && sq_is(6, 11, 2, "TO TITLE") && sq_is(6, 4, 2, "SAVE"));  /* B cancelled: list restored */
+      CHECK(sq_snap[6][12][1] == T_CURSOR && sq_is(6, 12, 2, "TO TITLE") && sq_is(6, 5, 2, "SAVE"));  /* B cancelled: list restored */
       static const UINT8 q7[] = { J_UP, J_A, J_A, 0xFF };
       Save t; opt.autosave = 1; sv.level = 33; hud_hide();
       CHECK(sm_run(q7) == SYS_TITLE);
