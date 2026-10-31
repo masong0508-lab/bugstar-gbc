@@ -51,6 +51,11 @@ static void spr16(UINT8 oam, UINT8 tile, INT16 sx, INT16 sy){  /* a 16x16 sprite
     set_sprite_tile(oam, SPR0 + tile); set_sprite_tile(oam + 1, SPR0 + tile + 2);
     move_sprite(oam, (UINT8)sx, (UINT8)(sy + 8)); move_sprite(oam + 1, (UINT8)(sx + 8), (UINT8)(sy + 8));
 }
+static void spr8(UINT8 oam, UINT8 tile, INT16 sx, INT16 sy){   /* step 11d: a half-size (8x8) picture, absolute VRAM tile (SPH_...), middle at (sx, sy); the pair's second sprite stays hidden */
+    move_sprite(oam + 1, 0, 0);
+    if(sx < -8 || sx > 168 || sy < -8 || sy > 136){ move_sprite(oam, 0, 0); return; }
+    set_sprite_tile(oam, tile); move_sprite(oam, (UINT8)(sx + 4), (UINT8)(sy + 12));
+}
 static void hide2(UINT8 oam){ move_sprite(oam, 0, 0); move_sprite(oam + 1, 0, 0); }
 
 extern UINT8 toast_t;

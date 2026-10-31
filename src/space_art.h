@@ -16,6 +16,18 @@ enum { SP_STAR0, SP_STAR1, SP_STAR2, SP_STAR3, SP_STAR4, SP_STAR5, SP_STAR6, SP_
 #define SP_T_ORB       168
 #define SP_T_POD       170                  /* a cargo crate, 8x16 */
 #define SP_NSPR        172
+/* step 11d: half-size 2D flight pictures (ship, pirate, laser, burst, mine), one 8x16 sprite each, at fixed VRAM tiles (VRAM bank 1): space_half_load() */
+#define SPH_A0 52
+#define SPH_B0 236
+#define SPH_LASER     52
+#define SPH_BOOM(f)   (54 + (f) * 2)
+#define SPH_MINE(f)   (58 + (f) * 2)
+#define SPH_SHIP(d)   (236 + (d) * 2)
+#define SPH_PIRATE(f) (252 + (f) * 2)
+#define SPH_C0 128                 /* VRAM bank 0 (sprite attribute bit 3 clear): darts and the arrow */
+#define SPH_DART(d)   (128 + (d) * 2)
+#define SPH_ARROW(d)  (144 + (d) * 2)
+void space_half_load(void) BANKED;
 void space_tiles_load(UINT8 bg0, UINT8 spr0) BANKED;   /* (space_gfx.c, bank 8) the tiles into VRAM, whichever VRAM bank is selected */
 void title_ship_load(UINT8 tile0) BANKED;              /* just the ship facing right, 4 tiles, for the title */
 void space_spr_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED;   /* n sprite tiles from SP_T_... src to VRAM tile dst (the warp borrows some) */

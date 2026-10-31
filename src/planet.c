@@ -172,11 +172,11 @@ static void scroll_fill(void){
     job_run(7);
 }
 static void ship_show(void){                                   /* the ship sprite, if it is near the screen */
-    INT16 sx = (INT16)((((UINT16)ship_mx << 4) - 8 - cam_x) & 4095), sy = (INT16)((((UINT16)ship_my << 4) - 8 - cam_y) & 4095);
+    INT16 sx = (INT16)((((UINT16)ship_mx << 4) - cam_x) & 4095), sy = (INT16)((((UINT16)ship_my << 4) - 4 - cam_y) & 4095);   /* half size (11b): 16 x 8 px, same centre as before */
     UINT8 i;
     if(sx > 2048) sx -= 4096; if(sy > 2048) sy -= 4096;
-    for(i = 0; i < 8; i++){
-        INT16 x = sx + (i >> 1) * 8, y = sy + (i & 1) * 16;
+    for(i = 0; i < 2; i++){
+        INT16 x = sx + i * 8, y = sy;
         if(x < -8 || x > 168 || y < -16 || y > 128) move_sprite(SHIP_OAM0 + i, 0, 0);
         else move_sprite(SHIP_OAM0 + i, (UINT8)(x + 8), (UINT8)(y + 16));
     }
@@ -238,14 +238,14 @@ static void load_gfx(void){
     UINT8 i;
     VBK_REG = VBK_BANK_1;
     set_bkg_data(0, PL_NTILES, planet_tiles);
-    set_sprite_data(SHIP_TILE0, 16, ship_tiles);
+    set_sprite_data(SHIP_TILE0, 4, ship_tiles);
     set_sprite_data(CRIT_TILE0, 8, crit_tiles);
     VBK_REG = VBK_BANK_0;
     set_sprite_palette(1, 2, crit_pal);
     life_gfx(wk);
     apply_pal();
     pet_load();
-    for(i = 0; i < 8; i++){ set_sprite_tile(SHIP_OAM0 + i, SHIP_TILE0 + i * 2); set_sprite_prop(SHIP_OAM0 + i, SHIP_PAL | 0x08); }
+    for(i = 0; i < 2; i++){ set_sprite_tile(SHIP_OAM0 + i, SHIP_TILE0 + i * 2); set_sprite_prop(SHIP_OAM0 + i, SHIP_PAL | 0x08); }
 }
 static void camera(void){ cam_x = (bx - BUG_SX) & 4095; cam_y = (by - BUG_SY) & 4095; }
 static void redraw(void){ if(sys_gfx_lost) load_gfx(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); apply_pal(); draw_all(); }

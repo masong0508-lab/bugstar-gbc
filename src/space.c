@@ -184,7 +184,8 @@ aim:
       if(ax > ay * 2) d = bdx > 0 ? 2 : 6;
       else if(ay > ax * 2) d = bdy > 0 ? 4 : 0;
       else d = bdx > 0 ? (bdy > 0 ? 3 : 1) : (bdy > 0 ? 5 : 7); }
-    spr16(OAM_ARR, SP_T_ARROW(d), SHIP_SX + dir_x[d] * ((d & 1) ? 22 : 30), SHIP_SY + dir_y[d] * ((d & 1) ? 22 : 30));
+    set_sprite_prop(OAM_ARR, 2);                      /* (VRAM bank 0 picture) */
+    spr8(OAM_ARR, SPH_ARROW(d), SHIP_SX + dir_x[d] * ((d & 1) ? 22 : 30), SHIP_SY + dir_y[d] * ((d & 1) ? 22 : 30));
 }
 /* GUNS level: 0 one shot, 1 faster, 2 twin, 3 twin and faster, 4 triple, 5 triple and faster (shop.c has the names) */
 static const UINT8 gun_n[6]    = { 1, 1, 2, 2, 3, 3 };
@@ -205,7 +206,7 @@ static Puff   puff[2];
 
 static void gfx_tiles(void){                                     /* the pictures and palettes (after the creator reused the tile memory) */
     VBK_REG = VBK_BANK_1;
-    space_tiles_load(0, SPR0);
+    space_tiles_load(0, SPR0); space_half_load();
     VBK_REG = VBK_BANK_0;
     set_sprite_palette(0, 6, sp_spr_pal);
     sprite_pals(OAM_SHIP, 2, 0); sprite_pals(OAM_LAS, NLAS * 2, 2); sprite_pals(OAM_PIR, NPIR * 2, 1); sprite_pals(OAM_ARR, 2, 2); sprite_pals(OAM_ORB, 2, 3);
@@ -231,7 +232,7 @@ static void gfx(void){                                           /* everything o
     hud_init(); shown = 255;
     music(MUS_SPACE);
     SHOW_BKG; SHOW_SPRITES;
-    spr16(OAM_SHIP, SP_T_SHIP(dir), SHIP_SX, SHIP_SY);
+    spr8(OAM_SHIP, SPH_SHIP(dir), SHIP_SX, SHIP_SY);
     fade_in();
 }
 
@@ -289,15 +290,15 @@ static int space2d(void) {
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
         planet_pals();
         if(!(frame & 31)) set_bkg_palette_entry(3, 3, space_twinkle[(frame >> 5) & 1]);
-        if(inv & 4) hide2(OAM_SHIP); else spr16(OAM_SHIP, SP_T_SHIP(dir), SHIP_SX, SHIP_SY);
+        if(inv & 4) hide2(OAM_SHIP); else spr8(OAM_SHIP, SPH_SHIP(dir), SHIP_SX, SHIP_SY);
         for(i = 0; i < NLAS; i++){
-            if(las[i].life) spr16(OAM_LAS + i * 2, SP_T_LASER, wrapd(las[i].x, cam_x), wrapd(las[i].y, cam_y)); else hide2(OAM_LAS + i * 2);
+            if(las[i].life) spr8(OAM_LAS + i * 2, SPH_LASER, wrapd(las[i].x, cam_x), wrapd(las[i].y, cam_y)); else hide2(OAM_LAS + i * 2);
         }
         foes_draw(frame);
         if(b_on) fleet_wing_hide(); else fleet_wing(frame, shx >> 4, shy >> 4, dir, cam_x, cam_y);
         if(!b_on) for(i = 0; i < 2; i++){                            /* engine puffs (sprites 0..3: the beast's when it is about) */
             if(puff[i].life){ puff[i].life--; set_sprite_prop(i * 2, 3 | 0x08); set_sprite_prop(i * 2 + 1, 3 | 0x08);
-                spr16(i * 2, SP_T_BOOM(puff[i].life > 9), wrapd(puff[i].x, cam_x), wrapd(puff[i].y, cam_y)); }
+                spr8(i * 2, SPH_BOOM(puff[i].life > 9), wrapd(puff[i].x, cam_x), wrapd(puff[i].y, cam_y)); }
             else hide2(i * 2);
         }
         arrow();

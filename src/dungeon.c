@@ -180,8 +180,8 @@ static void show_mons(void){                                       /* every mons
     for(i = 0; i < NMON; i++){
         Mon *m = &mon[i]; INT16 sx, sy; UINT8 big, cols, rows, base, pal;
         if(!m->alive || (m->flash & 2)) continue;
-        big = m->kind == K_QUEEN; cols = big ? 4 : 2; rows = big ? 2 : 1;
-        sx = (INT16)m->x - (INT16)cam_x - (big ? 16 : 8); sy = (INT16)m->y - (INT16)cam_y - (big ? 30 : 14);
+        big = m->kind == K_QUEEN; cols = big ? 2 : 1; rows = 1;                 /* half size (11c): 8x8 monsters, a 16x16 queen */
+        sx = (INT16)m->x - (INT16)cam_x - (big ? 8 : 4); sy = (INT16)m->y - (INT16)cam_y - (big ? 22 : 10);
         if(sx < -32 || sx > 168 || sy < -32 || sy > 136) continue;
         if(o + cols * rows > 36) break;                              /* (keep a few for bursts and numbers) */
         base = MON_TILE0 + (big ? MON_T_QUEEN(m->frame) : MON_T_SMALL(m->kind, m->frame)); pal = big ? 0 : m->kind;
@@ -206,11 +206,11 @@ static UINT8 show_fx(UINT8 o){                                     /* bursts and
         f->t--;
         sx = (INT16)f->x - (INT16)cam_x; sy = (INT16)f->y - (INT16)cam_y;
         if(sx < -16 || sx > 176 || sy < -16 || sy > 140) continue;
-        if(f->n == 255){                                           /* the burst: 16x16, two frames */
+        if(f->n == 255){                                           /* the burst: 8x8, two frames */
             UINT8 t = MON_TILE0 + MON_T_POOF(f->t < 8);
-            if(o > 38) break;
-            set_sprite_tile(o, t); set_sprite_tile(o + 1, t + 2); set_sprite_prop(o, f->pal | 0x08); set_sprite_prop(o + 1, f->pal | 0x08);
-            move_sprite(o, (UINT8)sx, (UINT8)(sy + 8)); move_sprite(o + 1, (UINT8)(sx + 8), (UINT8)(sy + 8)); o += 2;
+            if(o > 39) break;
+            set_sprite_tile(o, t); set_sprite_prop(o, f->pal | 0x08);
+            move_sprite(o, (UINT8)(sx + 4), (UINT8)(sy + 12)); o++;
         } else {                                                   /* the number floats up */
             UINT8 d[3], nd = 0, v = f->n, k; INT16 x;
             do { d[nd++] = v % 10; v /= 10; } while(v && nd < 3);
@@ -227,11 +227,10 @@ static UINT8 show_fx(UINT8 o){                                     /* bursts and
 }
 static void show_bite(void){
     if(!atk || atk < 4){ move_sprite(OAM_BITE, 0, 0); move_sprite(OAM_BITE + 1, 0, 0); return; }
-    { INT16 sx = (INT16)(bx - cam_x) - 8, sy = (INT16)(by - cam_y) - 22;     /* 16x16, centred in front of the bug's head */
+    { INT16 sx = (INT16)(bx - cam_x) - 8, sy = (INT16)(by - cam_y) - 22;     /* (a 16x16 spot, as before; the flash is 8x8 in its middle) */
       if(face == 0) sx += 20; else if(face == 1) sx -= 20; else if(face == 2) sy -= 14; else sy += 18;
-      set_sprite_tile(OAM_BITE, MON_TILE0 + MON_T_BITE); set_sprite_tile(OAM_BITE + 1, MON_TILE0 + MON_T_BITE + 2);
-      set_sprite_prop(OAM_BITE, 3 | 0x08); set_sprite_prop(OAM_BITE + 1, 3 | 0x08);
-      move_sprite(OAM_BITE, (UINT8)(sx + 8), (UINT8)(sy + 16)); move_sprite(OAM_BITE + 1, (UINT8)(sx + 16), (UINT8)(sy + 16)); }
+      set_sprite_tile(OAM_BITE, MON_TILE0 + MON_T_BITE); set_sprite_prop(OAM_BITE, 3 | 0x08);
+      move_sprite(OAM_BITE, (UINT8)(sx + 12), (UINT8)(sy + 20)); move_sprite(OAM_BITE + 1, 0, 0); }
 }
 static void show_bug(void){
     INT16 sx = (INT16)bx - (INT16)cam_x - bugspr_w() / 2, sy = (INT16)by - (INT16)cam_y - BUGSPR_UP;
@@ -302,7 +301,7 @@ static void do_bite(void){
         if(!m->hp){
             m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5); stop = 6;
             fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
-            if(m->kind == K_QUEEN){ fx_add(m->x - 24, m->y - 20, 255, 0); fx_add(m->x + 8, m->y - 22, 255, 3); fx_add(m->x - 8, m->y + 4, 255, 2); }   /* she goes up big */
+            if(m->kind == K_QUEEN){ fx_add(m->x - 12, m->y - 10, 255, 0); fx_add(m->x + 4, m->y - 11, 255, 3); fx_add(m->x - 4, m->y + 2, 255, 2); }   /* she goes up big */
             if(m->kind == K_SLIME && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(K_SLIME, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(K_SLIME, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
             if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); bst_kill(4, kind, depth); }
             else { kill_pay(m); }

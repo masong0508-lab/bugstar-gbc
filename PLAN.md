@@ -128,3 +128,7 @@ and boots; the save format does not change, so old saves keep working.
   one metatile beyond the screen) through mt_at() in src/planet.c and only works far-away spots out. Same results (the ring is filled with
   ground() itself), far less CPU. Still to measure: the scroll spike (12 ground() calls per new column), dungeon and space loops.
 - Open question for 11b..11d: which assets feel too big, so the order follows what is most in the way.
+- 11b DONE (builds; not seen in an emulator): the planet ship is 16x8 px (two 8x16 sprites, was 32x16 in four); critters, life sims and pets were already 8x8. tools/make_planet.py halves the ship (tools/halve.py); src/planet.c ship_show keeps the same centre.
+- 11c DONE (builds; not seen in an emulator): dungeon monsters 8x8 (one sprite), queen 16x16 (two), bite flash and death bursts 8x8; damage digits were already small. tools/make_dungeon.py halves the art; src/dungeon.c draws it around the same centres. Hit reaches and the 16 px metatile are unchanged (re-check in play).
+- 11d DONE for the 2D flight view (builds; not seen in an emulator): ship, pirates, lasers, bursts, mines, darts and the arrow are 8x8 (spr8 in space_int.h). Tiles: VRAM bank 1 slots 52..61 and 236..255, bank 0 sprite tiles 128..159 (darts, arrow), loaded by space_half_load. Not done: stations, the 3D view, fleet battles (custom ship designs share the full-size tiles). The warp, fleet battles and title still use the full-size art.
+- Still open: 11e measuring in an emulator, 11a..11d play-test, hardware test.

@@ -257,13 +257,13 @@ void foes_draw(UINT8 frame) BANKED {
     UINT8 i;
     for(i = 0; i < NPIR; i++){ Pirate *p = &pir[i];
         if(!p->st){ hide2(OAM_PIR + i * 2); continue; }
-        { UINT8 pal = p->st > 1 ? 3 : p->kind == PK_DART ? 3 : p->kind == PK_MINE ? 5 : 1, t;
-          if(p->st > 1) t = SP_T_BOOM(p->st > 10);
-          else if(p->kind == PK_DART){ t = SP_T_DART(p->d); if(p->ph == DP_AIM && (frame & 4)) pal = 0; }   /* aiming: flashes red */
-          else if(p->kind == PK_MINE) t = SP_T_MINE((frame >> 3) & 1);
-          else t = SP_T_PIRATE((frame >> 3) & 1);
-          set_sprite_prop(OAM_PIR + i * 2, pal | 0x08); set_sprite_prop(OAM_PIR + i * 2 + 1, pal | 0x08);
-          spr16(OAM_PIR + i * 2, t, wrapd(p->x, cam_x), wrapd(p->y, cam_y)); }
+        { UINT8 pal = p->st > 1 ? 3 : p->kind == PK_DART ? 3 : p->kind == PK_MINE ? 5 : 1, t, half = 1, bk = 0x08;   /* (half size, step 11d; darts and the arrow live in VRAM bank 0, bk = 0) */
+          if(p->st > 1) t = SPH_BOOM(p->st > 10);
+          else if(p->kind == PK_DART){ t = SPH_DART(p->d); bk = 0; if(p->ph == DP_AIM && (frame & 4)) pal = 0; }   /* aiming: flashes red */
+          else if(p->kind == PK_MINE) t = SPH_MINE((frame >> 3) & 1);
+          else t = SPH_PIRATE((frame >> 3) & 1);
+          set_sprite_prop(OAM_PIR + i * 2, pal | bk); set_sprite_prop(OAM_PIR + i * 2 + 1, pal | bk);
+          if(half) spr8(OAM_PIR + i * 2, t, wrapd(p->x, cam_x), wrapd(p->y, cam_y)); else spr16(OAM_PIR + i * 2, t, wrapd(p->x, cam_x), wrapd(p->y, cam_y)); }
     }
     if(b_on) beast_show(frame);
     else for(i = 0; i < NPOD; i++){ Pod *p = &pod[i]; INT16 x = wrapd(p->x, cam_x), y = wrapd(p->y, cam_y);
