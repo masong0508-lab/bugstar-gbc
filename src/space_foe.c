@@ -12,6 +12,7 @@
 #include "warp.h"
 #include "space.h"
 #include "econ.h"
+#include "loot.h"
 #include "menus.h"
 #include "text.h"
 #include "fleet.h"
@@ -164,7 +165,7 @@ UINT8 foes_hit(Laser *l) BANKED {
             { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2 + FL_GUN(); p->hp = p->hp > ld ? p->hp - ld : 0; }
             if(!p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
                 sv.gold += SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253;   /* (a level-up message covers the window: put it back) */
-                pod_drop(p->x, p->y, p->kind); if(elite_kill(p->kind)) toast("JOB COMPLETE!", "DOCK TO GET PAID"); }
+                pod_drop(p->x, p->y, p->kind); loot_odd(); if(elite_kill(p->kind)) toast("JOB COMPLETE!", "DOCK TO GET PAID"); }
             return 1;
         }
     }

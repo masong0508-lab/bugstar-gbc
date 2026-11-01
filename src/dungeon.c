@@ -24,6 +24,7 @@
 #include "bugspr.h"
 #include "dungeon_art.h"
 #include "dungeon.h"
+#include "loot.h"
 #include "feat.h"
 #include "wild.h"
 
@@ -266,11 +267,11 @@ static void hurt(UINT8 n, INT8 kx, INT8 ky){
 #ifdef TEST_BOSS
 static UINT8 bite_power(void){ return 30; }
 #else
-static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0); }
+static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite(); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
-static void kill_pay(Mon *m){ sv.gold += LUCKY(3 + m->kind * 2 + depth) * gmul(); gain_xp(3 + m->kind + depth); EX_KILLS++; bst_kill(m->kind, kind, depth); }
+static void kill_pay(Mon *m){ sv.gold += LUCKY(3 + m->kind * 2 + depth) * gmul(); gain_xp(3 + m->kind + depth); EX_KILLS++; loot_kill(m->kind, depth); bst_kill(m->kind, kind, depth); }
 static void spell_hit(Mon *m, UINT8 p){                            /* a spell hurts a monster (it never finishes the queen) */
     if(m->kind == K_QUEEN && p >= m->hp) p = m->hp - 1;
     if(p > m->hp) p = (UINT8)m->hp;
@@ -311,8 +312,9 @@ static void do_bite(void){
     { UINT8 tx = (UINT8)((UINT16)hx >> 4), ty = (UINT8)((UINT16)(hy + 6) >> 4);    /* biting a chest or a cage opens it */
       if(tx < DW && ty < DW){
           if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); g = LUCKY(g); sv.gold += g; sfx(SFX_COIN);
+              { char lb[40]; lb[0] = 0; if(loot_chest(depth, lb)){ dlg_say(0, lb); } else
               if(rndn(3) == 0 && sv.potions < 9){ sv.potions++; dlg_say(0, "THE CHEST HOLDS GOLD AND A HEALTH POTION. (B+SELECT DRINKS IT)"); }
-              else { d = scat(b, "THE CHEST HOLDS "); d = u16s(d, g); scat(d, " GOLD"); dlg_say(0, b); } }
+              else { d = scat(b, "THE CHEST HOLDS "); d = u16s(d, g); scat(d, " GOLD"); dlg_say(0, b); } } }
           else if(DM(tx, ty) == D_CAGE){
               UINT8 q; for(q = 0; q < NMON; q++) if(mon[q].alive && mon[q].kind == K_QUEEN) break;
               if(q < NMON) dlg_say("BOLT", "THE QUEEN IS STILL HERE. BEAT HER FIRST!");
@@ -431,6 +433,7 @@ static int play_floor(void){                                       /* returns DG
         if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! B+SELECT DRINKS IT."); } }
         if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
         if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 3); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 3, b); dlg_say(0, b); } }
+        else if(HIT(J_SELECT) && (k & J_DOWN)){ char lb[28]; loot_eat(lb); dlg_say(0, lb); }
         else if(HIT(J_SELECT) && !(k & J_B)) cast();
         else if(HIT(J_SELECT)){
             if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }

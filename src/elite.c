@@ -11,6 +11,7 @@
 #include "menus.h"
 #include "dialog.h"
 #include "econ.h"
+#include "loot.h"
 #include "fleet.h"
 #include "shop.h"
 #include "space_int.h"
@@ -244,7 +245,7 @@ static void dock_draw(UINT8 sel, const char *msg){
     }
     if(sv.el.jk == J_HUNT){ d = num(b, "JOB  HUNT ", sv.el.jp, "/"); d = u16s(d, sv.el.jn); pad(d, b, 19); }
     else if(sv.el.jk == J_SEND){ d = scat(b, "JOB  GO TO "); d = world_name(d, world_seed(sv.el.jd)); pad(d, b, 19); }
-    else { scat(b, "NO JOB TAKEN"); }
+    else { scat(b, "SELECT: SELL LOOT"); }
     if(msg){ d = scat(b, msg); pad(d, b, 19); }
     txt_line(1, 17, b, 19); txt_color(1, 17, 19, 1, msg ? TXT_RED : sv.el.jk != J_NONE ? TXT_GOLD : TXT_GREY);
     txt_win(0);
@@ -265,6 +266,7 @@ UINT8 elite_dock(UINT8 star) BANKED {
         if(HIT(J_UP))   { sel = sel ? sel - 1 : 7; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
         if(HIT(J_DOWN)) { sel = sel < 7 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
+        if(HIT(J_SELECT)){ loot_run(2); dock_frame(); msg = 0; dock_draw(sel, msg); }
         if(HIT(J_A)){
             sfx(SFX_OK);
             if(sel == 7) break;

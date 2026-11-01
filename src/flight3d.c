@@ -27,6 +27,7 @@
 #include "space.h"
 #include "warp.h"
 #include "econ.h"
+#include "loot.h"
 #include "elite.h"
 #include "xtra.h"
 #include "space_int.h"
@@ -159,7 +160,7 @@ static void pirate_hit(P3 *p, UINT8 dmg){
     if(p->hp > dmg){ p->hp -= dmg; shake(3); return; }
     p->st = 2; sfx(SFX_BOOM); shake(8); pod_drop(p);
     if(arena_on){ ar_kills++; ar_gold += p->kind ? 80 + 15 * ar_wave : 12 + 4 * ar_wave; elite_kill(1); }
-    else if(elite_kill(1)) say3("JOB DONE! DOCK TO GET PAID");
+    else { loot_odd(); if(elite_kill(1)) say3("JOB DONE! DOCK TO GET PAID"); }
 }
 static void step_bolts(void){
     UINT8 i, j;

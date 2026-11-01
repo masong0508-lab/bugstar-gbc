@@ -12,6 +12,7 @@
 #include "menus.h"
 #include "shop.h"
 #include "econ.h"
+#include "loot.h"
 
 #define POTION_COST 40
 
@@ -131,7 +132,7 @@ static void shop_draw(UINT8 cur, const char *msg){
     UINT8 i, it = s_first + cur, lv, r = 4 + s_n; char b[24], *d;
     txt_win(1);
     d = scat(b, s_mode ? "YARD  GOLD " : "SHOP  GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    txt_line(1, 2, s_ask ? "A: YES   B: NO" : "A: BUY   B: BACK", 18); txt_color(1, 2, 18, 1, s_ask ? TXT_GOLD : TXT_GREY);   /* what the buttons do, like the GBA's footer */
+    txt_line(1, 2, s_ask ? "A: YES   B: NO" : "A:BUY SELECT:SELL", 18); txt_color(1, 2, 18, 1, s_ask ? TXT_GOLD : TXT_GREY);   /* what the buttons do, like the GBA's footer */
     for(i = 0; i < s_n; i++){
         it = s_first + i; lv = it ? sv.up[it_up[it]] : sv.potions;
         d = scat(b, i == cur ? S_CURSOR : " "); d = scat(d, it_name[it]); d = pad(d, b, 8);
@@ -180,6 +181,7 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
         if(HIT(J_UP))   { cur = cur ? cur - 1 : s_n - 1; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
         if(HIT(J_DOWN)) { cur = cur < s_n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
+        if(HIT(J_SELECT)){ loot_run(mode ? 2 : 1); txt_win(1); txt_cls(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); move_win(7, 144 - h * 8); SHOW_WIN; }
         if(HIT(J_A)){
             UINT8 it = s_first + cur, lv = it ? sv.up[it_up[it]] : sv.potions, mx = it ? SHOP_MAXLV : 9;
             if(lv >= mx){ msg = it ? "ALREADY THE BEST!" : "POCKETS FULL!"; sfx(SFX_BACK); }
@@ -232,9 +234,9 @@ void status_run(void) BANKED {
 #define TAB_SHOP 1
 #define TAB_CARE 2
 #define TAB_YOU 3
-static const UINT8 tab_n[4] = { 2, 1, 3, 2 };
-static const char *const tab_row[4][3] = { { "FLY INTO SPACE", "STAY HERE", 0 }, { "BOLT'S SHOP", 0, 0 }, { "HEAL", "TROPHIES", "MINING" }, { "SKILLS", "SAVE GAME", 0 } };
-static const char *const tab_tip[4][3] = { { "TAKE OFF FOR SPACE", "CLOSE THIS MENU", 0 }, { "POTIONS AND GEAR", 0, 0 }, { "FULL HEARTS + MANA", "YOUR FEATS", "MINE ORE FOR GOLD" }, { "SPEND SKILL POINTS", "WRITE TO YOUR SLOT", 0 } };
+static const UINT8 tab_n[4] = { 2, 1, 3, 3 };
+static const char *const tab_row[4][3] = { { "FLY INTO SPACE", "STAY HERE", 0 }, { "BOLT'S SHOP", 0, 0 }, { "HEAL", "TROPHIES", "MINING" }, { "SKILLS", "BAG", "SAVE GAME" } };
+static const char *const tab_tip[4][3] = { { "TAKE OFF FOR SPACE", "CLOSE THIS MENU", 0 }, { "POTIONS AND GEAR", 0, 0 }, { "FULL HEARTS + MANA", "YOUR FEATS", "MINE ORE FOR GOLD" }, { "SPEND SKILL POINTS", "LOOT, FOOD, WEAPONS", "WRITE TO YOUR SLOT" } };
 static UINT8 hurt(void){ return sv.hp < hud_hpmax(sv.level) || sv.mp < hud_mpmax(sv.level); }
 static void sm_draw(UINT8 tab, UINT8 sel, const char *msg){
     UINT8 i; char b[24], *d; const char *tip = tab_tip[tab][sel];
@@ -282,6 +284,7 @@ UINT8 ship_menu(UINT8 start) BANKED {
                 } else { out = sel + 1; break; }
             }
             else if(sel == 0){ skills_run(); sm_frame(tab, sel, 0); }
+            else if(sel == 1){ loot_run(0); sm_frame(tab, sel, 0); }
             else { slot_write(cur_slot); msg = "SAVED!"; sfx(SFX_COIN); sm_draw(tab, sel, msg); }
         }
     }
