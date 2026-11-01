@@ -147,12 +147,30 @@ static void fly(UINT8 k, UINT8 frame){
     if(sz > 3000) sz = 3000;
     if(sz < -3000) sz = -3000;
 }
-static void shoot(void){                                                    /* along the nose */
-    UINT8 i;
+static P3 *assist_target(void){                                             /* the pirate nearest the crosshair, if it is in a cone ahead (about 14 degrees): AIM ASSIST */
+    UINT8 j; P3 *best = 0; INT16 bs = 32000;
+    for(j = 0; j < NP3; j++){ P3 *p = &pir[j];
+        INT16 dx, dy, dz, cz, cx, cy, sc;
+        if(p->st != 1) continue;
+        dx = unit(p->x, shx); dy = unit(p->y, shy); dz = (p->z - sz) >> 4;
+        if(!inbox(dx) || !inbox(dy)) continue;
+        cz = ((dx * vfx) >> 6) + ((dy * vfy) >> 6) + ((dz * vfz) >> 6);
+        if(cz < 24 || cz > 400) continue;
+        cx = ((dx * vrx) >> 6) + ((dy * vry) >> 6);
+        cy = ((dx * vux) >> 6) + ((dy * vuy) >> 6) + ((dz * vuz) >> 6);
+        if(aabs(cx) > cz / 4 || aabs(cy) > cz / 4) continue;
+        sc = (aabs(cx) + aabs(cy)) * 8 / (cz / 8 + 1);                      /* off-centre as a share of distance */
+        if(sc < bs){ bs = sc; best = p; }
+    }
+    return best;
+}
+static void shoot(void){                                                    /* along the nose, pulled halfway toward a pirate near the crosshair */
+    UINT8 i; P3 *t = assist_target();
     for(i = 0; i < NB3; i++) if(!bolt[i].life){
         B3 *b = &bolt[i];
         b->x = shx; b->y = shy; b->z = sz;
         b->dx = (vfx * 112) >> 6; b->dy = (vfy * 112) >> 6; b->dz = (vfz * 112) >> 6; b->life = 34;
+        if(t){ INT16 ax, ay, az; norm_step(unit(t->x, shx), unit(t->y, shy), (t->z - sz) >> 4, 90, &ax, &ay, &az); b->dx = (b->dx + ax) >> 1; b->dy = (b->dy + ay) >> 1; b->dz = (b->dz + az) >> 1; }
         cool = gun_cool3[UPG(UP_GUNS) > 5 ? 5 : UPG(UP_GUNS)]; sfx(SFX_LASER); return;
     }
 }

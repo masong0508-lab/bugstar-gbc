@@ -21,7 +21,7 @@
 #define NB3      4
 #define NO3      4
 #define NPOD3    2
-#define NDUST    5
+#define NDUST    8
 #define LAND_R   46                         /* units: 'A' lands / docks when this close */
 #define DOCK_R   40
 #define ST_DX    100                        /* the station sits this far east of its planet */
