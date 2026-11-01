@@ -68,6 +68,9 @@ void main(void){
 #ifdef TEST_LVL
     sv.level = TEST_LVL; sv.hp = hud_hpmax(TEST_LVL); sv.mp = hud_mpmax(TEST_LVL); sv.zone = 0;
 #endif
+#if defined(TEST_ZONE) && !defined(TEST_SPACE)
+    sv.zone = TEST_ZONE;
+#endif
     for(;;){                          /* (test builds: when a run ends, start it again, so a long random run keeps going) */
 #ifdef TEST_EXTRAS
     cpu_fast(); sv.level = 12; sv.gold = 500; sv.hp = 3; extras_run(0);

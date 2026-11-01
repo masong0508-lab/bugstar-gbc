@@ -17,9 +17,9 @@ import math, os, random
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 R = random.Random(11)
 
-MT = ["FLOOR", "FLOOR2", "WALL", "FACE", "DOWN", "UP", "CHEST", "OPEN", "CAGE", "FREED", "POTION"]
-PAL = {"FLOOR": 0, "FLOOR2": 0, "WALL": 0, "FACE": 0, "DOWN": 2, "UP": 2, "CHEST": 2, "OPEN": 2, "CAGE": 3, "FREED": 3, "POTION": 1}
-LVL = {"FLOOR": 1, "FLOOR2": 1, "WALL": 0, "FACE": 4, "DOWN": 5, "UP": 5, "CHEST": 5, "OPEN": 5, "CAGE": 5, "FREED": 5, "POTION": 5}   # 0 wall, 1 floor, +4: drawn as it is
+MT = ["FLOOR", "FLOOR2", "WALL", "FACE", "DOWN", "UP", "CHEST", "OPEN", "CAGE", "FREED", "POTION", "SHORT", "SHUP"]
+PAL = {"FLOOR": 0, "FLOOR2": 0, "WALL": 0, "FACE": 0, "DOWN": 2, "UP": 2, "CHEST": 2, "OPEN": 2, "CAGE": 3, "FREED": 3, "POTION": 1, "SHORT": 2, "SHUP": 3}
+LVL = {"FLOOR": 1, "FLOOR2": 1, "WALL": 0, "FACE": 4, "DOWN": 5, "UP": 5, "CHEST": 5, "OPEN": 5, "CAGE": 5, "FREED": 5, "POTION": 5, "SHORT": 5, "SHUP": 5}   # 0 wall, 1 floor, +4: drawn as it is
 # the art below is drawn with the old palette numbers; these turn it into the new blend palette (wall dark, wall, floor, floor lit)
 TO_BLEND_FLOOR = {0: 1, 1: 2, 2: 3, 3: 0}
 TO_BLEND_WALL = {0: 0, 1: 1, 2: 3, 3: 0}
@@ -53,6 +53,18 @@ def art(n):
             for x in range(2 + k, 14 - k): g[y + 1][x] = 1 if n == "UP" else 0
         for y in range(1, 15): g[y][1] = g[y][14] = 1
         for x in range(1, 15): g[1][x] = g[14][x] = 1
+    elif n in ("SHORT", "SHUP"):                 # the shortcut stairs: a flat square with three arrows (gold, down two floors / silver, up two floors)
+        g = grid(2)
+        for x in range(16): g[0][x] = g[15][x] = 1
+        for y in range(16): g[y][0] = g[y][15] = 1
+        for k in range(3):
+            y0 = 2 + k * 4
+            for d in range(4):                  # a dark triangle (point down for SHORT, up for SHUP) with a lit one inside
+                hw = (3 - d) if n == "SHORT" else d
+                for x in range(7 - hw - 1, 9 + hw + 1): g[y0 + d][x] = 0
+            for d in range(1, 3):
+                hw = (3 - d) if n == "SHORT" else d
+                for x in range(7 - hw, 9 + hw): g[y0 + d][x] = 3
     elif n in ("CHEST", "OPEN"):                 # a rounded treasure chest, lit from above, on a dark rug
         g = grid(0)
         for y in range(16):

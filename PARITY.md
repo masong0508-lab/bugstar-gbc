@@ -15,6 +15,7 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - **Town places** (boot-tested in the emulator): MARKET (buy and sell the 8 goods at the town's prices), BOUNTY OFFICE (a job paid the moment it is done),
   CANTINA (soup, 24 rumours plus true tips, a round for fame, arm wrestling), RACE POST (a quick kart race for an entry fee). The quest board has the GBA's 8 kinds.
   The **PORTAL spell** (level 10, 7 MP) keeps the floor you cast it on; the next door down on that world opens on it (checked: cast on floor 3, the door reopened on floor 3).
+- **Stairs both ways** (new): stairs up climb one floor (out on B1); floors are remembered for the trip (opened chests, taken potions and dead monsters stay so; living ones are back where they started). SHORTCUT stairs (gold square, down arrows, from B2, about 1 floor in 3, two floors down) and their stair back up (silver square, red up arrows; the GBA's is green: no spare BG palette). Boot-tested: shortcut down and the arrival by its stair up on B4 of 5. The plain stair-up path uses the same code but was not walked in a test. The GBA's floor picker on B2+ is not ported.
 - Bug creator: 16 parts (length, shape, finish, pattern, eyes, mouth, antennae, legs, feet, horn, wings, tail, hat, cheeks, collar, back),
   8 colours, 18 presets, lock row, matching colours, surprise me, undo, RGB mixer, name entry.
 - Planets: 6 kinds of world, towns/cities, shops, the ship menu (GO / SHOP / CARE / YOU), berries, fishing, weird worlds with marks,

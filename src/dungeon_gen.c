@@ -13,6 +13,66 @@
 static UINT8 rnd8(void){ rng ^= rng << 7; rng ^= rng >> 9; rng ^= rng << 8; return (UINT8)rng; }
 static UINT8 rndn(UINT8 n){ return n ? (UINT8)(((UINT16)rnd8() * n) >> 8) : 0; }
 /* ------------------------------------------------------------ making a floor */
+/* ------------------------------------------------------------ stairs both ways, shortcuts, remembered floors */
+UINT8 dg_arrive;
+static UINT8 dg_seen;                                          /* a bit per floor left by stairs this trip */
+static UINT8 dg_chest[8], dg_pot[8];                           /* per floor: a bit per room that has an opened chest, a potion still lying there */
+static UINT16 dg_dead[8];                                      /* per floor: a bit per monster slot that was not alive when you left */
+static UINT8 su_x = 255, su_y, sh_x, sh_y;                     /* the shortcut stair up and down on this floor (255: none) */
+void dg_trip_reset(void) BANKED { UINT8 i; dg_seen = 0; dg_arrive = 0; for(i = 0; i < 8; i++){ dg_chest[i] = dg_pot[i] = 0; dg_dead[i] = 0; } }
+static UINT8 has_short(UINT8 d){                               /* floor d has a shortcut stair down to floor d + 2 (B2 on, about 1 floor in 3; the same every visit) */
+    UINT16 h;
+    if(hell || pit || d < 2 || d + 2 > floors) return 0;
+#ifdef TEST_SHORT
+    return 1;
+#endif
+    h = (UINT16)world_seed(sv.star) ^ ((UINT16)d * 0x5A3Du) ^ ((UINT16)sv.zone << 9) ^ 0x71C3u; h ^= h >> 7; h *= 0x2D3Bu; h ^= h >> 5;
+    return (h % 3) == 0;
+}
+static UINT8 in_room(const Room *r, UINT8 t){                   /* is there a tile of this kind inside the room? */
+    UINT8 x, y;
+    for(y = r->y; y < r->y + r->h; y++) for(x = r->x; x < r->x + r->w; x++) if(DM(x, y) == t) return 1;
+    return 0;
+}
+static void swap_in_room(const Room *r, UINT8 from, UINT8 to){
+    UINT8 x, y;
+    for(y = r->y; y < r->y + r->h; y++) for(x = r->x; x < r->x + r->w; x++) if(DM(x, y) == from) DM(x, y) = to;
+}
+void dg_floor_left(void) BANKED {
+    UINT8 i, c = 0, p = 0; UINT16 m = 0;
+    if(hell || pit || depth >= 8) return;
+    for(i = 0; i < nrooms; i++){ if(in_room(&rooms[i], D_OPEN)) c |= 1 << i; if(in_room(&rooms[i], D_POTION)) p |= 1 << i; }
+    for(i = 0; i < NMON; i++) if(!mon[i].alive) m |= 1u << i;
+    dg_seen |= 1 << depth; dg_chest[depth] = c; dg_pot[depth] = p; dg_dead[depth] = m;
+}
+static void floor_memory(void){                                  /* a floor you have been to is as you left it (monsters that were alive are back where they started) */
+    UINT8 i, d = depth;
+    if(hell || pit || d >= 8 || !((dg_seen >> d) & 1)) return;
+    for(i = 0; i < nrooms; i++){
+        if((dg_chest[d] >> i) & 1) swap_in_room(&rooms[i], D_CHEST, D_OPEN);
+        if(!((dg_pot[d] >> i) & 1)) swap_in_room(&rooms[i], D_POTION, D_FLOOR);
+    }
+    for(i = 0; i < NMON; i++) if((dg_dead[d] >> i) & 1) mon[i].alive = 0;
+}
+static void stairs_extra(void){                                  /* the shortcut stairs, and where you step out */
+    UINT8 x, y;
+    su_x = sh_x = 255;
+    if(!hell && !pit && nrooms >= 3){
+        if(has_short(depth)){ Room *r = &rooms[nrooms - 2]; x = r->x + r->w / 2; y = r->y + r->h / 2; if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2){ DM(x, y) = D_SHORT; sh_x = x; sh_y = y; } }
+        if(depth > 3 && has_short(depth - 2)){ Room *r = &rooms[1]; x = r->x + 1; y = r->y + 1; if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2){ DM(x, y) = D_SHUP; su_x = x; su_y = y; } }
+    }
+}
+static void arrive(void){
+    UINT8 x = 255, y = 0;
+    if(hell || pit) return;
+    if(dg_arrive == 1 && dn_x != 255){ x = dn_x; y = dn_y; }
+    else if(dg_arrive == 2 && su_x != 255){ x = su_x; y = su_y; }
+    else if(dg_arrive == 3 && sh_x != 255){ x = sh_x; y = sh_y; }
+#ifdef TEST_STAIRS
+    if(dg_arrive == 0){ if(sh_x != 255){ bx = ((UINT16)sh_x << 4) + 8; by = ((UINT16)(sh_y - 2) << 4) + 14; } else if(dn_x != 255){ bx = ((UINT16)dn_x << 4) + 8; by = ((UINT16)(dn_y - 2) << 4) + 14; } }
+#endif
+    if(x != 255){ bx = ((UINT16)x << 4) + 8; by = ((UINT16)(y + 1) << 4) + 14; }       /* just below the stair you came by */
+}
 static void carve(UINT8 x, UINT8 y){ if(x > 0 && y > 0 && x < DW - 1 && y < DW - 1 && (DM(x, y) == D_WALL)) DM(x, y) = (rnd8() & 3) ? D_FLOOR : D_FLOOR2; }
 void dg_make_floor(void) BANKED {
     UINT8 i, t, x, y, a, b;
@@ -48,6 +108,7 @@ void dg_make_floor(void) BANKED {
     { Room *r = &rooms[nrooms - 1];
       if(depth < floors){ dn_x = r->x + r->w / 2; dn_y = r->y + r->h / 2; DM(dn_x, dn_y) = D_DOWN; }
       else DM(r->x + r->w / 2, r->y + 1) = D_CAGE; }               /* the last floor: a caged friend, guarded */
+    stairs_extra();
     for(i = 1; i < nrooms; i++){                                  /* chests and potions */
         Room *r = &rooms[i];
         if(evt == 1 || rndn(3) == 0){ x = r->x + 1 + rndn(r->w - 2); y = r->y + 1 + rndn(r->h - 2); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_CHEST; }
@@ -72,5 +133,6 @@ void dg_make_floor(void) BANKED {
         memset(m, 0, sizeof *m); m->kind = K_QUEEN; m->alive = 1; m->x = ((UINT16)(r->x + r->w / 2) << 4) + 8; m->y = ((UINT16)(r->y + r->h / 2 + 1) << 4) + 8;
         m->hp = sv.zone >= 8 ? 250 : 40 + sv.zone * 25;
     }
+    floor_memory(); arrive();
 }
 

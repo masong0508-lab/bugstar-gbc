@@ -47,7 +47,7 @@ static UINT8  left_mt, top_mt;
 
 static UINT8 rnd8(void){ rng ^= rng << 7; rng ^= rng >> 9; rng ^= rng << 8; return (UINT8)rng; }
 static UINT8 rndn(UINT8 n){ return n ? (UINT8)(((UINT16)rnd8() * n) >> 8) : 0; }
-static const UINT8 solid_tab[DG_NMT] = { 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0 };   /* by tile: wall, face, cage, chest, opened chest and freed cage stop you */
+static const UINT8 solid_tab[DG_NMT] = { 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0, 0 };   /* by tile: wall, face, cage, chest, opened chest and freed cage stop you */
 #define solid_mt(t) solid_tab[t]
 /* (x >> 4 done as (x >> 1) >> 3 on a byte, and the row as a mask and one shift: 16-bit shifts by 4 are slow on this CPU, and this runs for every step of every monster) */
 static UINT8 ground_at(UINT16 x, UINT16 y){ if((x | y) >= DW * 16) return D_WALL; return dmap[(UINT16)((y & 0x1F0) << 1) + (UINT8)(((UINT8)(x >> 1)) >> 3)]; }
@@ -403,7 +403,8 @@ static int play_floor(void){                                       /* returns DG
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! B+SELECT DRINKS IT."); } }
-        if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
+        { UINT8 t = DM(ox, oy);                                    /* the stairs: down, up (a floor up, or out on B1), the shortcut down two floors and its stair back up */
+          if(t == D_DOWN || t == D_UP || t == D_SHORT || t == D_SHUP){ if(!was_on){ sfx(SFX_STAIRS); return t == D_DOWN ? DG_DOWN : t == D_SHORT ? DG_DOWN2 : t == D_SHUP ? DG_UP2 : (depth > 1 && !hell && !pit) ? DG_UP : DG_EXIT; } } else was_on = 0; }
         if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 7); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 7, b); dlg_say(0, b); } }
         else if(HIT(J_SELECT) && (k & J_DOWN)){ char lb[28]; loot_eat(lb); dlg_say(0, lb); }
         else if(HIT(J_SELECT) && !(k & J_B)){ cast(); if(portal_go) return DG_EXIT; }
@@ -447,9 +448,14 @@ int dungeon_run(void) BANKED {
 #ifdef TEST_BOSS
     depth = floors; ex.tricks = 63; sv.friends = 3;              /* (test builds: straight to the queen) */
 #endif
+    dg_trip_reset();
     for(;;){
         r = play_floor();
-        if(r == DG_DOWN){ depth++; continue; }
+        if(r == DG_DOWN || r == DG_UP || r == DG_DOWN2 || r == DG_UP2){
+            dg_floor_left();
+            if(r == DG_DOWN){ depth++; dg_arrive = 0; } else if(r == DG_UP){ depth--; dg_arrive = 1; } else if(r == DG_DOWN2){ depth += 2; dg_arrive = 2; } else { depth -= 2; dg_arrive = 3; }
+            continue;
+        }
         break;
     }
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }

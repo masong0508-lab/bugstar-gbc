@@ -41,4 +41,7 @@ extern Room dg_rooms[NROOM]; extern UINT8 dg_nrooms; extern Mon dg_mon[NMON];
 extern UINT8 dg_depth, dg_floors, dg_kind, dg_hell, dg_pit, dg_evt, dg_lab, dg_dn_x, dg_dn_y;
 extern UINT16 dg_bx, dg_by, dg_rng;
 void dg_make_floor(void) BANKED;                              /* dungeon_gen.c (bank 37): grow this floor from the seed */
+extern UINT8 dg_arrive;                                       /* where you appear: 0 by the stairs up, 1 by the stairs down (you came up), 2 by the shortcut stair up (you came down it), 3 by the shortcut stair down (you came up it) */
+void dg_trip_reset(void) BANKED;                              /* a new trip down the door: no floor has been visited */
+void dg_floor_left(void) BANKED;                              /* leaving a floor by stairs: remember its opened chests, taken potions and dead monsters for the rest of the trip */
 #endif
