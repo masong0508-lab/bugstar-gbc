@@ -26,19 +26,18 @@ static void print_wrap(UINT8 y, UINT8 rows, const char *s){
 }
 
 /* ------------------------------------------------------------ options */
-enum { OP_DIFF, OP_HUNGER, OP_FAINT, OP_XP, OP_GOLD, OP_CAM, OP_MUSIC, OP_SFX, OP_AUTO,
+enum { OP_DIFF, OP_HUNGER, OP_FAINT, OP_XP, OP_GOLD, OP_MUSIC, OP_SFX, OP_AUTO,
        OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, NOPT };
 static const char *const op_name[NOPT] = { "DIFFICULTY", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
-    "CAMERA", "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW" };
+    "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW" };
 static const char *const op_help[NOPT] = {
     "BABY: 1 DAMAGE, NO LOSSES, 2X XP", "OFF: NOBODY EVER STARVES",
     "OFF: FAINTING COSTS NOTHING", "HOW FAST YOU LEVEL UP", "HOW MUCH GOLD THINGS PAY",
-    "NOT HOOKED UP YET", "THE CHIPTUNE TUNES", "BITES, HITS AND PICKUPS",
+    "THE CHIPTUNE TUNES", "BITES, HITS AND PICKUPS",
     "SAVES AT SHIP, DUNGEON, STATION", "THE JOLT WHEN YOU GET HURT", "WAY DOWN SHOWN IN THE HUD",
     "NUMBERS THAT FLY OFF FOES", "LINES THAT SAY WHAT A DOES", "THE YELLOW ARROW ON PLANETS" };
 static const char *const dif_n[6] = { "BABY", "EASY", "NORMAL", "HARD", "BRUTAL", "NIGHTMR" };
 static const char *const mus_n[3] = { "OFF", "LOW", "FULL" };
-static const char *const cam_n[2] = { "3RD", "1ST" };
 static const char *const mul_n[3] = { "X1", "X2", "X5" };
 static const char *const yn_n[2]  = { "OFF", "ON" };
 
@@ -46,7 +45,7 @@ static UINT8 *op_ptr(UINT8 i){
     switch(i){
         case OP_DIFF: return &opt.diff;   case OP_HUNGER: return &opt.hunger;
         case OP_FAINT: return &opt.faint; case OP_XP: return &opt.xpm;      case OP_GOLD: return &opt.goldm;
-        case OP_CAM: return &opt.cam;     case OP_MUSIC: return &opt.music; case OP_SFX: return &opt.sfx;
+        case OP_MUSIC: return &opt.music; case OP_SFX: return &opt.sfx;
         case OP_AUTO: return &opt.autosave; case OP_SHAKE: return &opt.shake; case OP_MAP: return &opt.minimap;
         case OP_NUMS: return &opt.nums;   case OP_HINTS: return &opt.hints; default: return &opt.arrow;
     }
@@ -56,7 +55,6 @@ static const char *op_val(UINT8 i){
     switch(i){
         case OP_DIFF: return dif_n[v];
         case OP_MUSIC: return mus_n[v];
-        case OP_CAM: return cam_n[v];
         case OP_XP: case OP_GOLD: return mul_n[v];
         default: return yn_n[v & 1];
     }
