@@ -27,19 +27,24 @@ static void print_wrap(UINT8 y, UINT8 rows, const char *s){
 
 /* ------------------------------------------------------------ options */
 enum { OP_DIFF, OP_HUNGER, OP_FAINT, OP_XP, OP_GOLD, OP_MUSIC, OP_SFX, OP_AUTO,
-       OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, NOPT };
+       OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, OP_RUM, OP_RUMEV, OP_RUMHUM, NOPT };
 static const char *const op_name[NOPT] = { "DIFFICULTY", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
-    "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW" };
+    "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW", "RUMBLE", "RUMBLE EVENTS", "RUMBLE HUM" };
 static const char *const op_help[NOPT] = {
     "BABY: 1 DAMAGE, NO LOSSES, 2X XP", "OFF: NOBODY EVER STARVES",
     "OFF: FAINTING COSTS NOTHING", "HOW FAST YOU LEVEL UP", "HOW MUCH GOLD THINGS PAY",
     "THE CHIPTUNE TUNES", "BITES, HITS AND PICKUPS",
     "SAVES AT SHIP, DUNGEON, STATION", "THE JOLT WHEN YOU GET HURT", "WAY DOWN SHOWN IN THE HUD",
-    "NUMBERS THAT FLY OFF FOES", "LINES THAT SAY WHAT A DOES", "THE YELLOW ARROW ON PLANETS" };
+    "NUMBERS THAT FLY OFF FOES", "LINES THAT SAY WHAT A DOES", "THE YELLOW ARROW ON PLANETS",
+    "MOTOR OF RUMBLE CARTS", "ALL, FIGHTS+BIG, BIG ONLY", "ENGINE AND BOOST HUM" };
 static const char *const dif_n[6] = { "BABY", "EASY", "NORMAL", "HARD", "BRUTAL", "NIGHTMR" };
 static const char *const mus_n[3] = { "OFF", "LOW", "FULL" };
 static const char *const mul_n[3] = { "X1", "X2", "X5" };
 static const char *const yn_n[2]  = { "OFF", "ON" };
+static const char *const rum_n[6] = { "OFF", "LOW", "MEDIUM", "HIGH", "MAX", "EXTREME" };
+static const char *const rev_n[3] = { "ALL", "FIGHTS", "BIG" };
+static UINT8 rum_get(UINT8 i){ return i == OP_RUM ? RUM_LVL() : i == OP_RUMEV ? RUM_EV() : RUM_HUM(); }   /* the three rumble options share opt.cam (rumble.h) */
+static void rum_set(UINT8 i, UINT8 v){ if(i == OP_RUM) opt.cam = (opt.cam & ~7) | v; else if(i == OP_RUMEV) opt.cam = (opt.cam & ~0x18) | (v << 3); else opt.cam = (opt.cam & ~0x20) | (v << 5); }
 
 static UINT8 *op_ptr(UINT8 i){
     switch(i){
@@ -51,7 +56,9 @@ static UINT8 *op_ptr(UINT8 i){
     }
 }
 static const char *op_val(UINT8 i){
-    UINT8 v = *op_ptr(i);
+    UINT8 v;
+    if(i >= OP_RUM){ v = rum_get(i); return i == OP_RUM ? rum_n[v] : i == OP_RUMEV ? rev_n[v] : yn_n[v & 1]; }
+    v = *op_ptr(i);
     switch(i){
         case OP_DIFF: return dif_n[v];
         case OP_MUSIC: return mus_n[v];
@@ -60,6 +67,7 @@ static const char *op_val(UINT8 i){
     }
 }
 static UINT8 op_max(UINT8 i){            /* number of values */
+    if(i >= OP_RUM) return i == OP_RUM ? 6 : i == OP_RUMEV ? 3 : 2;
     return i == OP_DIFF ? 6 : (i == OP_MUSIC || i == OP_XP || i == OP_GOLD) ? 3 : 2;
 }
 
@@ -101,8 +109,10 @@ void options_screen(void) BANKED {
         if(sel < top) top = sel;
         if(sel >= top + OP_ROWS) top = sel - OP_ROWS + 1;
         if(HIT(J_LEFT) || HIT(J_RIGHT)){
-            UINT8 *p = op_ptr(sel), n = op_max(sel);
-            *p = HIT(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; sfx(SFX_MOVE);
+            UINT8 n = op_max(sel);
+            if(sel >= OP_RUM){ UINT8 v = rum_get(sel); rum_set(sel, HIT(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n); rumble(RP_TEST); }   /* (a test buzz when you change it) */
+            else { UINT8 *p = op_ptr(sel); *p = HIT(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; }
+            sfx(SFX_MOVE);
             dirty = 1;
         }
         if(HIT(J_B)){ settings_save(); sfx(SFX_BACK); return; }

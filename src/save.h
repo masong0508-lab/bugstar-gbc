@@ -115,4 +115,5 @@ UINT32 play_secs(void);
 void   play_reset(UINT32 base);
 UINT32 world_seed(UINT8 star);
 UINT8  world_freed(UINT8 star);            /* 1 if that world's queen gave up a core already */             /* the seed of star n's world (star 0 is sv.seed itself, so older saves keep their world) */
+#include "rumble.h"
 #endif

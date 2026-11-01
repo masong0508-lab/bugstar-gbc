@@ -190,7 +190,8 @@ static void use_item(void){
 /* once a frame: boxes, shells and oil, for you and the rivals */
 static void items_tick(UINT8 go){
     UINT8 k, b; INT16 dz, dx; UINT16 pm = tm[0] & (LAPM - 1);
-    if(boost_t) boost_t--;
+    if(boost_t){ boost_t--; rum_hum(110); }                                      /* (a steady rumble while the turbo burns, and in a long drift) */
+    if(drift_t > 30) rum_hum(60);
     for(k = 0; k <= NRIV; k++) if(stun[k]) stun[k]--;
     if(!go) return;
     for(b = 0; b < 3; b++) if(!(got & (1 << b)) && !hold){                      /* the boxes */

@@ -24,6 +24,7 @@
 #include "bugspr.h"
 #include "planet_art.h"
 #include "planet.h"
+#include "bolt.h"
 #include "dungeon.h"
 #include "shop.h"
 #include "econ.h"
@@ -409,7 +410,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     fade_out(); DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
-    world_setup();
+    world_setup(); bolt_wk = wk;
     place_things(); note_t = 0; fish_hint = 0; hint_z = 0;
     life_load(wk, ((UINT16)ship_mx << 4) + 8, ((UINT16)ship_my << 4) + 8);
     ex.seen[sv.star >> 3] |= 1 << (sv.star & 7);

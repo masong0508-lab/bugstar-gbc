@@ -270,7 +270,7 @@ static int space2d(void) {
             vx += thr_x[dir]; vy += thr_y[dir];
         } else if(frame & 1){ vx = drag(vx); vy = drag(vy); }
         { INT16 m = (k & J_B) ? VBOOST + 6 * UPG(UP_TURBO) : VMAX + 3 * UPG(UP_ENGINE) + FL_SPEED();
-          if(k & J_B){ vx += thr_x[dir]; vy += thr_y[dir]; }
+          if(k & J_B){ vx += thr_x[dir]; vy += thr_y[dir]; rum_hum(45); }          /* (a steady rumble from the engines) */
           if(vx > m) vx = m; if(vx < -m) vx = -m; if(vy > m) vy = m; if(vy < -m) vy = -m; }
         shx += vx; shy += vy;
         if((k & J_B) && !b_on && !(frame & 7)){ Puff *f = &puff[(frame >> 3) & 1];      /* engine puffs while boosting */

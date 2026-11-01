@@ -11,6 +11,7 @@
 #include "hud.h"
 #include "menus.h"
 #include "shop.h"
+#include "bolt.h"
 #include "econ.h"
 #include "loot.h"
 
@@ -235,9 +236,9 @@ void status_run(void) BANKED {
 #define TAB_SHOP 1
 #define TAB_CARE 2
 #define TAB_YOU 3
-static const UINT8 tab_n[4] = { 2, 1, 3, 3 };
-static const char *const tab_row[4][3] = { { "FLY INTO SPACE", "STAY HERE", 0 }, { "BOLT'S SHOP", 0, 0 }, { "HEAL", "TROPHIES", "MINING" }, { "SKILLS", "BAG", "SAVE GAME" } };
-static const char *const tab_tip[4][3] = { { "TAKE OFF FOR SPACE", "CLOSE THIS MENU", 0 }, { "POTIONS AND GEAR", 0, 0 }, { "FULL HEARTS + MANA", "YOUR FEATS", "MINE ORE FOR GOLD" }, { "SPEND SKILL POINTS", "LOOT, FOOD, WEAPONS", "WRITE TO YOUR SLOT" } };
+static const UINT8 tab_n[4] = { 3, 1, 3, 3 };
+static const char *const tab_row[4][3] = { { "FLY INTO SPACE", "TALK TO BOLT", "STAY HERE" }, { "BOLT'S SHOP", 0, 0 }, { "HEAL", "TROPHIES", "MINING" }, { "SKILLS", "BAG", "SAVE GAME" } };
+static const char *const tab_tip[4][3] = { { "TAKE OFF FOR SPACE", "WHAT HE THINKS", "CLOSE THIS MENU" }, { "POTIONS AND GEAR", 0, 0 }, { "FULL HEARTS + MANA", "YOUR FEATS", "MINE ORE FOR GOLD" }, { "SPEND SKILL POINTS", "LOOT, FOOD, WEAPONS", "WRITE TO YOUR SLOT" } };
 static UINT8 hurt(void){ return sv.hp < hud_hpmax(sv.level) || sv.mp < hud_mpmax(sv.level); }
 static void sm_draw(UINT8 tab, UINT8 sel, const char *msg){
     UINT8 i; char b[24], *d; const char *tip = tab_tip[tab][sel];
@@ -276,7 +277,7 @@ UINT8 ship_menu(UINT8 start) BANKED {
         if(HIT(J_DOWN) && rows > 1) { sel = sel < rows - 1 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
         if(HIT(J_A)){
             sfx(SFX_OK);
-            if(tab == TAB_GO){ if(sel == 0) out = 1; break; }
+            if(tab == TAB_GO){ if(sel == 1){ bolt_talk(); sm_frame(tab, sel, 0); continue; } if(sel == 0) out = 1; break; }
             if(tab == TAB_SHOP){ shop_run(0); sm_frame(tab, sel, 0); }
             else if(tab == TAB_CARE){
                 if(sel == 0){

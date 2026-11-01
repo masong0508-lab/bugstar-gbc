@@ -9,9 +9,9 @@
    (tests/ overrides these to run the save logic on a PC) */
 #ifndef SRAM
 #define SRAM ((volatile UINT8 *)0xA000)
-#define RAM_ON()    (*(volatile UINT8 *)0x0000 = 0x0A)
-#define RAM_OFF()   (*(volatile UINT8 *)0x0000 = 0x00)
-#define RAM_BANK(b) (*(volatile UINT8 *)0x4000 = (b))
+#define RAM_ON()    ENABLE_RAM            /* (the rumble-aware versions from rumble.h: the motor bit rides on the RAM bank register) */
+#define RAM_OFF()   DISABLE_RAM
+#define RAM_BANK(b) SWITCH_RAM(b)
 #endif
 
 Save  sv;
@@ -28,7 +28,7 @@ const UINT8 tank_tab[6] = { 14, 20, 26, 34, 44, 60 };
 static volatile UINT32 vbl32;
 static UINT32 play_base, play_t0;
 
-static void vbl_isr(void){ vbl32++; }
+static void vbl_isr(void){ vbl32++; rumble_tick(); }
 UINT32 frames32(void){ UINT32 v; CRITICAL { v = vbl32; } return v; }
 UINT32 play_secs(void){ return play_base + (frames32() - play_t0) / 60; }
 void   play_reset(UINT32 base){ play_base = base; play_t0 = frames32(); }
@@ -55,7 +55,7 @@ static void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n){
 static void opts_default(void){
     opt.music = 2; opt.sfx = 1; opt.autosave = 1; opt.shake = 1; opt.diff = 2;
     opt.baby = 2;   /* 2 = difficulty list has BABY first (older saves: baby on = BABY, else diff + 1) */ opt.hunger = 1; opt.faint = 1; opt.xpm = 0; opt.goldm = 0;
-    opt.cam = 0; opt.minimap = 1; opt.nums = 1; opt.hints = 1; opt.arrow = 1;
+    opt.cam = RUM_DEFAULT; opt.minimap = 1; opt.nums = 1; opt.hints = 1; opt.arrow = 1;
 }
 void settings_save(void){
     Settings s;
@@ -76,7 +76,8 @@ static void settings_load(void){
     if(opt.xpm > 2) opt.xpm = 2;
     if(opt.goldm > 2) opt.goldm = 2;
     opt.sfx &= 1; opt.autosave &= 1; opt.shake &= 1; opt.hunger &= 1; opt.faint &= 1;
-    opt.cam &= 1; opt.minimap &= 1; opt.nums &= 1; opt.hints &= 1; opt.arrow &= 1;
+    if(RUM_LVL() > 5) opt.cam = (opt.cam & ~7) | 2; if(RUM_EV() > 2) opt.cam = (opt.cam & ~0x18) | 8; opt.cam &= 0x3F;
+    opt.minimap &= 1; opt.nums &= 1; opt.hints &= 1; opt.arrow &= 1;
 }
 
 void save_init(void){
