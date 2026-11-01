@@ -31,9 +31,9 @@ UINT8 spell_pay(UINT8 s) BANKED {
 }
 UINT8 spell_dmg(UINT8 s, UINT8 face, INT16 dx, INT16 dy) BANKED {
     INT16 ah, la;
-    if(s == 0) return (dx > -44 && dx < 44 && dy > -44 && dy < 44) ? 3 + sv.level / 2 : 0;
+    if(s == 0) return (dx > -44 && dx < 44 && dy > -44 && dy < 44) ? CLAMP8(3 + sv.level / 2) : 0;
     ah = face == 0 ? dx : face == 1 ? -dx : face == 2 ? -dy : dy; la = face < 2 ? dy : dx; if(la < 0) la = -la;
-    return (ah > 0 && ah < 96 && la < 20) ? 4 + sv.level : 0;
+    return (ah > 0 && ah < 96 && la < 20) ? CLAMP8(4 + sv.level) : 0;
 }
 /* ------------------------------------------------------------ difficulty: BABY EASY NORMAL HARD BRUTAL NIGHTMARE */
 UINT8 hell_t;

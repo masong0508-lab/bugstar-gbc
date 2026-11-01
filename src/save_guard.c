@@ -11,7 +11,7 @@
 void sv_sanitize(Save *s) BANKED {
     UINT8 i;
     if(s->level < 1) s->level = 1;
-    if(s->level > 99) s->level = 99;
+    if(s->level > 999) s->level = 999;
     if(s->zone > 99) s->zone = 99;
     if(s->hp > hud_hpmax(s->level)) s->hp = hud_hpmax(s->level);
     if(s->mp > hud_mpmax(s->level)) s->mp = hud_mpmax(s->level);

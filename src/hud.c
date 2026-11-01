@@ -20,8 +20,9 @@
 
 static UINT16 l_hp, l_mp, l_lv; static UINT32 l_gold;
 
-UINT16 hud_hpmax(UINT16 level){ return 5 + 5 * level + 4 * UPG(SK_GRIT); }
-UINT16 hud_mpmax(UINT16 level){ return 2 + 3 * level + 8 * UPG(UP_SHIELD); }   /* (in space the MP bar is the ship's shield) */
+/* (up to level 99 the same curve as ever; past 99 the levels give less, so a level 900 bug does not overflow anything) */
+UINT16 hud_hpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return 5 + 5 * l + (level > 99 ? 2 * (level - 99) : 0) + 4 * UPG(SK_GRIT); }
+UINT16 hud_mpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return 2 + 3 * l + (level > 99 ? level - 99 : 0) + 8 * UPG(UP_SHIELD); }   /* (in space the MP bar is the ship's shield) */
 
 static UINT8 on;
 void hud_pos(UINT8 y){ move_win(7, y); }
@@ -50,16 +51,16 @@ void hud_update(void){
     if(hp_changed){
         lvmax = hud_hpmax(sv.level);
         txt_bar(HP_BAR_X, 0, BAR_W, sv.hp, lvmax);
-        u16s(b, sv.hp); txt_line(HP_NUM_X, 0, b, 3);
+        u16s(b, sv.hp > 999 ? 999 : sv.hp); txt_line(HP_NUM_X, 0, b, 3);   /* (3 digits fit) */
         txt_color(0, 0, HP_NUM_X + 3, 1, ((UINT32)sv.hp * 4UL < lvmax) ? TXT_RED : TXT_WHITE);   /* low HP: red */
         l_hp = sv.hp;
     }
     if(lv_changed){
-        char *d = scat(b, "LV "); u16s(d, sv.level); txt_line(LV_X, 0, b, 5);
+        char *d = scat(b, sv.level > 99 ? "L" : "LV "); u16s(d, sv.level); txt_line(LV_X, 0, b, 5);   /* "LV 99", then "L100" */
     }
     if(sv.mp != l_mp || lv_changed){
         txt_bar(MP_BAR_X, 1, BAR_W, sv.mp, hud_mpmax(sv.level));
-        u16s(b, sv.mp); txt_line(MP_NUM_X, 1, b, 3);
+        u16s(b, sv.mp > 999 ? 999 : sv.mp); txt_line(MP_NUM_X, 1, b, 3);
         l_mp = sv.mp;
     }
     l_lv = sv.level;
@@ -76,9 +77,10 @@ void gain_xp(UINT16 n){
     { static const UINT8 xm[3] = {1, 2, 5}; n *= xm[opt.xpm]; }               /* OPTIONS > XP SPEED: x1 / x2 / x5 */
     if(!opt.diff) n += n;                                                     /* BABY doubles */
     sv.xp += n;
-    while(sv.level < 99 && sv.xp >= (need = sv.level * 12)){
+    while(sv.level < 999 && sv.xp >= (need = sv.level * 12)){
         sv.xp -= need; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);
         sfx(SFX_LEVEL); d = scat(b, "LEVEL UP! YOU ARE LEVEL "); d = u16s(d, sv.level); d = scat(d, (sv.level % 5) ? ". +1 SKILL POINT! " : ". +3 SKILL POINTS! "); scat(d, "SPEND IT IN SYSTEM > SKILLS."); dlg_say(0, b);
+        if(!(sv.level % 100) && sv.level <= BUD_MAX * 100) dlg_say(0, "LV UP! A NEW LADYBUG BUDDY JOINS YOU!");   /* one every 100 levels */
     }
 }
 

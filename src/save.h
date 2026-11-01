@@ -76,6 +76,11 @@ typedef struct {                 /* options, same set as the GBA game */
     UINT8 xpm, goldm;            /* 0 x1, 1 x2, 2 x5 */
     UINT8 cam, minimap, nums, hints, arrow;
 } Opts;
+/* LADYBUGS option: opt.arrow bit 0 is the guide arrow, bits 1..3 the cap code (0 ALL, 1 NONE, 2 one, 3 two, 4 three, 5 five, 6 seven) */
+#define BUD_CODE() ((opt.arrow >> 1) & 7)
+#define BUD_CAP()  (BUD_CODE() == 0 ? 9 : BUD_CODE() == 1 ? 0 : BUD_CODE() < 5 ? BUD_CODE() - 1 : BUD_CODE() == 5 ? 5 : 7)
+#define BUD_MAX 9                /* one extra ladybug buddy for every 100 player levels, up to nine */
+#define CLAMP8(v) ((UINT16)(v) > 255 ? (UINT8)255 : (UINT8)(v))
 
 /* upgrades: sv.up[UP_x] = the level. Skills (SK_*, max 10) cost one point each: a level gives 1 point, every 5th level 2 more. Gear (max 5) costs gold. */
 enum { SK_MIGHT, SK_GRIT, SK_GUARD, SK_LUCK, SK_VIGOR,                       /* skills of the bug */

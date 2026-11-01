@@ -212,6 +212,8 @@ void status_run(void) BANKED {
     txt_win(0); txt_cls(); txt_box(0, 0, 20, 18);
     txt_line(2, 1, "STATUS", 8); txt_color(2, 1, 8, 1, TXT_GOLD); txt_line(11, 1, "B: BACK", 8); txt_color(11, 1, 8, 1, TXT_GREY);
     d = scat(b, sv.name); d = pad(d, b, 11); num(d, "LV ", sv.level, ""); txt_line(2, 2, b, 17); txt_color(2, 2, 17, 1, TXT_WHITE); txt_color(2, 2, 8, 1, TXT_GOLD);
+    { UINT8 n = 0; UINT16 l = sv.level; while(l >= 100 && n < BUD_MAX){ l -= 100; n++; }         /* ladybug buddies: one per 100 levels */
+      d = num(b, "LADYBUGS ", n, "/9"); txt_line(2, 3, b, 17); txt_color(2, 3, 17, 1, TXT_GREY); }
     st_bar(b, "HP ", sv.hp, hud_hpmax(sv.level));  txt_line(2, 4, b, 17); txt_color(2, 4, 17, 1, TXT_RED);
     st_bar(b, "MP ", sv.mp, hud_mpmax(sv.level));  txt_line(2, 5, b, 17); txt_color(2, 5, 17, 1, TXT_WHITE);
     st_bar(b, "XP ", sv.xp, (UINT32)sv.level * 12); txt_line(2, 6, b, 17); txt_color(2, 6, 17, 1, TXT_GOLD);

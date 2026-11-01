@@ -30,6 +30,7 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Weird worlds: 16 types x 9 strengths; the GBA has 40 kinds and 1000 traits. Bolt's trait remarks are matched to the nearest.
 - Pause screen: the GBC has the SYSTEM overlay (RESUME, STATUS, SAVE, OPTIONS, MIRROR, SKILLS, EXTRAS, FEATS, GUIDE), not the GBA's nine-page pause screen.
 - Bolt is the ship in the GBC game's lines; the GBA now has him as a small droid that rolls after you. Same remarks, ship wording left alone.
+- Ladybug buddies: one extra for every 100 player levels (up to nine), as on the GBA; OPTIONS > LADYBUGS is the most you bring (ALL/NONE/1/2/3/5/7). They are small gold sprites that keep a place round you and nip monsters near them (never the last bit of health). Differences: the GBA ones are red and go after the nearest monster; the GBC has no spare red sprite palette, and it has no pet Buddy (the old "friends" trail you as before). To make the unlock reachable the GBC level cap went from 99 to 999; past level 99 the HP/MP curve is gentler, and the HUD shows "L100".
 - Options: 15 plus 3 rumble rows; the GBA has more (message speed, buddy, graphics...). HUNGER/STAIRS HINT/etc. exist; camera option is not used.
 - Mining: ore for gold at the ship. The GBA has a 12-ore catalogue, smelter, forge and ore grades.
 

@@ -11,7 +11,8 @@ enum { D_FLOOR, D_FLOOR2, D_WALL, D_FACE, D_DOWN, D_UP, D_CHEST, D_OPEN, D_CAGE,
 #define MON_T_QUEEN(frame) (18 + (frame) * 4)                  /* the queen: 16x16, 4 tiles (two 8x16 sprites) */
 #define MON_T_POOF(frame) (26 + (frame) * 2)                  /* a burst when a monster dies, 8x8 */
 #define MON_T_DIGIT(d) (30 + (d) * 2)                         /* damage numbers: one 8x16 sprite per digit (palette 2: gold) */
-#define MON_NTILES 50
+#define MON_T_LADY(frame) (50 + (frame) * 2)                  /* a ladybug buddy, 8x8 (palette 2) */
+#define MON_NTILES 54
 void dungeon_tiles_load(UINT8 mon0) BANKED;   /* (dungeon_gfx.c, bank 11) floor tiles at 0 and monsters at mon0, in the selected VRAM bank */
 extern const UINT8 dg_mtpal[DG_NMT];
 extern const UINT8 dg_mtlvl[DG_NMT];       /* 0 wall, 1 floor, +4 = drawn as it is */

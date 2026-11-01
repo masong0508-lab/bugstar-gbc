@@ -100,6 +100,7 @@ static void scroll_fill(void){
 }
 static void set_mt(UINT8 x, UINT8 y, UINT8 mt){ DM(x, y) = mt; draw_mt(x, y); }
 static UINT8 show_fx(UINT8 o);
+static UINT8 show_lady(UINT8 o);
 static void show_mons(void){                                       /* every monster near the screen, as sprites */
     UINT8 i, o = OAM_MON0, k;
     for(i = 0; i < NMON; i++){
@@ -115,7 +116,7 @@ static void show_mons(void){                                       /* every mons
             move_sprite(o, (UINT8)(sx + (k % cols) * 8 + 8), (UINT8)(sy + (k / cols) * 16 + 16)); o++;
         }
     }
-    o = show_fx(o);
+    o = show_fx(o); o = show_lady(o);
     while(o < 40) move_sprite(o++, 0, 0);
 }
 static void fx_add(UINT16 x, UINT16 y, UINT8 n, UINT8 pal){
@@ -204,7 +205,7 @@ static void hurt(UINT8 n, INT8 kx, INT8 ky){
 #ifdef TEST_BOSS
 static UINT8 bite_power(void){ return 30; }
 #else
-static UINT8 bite_power(void){ return 2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite(); }
+static UINT8 bite_power(void){ return CLAMP8((UINT16)2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite()); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
@@ -311,18 +312,49 @@ contact:
 
 
 /* ------------------------------------------------------------ pets, and the city pit */
-static void pets_fight(void){                                      /* your friends chip at monsters near them (they never finish one off: the kill is yours) */
-    UINT8 i, j; UINT16 px, py;
-    if(step & 31) return;
-    for(i = 0; i < 3; i++){
-        if(!pet_get(i, &px, &py)) break;
-        for(j = 0; j < NMON; j++){
-            Mon *m = &mon[j]; INT16 dx, dy;
-            if(!m->alive || m->hp < 2) continue;
-            dx = (INT16)m->x - (INT16)px; dy = (INT16)m->y - (INT16)py; if(dx < 0) dx = -dx; if(dy < 0) dy = -dy;
-            if(dx < 24 && dy < 20){ UINT8 p = 1 + sv.level / 6; if(p >= m->hp) p = m->hp - 1; m->hp -= p; m->flash = 6; fx_add(m->x, m->y - 18, p, 2); break; }
+/* ladybug buddies: one for every 100 player levels (up to nine; OPTIONS > LADYBUGS is how many you bring at most). They keep a place round
+   you, nip the monsters near them (never the last bit of health: the kill is yours) and never get hurt. */
+#define NLB BUD_MAX
+static UINT16 lbx[NLB], lby[NLB]; static UINT8 lbn;                 /* where each one is (feet), and how many are out */
+static const INT8 lb_ox[NLB] = { -16, 16, -26, 26, -10, 10, -34, 34, 0 }, lb_oy[NLB] = { 6, 6, 12, 12, 16, 16, 18, 18, 22 };
+static UINT8 lb_count(void){ UINT8 n = 0, c = BUD_CAP(); UINT16 l = sv.level; while(l >= 100 && n < NLB){ l -= 100; n++; } return n < c ? n : c; }
+static void lb_reset(void){ UINT8 i; lbn = lb_count(); for(i = 0; i < NLB; i++){ lbx[i] = bx; lby[i] = by; } }
+static void lb_step(void){
+    UINT8 i;
+    if(!(step & 63)){ UINT8 n = lb_count(); while(lbn < n){ lbx[lbn] = bx; lby[lbn] = by; lbn++; } lbn = n; }   /* (a new one joins at once, at your feet) */
+    for(i = 0; i < lbn; i++){
+        INT16 dx = (INT16)bx + lb_ox[i] - (INT16)lbx[i], dy = (INT16)by + lb_oy[i] - (INT16)lby[i]; UINT8 n = (dx > 20 || dx < -20 || dy > 20 || dy < -20) ? 2 : 1;
+        if(dx > 56 || dx < -56 || dy > 48 || dy < -48){ lbx[i] = bx; lby[i] = by; continue; }       /* far behind or stuck: hop to you */
+        while(n--){
+            if(dx > 1 && !blocked(lbx[i] + 1, lby[i], 3)){ lbx[i]++; dx--; } else if(dx < -1 && !blocked(lbx[i] - 1, lby[i], 3)){ lbx[i]--; dx++; }
+            if(dy > 1 && !blocked(lbx[i], lby[i] + 1, 3)){ lby[i]++; dy--; } else if(dy < -1 && !blocked(lbx[i], lby[i] - 1, 3)){ lby[i]--; dy++; }
         }
     }
+}
+static UINT8 show_lady(UINT8 o){                                   /* the ladybugs, in the sprites left over (monsters and numbers came first) */
+    UINT8 i;
+    for(i = 0; i < lbn && o < 40; i++){
+        INT16 sx = (INT16)lbx[i] - (INT16)cam_x - 4, sy = (INT16)lby[i] - (INT16)cam_y - 10;
+        if(sx < -8 || sx > 160 || sy < -16 || sy > 144) continue;
+        set_sprite_tile(o, MON_TILE0 + MON_T_LADY(((step >> 3) + i) & 1)); set_sprite_prop(o, 2 | 0x08);
+        move_sprite(o, (UINT8)(sx + 8), (UINT8)(sy + 16)); o++;
+    }
+    return o;
+}
+static UINT8 chip(UINT16 px, UINT16 py, UINT8 p){                    /* one nip at a monster near this spot */
+    UINT8 j;
+    for(j = 0; j < NMON; j++){
+        Mon *m = &mon[j]; INT16 dx, dy;
+        if(!m->alive || m->hp < 2) continue;
+        dx = (INT16)m->x - (INT16)px; dy = (INT16)m->y - (INT16)py; if(dx < 0) dx = -dx; if(dy < 0) dy = -dy;
+        if(dx < 24 && dy < 20){ if(p >= m->hp) p = m->hp - 1; m->hp -= p; m->flash = 6; fx_add(m->x, m->y - 18, p, 2); return 1; }
+    }
+    return 0;
+}
+static void pets_fight(void){                                      /* your friends chip at monsters near them (they never finish one off: the kill is yours) */
+    UINT8 i; UINT16 px, py;
+    if(!(step & 31)) for(i = 0; i < 3; i++){ if(!pet_get(i, &px, &py)) break; chip(px, py, CLAMP8(1 + sv.level / 6)); }
+    for(i = 0; i < lbn; i++) if(!((UINT8)(step + i * 3) & 31)) chip(lbx[i], lby[i], CLAMP8(1 + sv.level / 12));
 }
 static UINT8 pit_tick(void){                                        /* the next wave when the last one is down; DG_WIN-worthy after the last */
     UINT8 i, n = 0;
@@ -352,7 +384,7 @@ static int play_floor(void){                                       /* returns DG
     if(!pit){ char b[48], *d = scat(b, "FLOOR B"); d = u16s(d, depth); d = scat(d, " OF "); d = u16s(d, floors);
       if(depth == floors) scat(d, ". SOMETHING BIG IS BREATHING DOWN HERE."); dlg_say(0, b); }
     if(!pit) floor_intro(evt);
-    pet_reset(bx, by);
+    pet_reset(bx, by); lb_reset();
     for(;;){
         input_poll(); k = keys; step++;
         { INT8 vx = (k & J_LEFT) ? -1 : (k & J_RIGHT) ? 1 : 0, vy = (k & J_UP) ? -1 : (k & J_DOWN) ? 1 : 0; UINT8 sp = (k & J_B) ? (TRICK(1) ? 3 : 2) : 1, n;
@@ -363,7 +395,7 @@ static int play_floor(void){                                       /* returns DG
         if(atk) atk--;
         if(inv) inv--;
         if(!(step & 127) && sv.mp < hud_mpmax(sv.level)) sv.mp++;
-        mon_step(); pets_fight(); if(TRICK(4) && !step && sv.hp && sv.hp < hud_hpmax(sv.level)) sv.hp++;
+        mon_step(); lb_step(); pets_fight(); if(TRICK(4) && !step && sv.hp && sv.hp < hud_hpmax(sv.level)) sv.hp++;
         if(pit && pit_tick()) return DG_WIN;
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);

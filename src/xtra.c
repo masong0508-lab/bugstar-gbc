@@ -189,7 +189,7 @@ void xtra_debug(void) BANKED {
         if(HIT(J_A)){
             d = 1; sfx(SFX_OK);
             if(sel == 0) sv.gold += 1000;
-            else if(sel == 1){ if(sv.level < 99) sv.level++; sv.hp = hud_hpmax(sv.level); }
+            else if(sel == 1){ if(sv.level < 999) sv.level++; sv.hp = hud_hpmax(sv.level); }
             else if(sel == 2) sv.hp = hud_hpmax(sv.level);
             else if(sel == 3) xs.relics = 0x0FFF;
             else if(sel == 4){ memset(ks.tt, 0, sizeof ks.tt); ks.cup = 0; EX_KART = 0; kart_ks_save(); }
