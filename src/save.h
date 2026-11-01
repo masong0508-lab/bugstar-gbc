@@ -8,6 +8,8 @@
      bank 3     : options + last-used slot at offset 0
    The GBA game's 64-bit economy and huge galaxy address are gone: a world is one 32-bit seed. */
 #define NSLOT 3
+#define SAVE_MAGIC 0x43475542UL      /* "BUGC" */
+#define SAVE_VER   5
 
 typedef struct {                 /* the Elite layer: what the ship carries, the fuel, the job, the fame (version 5) */
     UINT8  cargo[8];             /* units of each good in the hold (econ.h: FOOD ORE CRYSTAL SILK AMBER MEDS TECH NECTAR) */
@@ -60,6 +62,10 @@ typedef struct {                 /* what comes after the slot (SRAM offset 256 o
     UINT32 sum;
 } Extra;
 extern Extra ex;
+UINT8 sv_old(UINT8 slot, Save *out) BANKED;   /* save_guard.c: convert a version 1-4 slot */
+UINT32 fnv(const void *d, UINT16 n);                 /* (private to save.c and save_guard.c) */
+void sram_read_at(UINT8 bank, UINT16 off, void *d, UINT16 n);
+#define sram_read(b, d, n)  sram_read_at(b, 0, d, n)
 void sv_sanitize(Save *s) BANKED;        /* save_guard.c (bank 38): clamp every field of a loaded save into its range */
 
 typedef struct {                 /* options, same set as the GBA game */

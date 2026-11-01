@@ -68,6 +68,7 @@ void main(void){
 #ifdef TEST_LVL
     sv.level = TEST_LVL; sv.hp = hud_hpmax(TEST_LVL); sv.mp = hud_mpmax(TEST_LVL); sv.zone = 0;
 #endif
+    for(;;){                          /* (test builds: when a run ends, start it again, so a long random run keeps going) */
 #ifdef TEST_EXTRAS
     cpu_fast(); sv.level = 12; sv.gold = 500; sv.hp = 3; extras_run(0);
 #elif defined(TEST_KART)
@@ -79,6 +80,7 @@ void main(void){
 #else
     cpu_fast(); dungeon_run();
 #endif
+    }
     for(;;) wait_vbl_done();
 #endif
 #ifdef TEST_SPACE
@@ -92,7 +94,7 @@ void main(void){
 #ifdef TEST_3D
     sv.el.rsv[0] = 3;
 #endif
-    { int r = space_run(); if(r == SP_LAND) play(); else if(r == SP_END) ending_run(); }
+    for(;;){ int r = space_run(); if(r == SP_LAND) play(); else if(r == SP_END) ending_run(); }
 #endif
     for(;;){
         int choice, s;
