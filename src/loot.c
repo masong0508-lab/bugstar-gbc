@@ -133,55 +133,76 @@ UINT8 loot_eat(char *msg) BANKED {
 }
 
 /* ---------------------------------------------------------------- the page (bag / sell) */
-static UINT16 price(UINT8 i, UINT8 mode){ UINT16 p = (UINT16)((UINT32)val[i] * (mode == 2 ? 60 + fame_disc() : 50) / 100); return p ? p : 1; }
+static const UINT8 stock[8] = { 0, 1, 2, 6, 7, 8, 11, 12 };    /* gear the shops sell (mode 3): the cheap half, so the deep finds stay special */
+static UINT16 price(UINT8 i, UINT8 mode){ UINT16 p = mode == 3 ? val[i] * 2 : (UINT16)((UINT32)val[i] * (mode == 2 ? 60 + fame_disc() : 50) / 100); return p ? p : 1; }
 static UINT8 list[L_N];
-static UINT8 build(void){ UINT8 i, n = 0; for(i = 0; i < L_N; i++) if(have(i)) list[n++] = i; return n; }
+static UINT8 u_it, u_k; static UINT32 u_g;                  /* BUYBACK: the last sale of this visit (LEFT undoes it) */
+static UINT8 build(UINT8 mode){ UINT8 i, n = 0; if(mode == 3){ for(i = 0; i < 8; i++) if(!have(stock[i])) list[n++] = stock[i]; return n; } for(i = 0; i < L_N; i++) if(have(i)) list[n++] = i; return n; }
 static void put(const char *d, UINT8 x, UINT8 y, UINT8 col){ txt_line(x, y, d, 18); txt_color(x, y, 18, 1, col); }
 static void draw(UINT8 mode, UINT8 n, UINT8 cur, UINT8 top, const char *msg){
     UINT8 i, r; char t[24], *d;
     txt_win(1);
-    d = scat(t, mode ? "SELL  GOLD " : "BAG   GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); put(t, 1, 1, TXT_GOLD);
-    if(mode){ d = scat(t, "PAYS "); d = u16s(d, mode == 2 ? 60 + fame_disc() : 50); scat(d, "% OF VALUE"); } else scat(t, "A:USE/WEAR  B:BACK");
+    d = scat(t, mode == 3 ? "GEAR  GOLD " : mode ? "SELL  GOLD " : "BAG   GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); put(t, 1, 1, TXT_GOLD);
+    if(mode == 3) scat(t, "A:BUY  B:BACK");
+    else if(mode){ d = scat(t, "PAYS "); d = u16s(d, mode == 2 ? 60 + fame_disc() : 50); scat(d, "% OF VALUE"); } else scat(t, "A:USE/WEAR  B:BACK");
     put(t, 1, 2, TXT_GREY);
     for(r = 0; r < 8; r++){
         i = top + r;
         if(i < n){
             UINT8 it = list[i]; d = scat(t, i == cur ? S_CURSOR : " "); d = scat(d, nm[it]); while((UINT8)(d - t) < 12) *d++ = ' '; *d = 0;
-            if(K_G(it)) d = scat(d, worn(it) ? "WORN" : "    "); else { d = scat(d, "x"); d = u16s(d, have(it)); }
+            if(mode == 3) d = scat(d, "    "); else if(K_G(it)) d = scat(d, worn(it) ? "WORN" : "    "); else { d = scat(d, "x"); d = u16s(d, have(it)); }
             while((UINT8)(d - t) < 16) *d++ = ' '; *d = 0;
             if(mode) u16s(d, price(it, mode)); else if(it < C0){ d = scat(d, it < A0 ? "+" : "-"); u16s(d, pw[it]); }
+            if(mode == 3 && sv.gold < price(it, 3)) txt_color(16, 4 + r, 2, 1, TXT_RED);
             put(t, 1, 4 + r, i == cur ? TXT_GOLD : (K_G(list[i]) && worn(list[i])) ? TXT_GREY : TXT_WHITE);
         } else put("", 1, 4 + r, TXT_WHITE);
     }
-    if(!n){ put("NOTHING IN THE BAG", 1, 4, TXT_GREY); put("OPEN CHESTS, BITE BUGS,", 1, 5, TXT_GREY); put("SHOOT PIRATES.", 1, 6, TXT_GREY); }
+    if(!n && mode == 3){ put("SOLD OUT! YOU OWN", 1, 4, TXT_GREY); put("EVERYTHING WE HAVE.", 1, 5, TXT_GREY); }
+    else if(!n){ put("NOTHING IN THE BAG", 1, 4, TXT_GREY); put("OPEN CHESTS, BITE BUGS,", 1, 5, TXT_GREY); put("SHOOT PIRATES.", 1, 6, TXT_GREY); }
     put(n ? ds[list[cur]] : "", 1, 13, TXT_WHITE);
     put(msg ? msg : "", 1, 14, TXT_GOLD);
     if(!mode && opt.hunger){ put(hg >= HUNGRY_AT ? "BELLY: STARVING!" : hg >= 80 ? "BELLY: HUNGRY" : hg >= 30 ? "BELLY: PECKISH" : "BELLY: FULL", 1, 15, hg >= HUNGRY_AT ? TXT_RED : TXT_GREY); }
-    put(mode ? "A:SELL ONE SEL:ALL" : "SELECT+DOWN EATS", 1, 16, TXT_GREY);
+    if(mode && mode < 3) put(u_k ? "LEFT:UNDO SALE" : "", 1, 15, TXT_GREY);
+    put(mode == 3 ? "" : mode ? "A:SELL ONE SEL:ALL" : "SELECT+DOWN EATS", 1, 16, TXT_GREY);
     txt_win(0);
 }
 void loot_run(UINT8 mode) BANKED {
     UINT8 n, cur = 0, top = 0, sprites = LCDC_REG & LCDCF_OBJON, it; char m[28]; const char *msg = 0;
-    ensure();
+    ensure(); u_k = 0;
     HIDE_SPRITES;
     txt_win(1); txt_cls(); txt_box(0, 0, 20, 18); txt_win(0);
-    n = build(); draw(mode, n, cur, top, msg); move_win(7, 0); SHOW_WIN;
+    n = build(mode); draw(mode, n, cur, top, msg); move_win(7, 0); SHOW_WIN;
     for(;;){
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) break;
         if(n && HIT(J_UP))   { cur = cur ? cur - 1 : n - 1; msg = 0; sfx(SFX_MOVE); }
         else if(n && HIT(J_DOWN)) { cur = cur < n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); }
-        else if(n && (HIT(J_A) || (mode && HIT(J_SELECT)))){
+        else if(mode && u_k && HIT(J_LEFT)){                  /* buy the last sale back at the price it fetched */
+            m[0] = 0; msg = m;
+            if(sv.gold < u_g){ scat(m, "NOT ENOUGH GOLD"); sfx(SFX_BACK); }
+            else {
+                if(K_G(u_it)) b.own[grp(u_it)] |= 1 << gi(u_it); else *slot(u_it) += u_k;
+                sv.gold -= u_g; u_k = 0; bag_save(); sfx(SFX_OK); scat(m, "BOUGHT BACK");
+            }
+        }
+        else if(n && (HIT(J_A) || (mode && mode < 3 && HIT(J_SELECT)))){
             it = list[cur]; m[0] = 0; msg = m;
+            if(mode == 3){
+                UINT16 pr = price(it, 3);
+                if(!HIT(J_A)){} else if(sv.gold < pr){ scat(m, "NOT ENOUGH GOLD"); sfx(SFX_BACK); }
+                else if(give(it)){ sv.gold -= pr; sfx(SFX_COIN); scat(m, "BOUGHT! WEAR IT"); }
+                else { scat(m, "YOU HAVE IT"); sfx(SFX_BACK); }
+            } else
             if(!mode){ if(HIT(J_A)) use(it, m); }
             else if(K_G(it) && worn(it)){ scat(m, "TAKE IT OFF FIRST!"); sfx(SFX_BACK); }
             else {
                 UINT8 k = (HIT(J_SELECT) && !K_G(it)) ? have(it) : 1, j; UINT32 g = 0;
                 for(j = 0; j < k; j++){ g += price(it, mode); if(K_G(it)) b.own[grp(it)] &= ~(1 << gi(it)); else (*slot(it))--; }
+                u_it = it; u_k = k; u_g = g;
                 sv.gold += g; bag_save(); sfx(SFX_COIN); scat(m, "SOLD FOR "); u32s(m + 9, g);
             }
         } else continue;
-        n = build(); if(cur >= n) cur = n ? n - 1 : 0;
+        n = build(mode); if(cur >= n) cur = n ? n - 1 : 0;
         if(cur < top) top = cur; if(cur > top + 7) top = cur - 7;
         draw(mode, n, cur, top, msg);
     }
