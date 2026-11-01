@@ -58,6 +58,7 @@ static const UINT8 qbrood[6] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, 
 static UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
 static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
 static UINT16 bx, by, cam_x, cam_y, rng;
+static UINT8 dn_x = 255, dn_y;   /* the way down (metatile), for the STAIRS HINT in the HUD; 255 = none on this floor */
 static UINT8  left_mt, top_mt;
 
 static UINT8 rnd8(void){ rng ^= rng << 7; rng ^= rng >> 9; rng ^= rng << 8; return (UINT8)rng; }
@@ -98,10 +99,11 @@ static void make_floor(void){
     for(y = DW - 2; y > 0; y--) for(x = 0; x < DW; x++)           /* a wall with floor below shows its face */
         if(DM(x, y) == D_WALL && (DM(x, y + 1) == D_FLOOR || DM(x, y + 1) == D_FLOOR2)) DM(x, y) = D_FACE;
     { Room *r = &rooms[0]; DM(r->x + r->w / 2, r->y + 1) = D_UP; bx = ((UINT16)(r->x + r->w / 2) << 4) + 8; by = ((UINT16)(r->y + 3) << 4) - 2; }
+    dn_x = 255;
     evt = (pit || depth == floors) ? 0 : lab ? 7 : ev_roll(depth);
     if(pit){ memset(mon, 0, sizeof mon); return; }
     { Room *r = &rooms[nrooms - 1];
-      if(depth < floors) DM(r->x + r->w / 2, r->y + r->h / 2) = D_DOWN;
+      if(depth < floors){ dn_x = r->x + r->w / 2; dn_y = r->y + r->h / 2; DM(dn_x, dn_y) = D_DOWN; }
       else DM(r->x + r->w / 2, r->y + 1) = D_CAGE; }               /* the last floor: a caged friend, guarded */
     for(i = 1; i < nrooms; i++){                                  /* chests and potions */
         Room *r = &rooms[i];
@@ -250,6 +252,19 @@ static void enter_gfx(void){                                       /* everything
     set_bkg_palette(4, 4, &dg_pals[kind * 16]);
     set_sprite_palette(0, 4, mon_pals); bst_pals(kind);
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
+}
+static void stairs_hint(void){                                   /* OPTIONS > STAIRS HINT: the way down in the HUD, like "NE12" (compass letters + metatiles away) */
+    char t[8], *p = t; INT16 dx, dy, ax, ay; UINT8 n;
+    if(dn_x == 255){ txt_win(1); txt_line(16, 0, "", 4); txt_win(0); return; }
+    dx = (INT16)dn_x - (INT16)(bx >> 4); dy = (INT16)dn_y - (INT16)(by >> 4); ax = dx < 0 ? -dx : dx; ay = dy < 0 ? -dy : dy;
+    if(!ax && !ay){ *p++ = 'O'; *p++ = 'N'; }
+    else{
+    if(ay * 2 >= ax) *p++ = dy < 0 ? 'N' : 'S';
+    if(ax * 2 >= ay) *p++ = dx < 0 ? 'W' : 'E';
+    }
+    while(p < t + 2) *p++ = ' ';
+    n = (UINT8)(ax > ay ? ax : ay); *p = 0; u16s(p, n);
+    txt_win(1); txt_line(16, 0, t, 4); txt_color(16, 0, 4, 1, TXT_GOLD); txt_win(0);
 }
 static void redraw(void){ if(sys_gfx_lost){ enter_gfx(); return; } SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; txt_pal_reset(); set_bkg_palette(4, 4, &dg_pals[kind * 16]); draw_all(); }
 
@@ -444,6 +459,7 @@ static int play_floor(void){                                       /* returns DG
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
         show_bug(); show_mons(); show_bite(); pet_push(bx, by); { UINT8 po[3]; po[0] = 2; po[1] = 3; po[2] = 15; pet_draw(po, cam_x, cam_y, 0); }
         hud_update();
+        if(opt.minimap && !((UINT8)frames32() & 15)) stairs_hint();
         while(stop){ stop--; wait_vbl_done(); }
 #ifdef TEST_FAINT
         { static UINT16 tf; if(++tf == 400) sv.hp = 0; }

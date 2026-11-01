@@ -9,6 +9,7 @@ UINT8 loot_chest(UINT8 depth, char *msg) BANKED;        /* a chest's find: puts 
 void  loot_kill(UINT8 kind, UINT8 depth) BANKED;        /* a monster died: sometimes food or an oddity */
 void  loot_odd(void) BANKED;                            /* a pirate was shot down (space): sometimes an oddity falls out */
 UINT8 loot_armor(void) BANKED;                          /* hits taken less: armor + the WARD CHARM */
+UINT8 loot_ward(void) BANKED;                            /* 1 with the WARD CHARM worn: the ship takes 1 less per hit in space */
 UINT16 loot_clover(UINT16 g) BANKED;                    /* extra gold with the CLOVER charm worn */
 UINT8 loot_xp(UINT8 x) BANKED;                          /* extra XP with the XP BEAD worn */
 UINT8 loot_regen(void) BANKED;                          /* call every ~2 s in the dungeon: LOCKET heals, HUNGER (OPTIONS) grows; returns 1 the moment the belly starts to rumble */

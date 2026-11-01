@@ -67,6 +67,7 @@ static UINT8 give(UINT8 i){                                /* 1 if it went in (g
 static UINT8 wearing(UINT8 g){ UINT8 e = b.eq[g]; return e ? e - 1 : 255; }
 UINT8 loot_bite(void) BANKED { UINT8 e; ensure(); e = wearing(0); return e < 6 ? pw[e] : 0; }
 UINT8 loot_armor(void) BANKED { UINT8 e, a = 0; ensure(); e = wearing(1); if(e < 5) a = pw[A0 + e]; if(wearing(2) == 3) a++; return a; }
+UINT8 loot_ward(void) BANKED { ensure(); return wearing(2) == 3 ? 1 : 0; }   /* the WARD CHARM alone (space: armor is for the dungeon) */
 UINT16 loot_clover(UINT16 g) BANKED { ensure(); return wearing(2) == 0 ? g * 15 / 100 : 0; }
 UINT8 loot_xp(UINT8 x) BANKED { ensure(); return wearing(2) == 2 ? (x >> 2) + 1 : 0; }
 #define HUNGRY_AT 120                                      /* ticks of ~2 s: about 4 minutes in a dungeon, then 1 HP every 4 s until you eat (never to 0) */

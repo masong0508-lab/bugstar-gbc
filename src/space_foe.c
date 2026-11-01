@@ -56,7 +56,7 @@ static UINT8 near_planet(UINT16 px, UINT16 py, INT16 r){      /* a planet within
 }
 static void hurt(UINT8 dmg, INT16 dx, INT16 dy, INT8 push){     /* the ship is hit; dx, dy: from what hit it to the ship */
     if(inv) return;
-    { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3 + FL_ARMOR(); dmg = dmg > a ? dmg - a : 1; }
+    { UINT8 a = UPG(UP_HULL) + UPG(SK_GUARD) / 3 + FL_ARMOR() + loot_ward(); dmg = dmg > a ? dmg - a : 1; }
     if(UPG(UP_SHIELD) && sv.mp){                                 /* the shield soaks it up: 2 MP for every point of damage */
         UINT8 soak = sv.mp / 2 > dmg ? dmg : (UINT8)(sv.mp / 2);
         sv.mp -= soak * 2; dmg -= soak;
@@ -164,7 +164,7 @@ UINT8 foes_hit(Laser *l) BANKED {
             sfx(SFX_HIT);
             { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2 + FL_GUN(); p->hp = p->hp > ld ? p->hp - ld : 0; }
             if(!p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
-                sv.gold += SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); gain_xp((p->kind == PK_MINE ? 4 : 2) + sv.zone); shown = 253;   /* (a level-up message covers the window: put it back) */
+                { UINT16 sg = SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); UINT8 sx = (p->kind == PK_MINE ? 4 : 2) + sv.zone; sv.gold += sg + loot_clover(sg); gain_xp(sx + loot_xp(sx)); } shown = 253;   /* (a level-up message covers the window: put it back) */
                 pod_drop(p->x, p->y, p->kind); loot_odd(); if(elite_kill(p->kind)) toast("JOB COMPLETE!", "DOCK TO GET PAID"); }
             return 1;
         }
