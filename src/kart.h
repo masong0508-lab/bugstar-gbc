@@ -19,6 +19,7 @@ UINT8 kart_air(UINT16 pm, INT16 lx, INT16 v, UINT8 b) BANKED;   /* (bank 25) onc
 INT16 kart_pad(UINT16 pm, INT16 *lat) BANKED;         /* (bank 25) the next jump pad ahead: its distance (999 = none) and lane */
 void kart_air_reset(void) BANKED;
 #define air_h() (air_t ? (UINT8)(((UINT16)air_t * (UINT8)(44 - air_t)) >> 3) : 0)   /* how high you are, in pixels (AIRN is 44) */
+UINT8 kart_post(UINT8 t) BANKED;                      /* (bank 25) one quick race on track t from a town's race post; returns your place (0: quit) */
 void kart_setup(void) BANKED;
 void kart_pal0(void) BANKED;
 void kart_ks_save(void) BANKED;

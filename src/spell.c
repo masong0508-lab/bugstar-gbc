@@ -9,23 +9,35 @@
 #include "menus.h"
 #include "spell.h"
 #include "dungeon.h"
+#include "wild.h"
 
-/* ------------------------------------------------------------ spells: SPARK, FIREBALL, HEAL, SHIELD */
-static const char *const sp_nm[4] = { "SPARK", "FIREBALL", "HEAL", "SHIELD" };
-static const UINT8 sp_cost[4] = { 2, 4, 6, 5 };
-static const UINT8 sp_lv[4]   = { 1, 3, 5, 8 };
-UINT8 spell_known(UINT8 s) BANKED { return sv.level >= sp_lv[s & 3]; }
-UINT8 spell_cost(UINT8 s) BANKED { return sp_cost[s & 3]; }
-UINT8 spell_next(UINT8 s) BANKED { UINT8 i; for(i = 1; i <= 4; i++) if(spell_known(s + i)) return (s + i) & 3; return s & 3; }
+/* ------------------------------------------------------------ spells: SPARK, FIREBALL, HEAL, SHIELD, PORTAL */
+#define NSP 5
+static const char *const sp_nm[NSP] = { "SPARK", "FIREBALL", "HEAL", "SHIELD", "PORTAL" };
+static const UINT8 sp_cost[NSP] = { 2, 4, 6, 5, 7 };
+static const UINT8 sp_lv[NSP]   = { 1, 3, 5, 8, 10 };
+UINT8 spell_known(UINT8 s) BANKED { return s < NSP && sv.level >= sp_lv[s]; }
+UINT8 spell_cost(UINT8 s) BANKED { return sp_cost[s % NSP]; }
+UINT8 spell_next(UINT8 s) BANKED { UINT8 i, n; for(i = 1; i <= NSP; i++){ n = (s + i) % NSP; if(spell_known(n)) return n; } return s % NSP; }
 void  spell_label(UINT8 s, char *out) BANKED {
-    char *d = scat(out, sp_nm[s & 3]); d = scat(d, "  "); d = u16s(d, sp_cost[s & 3]); scat(d, " MP");
+    char *d = scat(out, sp_nm[s % NSP]); d = scat(d, "  "); d = u16s(d, sp_cost[s % NSP]); scat(d, " MP");
+}
+/* PORTAL: the door home. The floor you cast it on is kept in the WILD block; the next door down on that world opens on it. */
+void portal_set(UINT8 fl) BANKED { wild_load(); wram_bank(2); XAP->p_star = sv.star; XAP->p_floor = fl; wram_bank(1); wild_save(); }
+UINT8 portal_take(void) BANKED {
+    UINT8 f = 0;
+    wild_load(); wram_bank(2);
+    if(XAP->p_floor && XAP->p_star == sv.star){ f = XAP->p_floor; XAP->p_floor = 0; }
+    wram_bank(1);
+    if(f) wild_save();
+    return f;
 }
 
 UINT8 spell_pay(UINT8 s) BANKED {
     UINT16 mx = hud_hpmax(sv.level);
     if(sv.mp < sp_cost[s]){ sfx(SFX_HURT); dlg_say(0, "NOT ENOUGH MANA."); return 0; }
     sv.mp -= sp_cost[s]; if(EX_CASTS < 255) EX_CASTS++;
-    if(s > 1) sfx(SFX_SPARK);
+    if(s > 1 && s < 4) sfx(SFX_SPARK);
     if(s == 2){ sv.hp += mx / 2; if(sv.hp > mx) sv.hp = mx; }
     return 1;
 }
@@ -99,6 +111,7 @@ static UINT16 ft_val(UINT8 i){
 static UINT8 ft_done(UINT8 i){ return (&EX_FEAT)[i >> 3] & (1 << (i & 7)); }
 void feats_check(void) BANKED {
     UINT8 i;
+    bounty_tick();                                              /* the bounty office pays a finished job the moment anything moves */
     for(i = 0; i < NFEAT; i++){
         if(ft_done(i) || ft_val(i) < ft_goal[i]) continue;
         (&EX_FEAT)[i >> 3] |= 1 << (i & 7);

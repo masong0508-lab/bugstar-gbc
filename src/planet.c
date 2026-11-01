@@ -445,6 +445,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         crit_step(++tick); pet_push(bx, by);
         if(!(tick & 1)){ UINT8 i; UINT16 lx, ly; life_step(bx, by, tick); for(i = 0; i < 4; i++) if(life_peek(i, &lx, &ly) && blocked(lx, ly)) life_back(i); }
         if(wv && !(tick & 63)) weird_tick(wv, tick);
+        if(tick == 200) bounty_tick();                                  /* (every 256 frames: the bounty office pays a finished job) */
         if(mt_at(ox, oy) == MT_GATE){
             if(!was_gate){ UINT8 i; was_gate = 1;
                 for(i = 0; i < tw_n; i++) if((UINT8)(ox - tw_x[i]) < tw_w[tw_t[i]] && (UINT8)(oy - tw_y[i]) < tw_w[tw_t[i]]) break;

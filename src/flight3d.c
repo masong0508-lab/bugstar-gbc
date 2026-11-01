@@ -132,8 +132,8 @@ static const UINT8 gun_cool3[6] = { 16, 13, 11, 9, 8, 7 };
 
 static void fly(UINT8 k, UINT8 frame){
     INT16 want;
-    if(k & J_LEFT){ if(turn_h < 20) turn_h++; yaw -= 280 + turn_h * 12; }
-    else if(k & J_RIGHT){ if(turn_h < 20) turn_h++; yaw += 280 + turn_h * 12; }
+    if(k & J_LEFT){ if(turn_h < 20) turn_h++; yaw += 280 + turn_h * 12; }                 /* (yaw grows from south through east to north: counter-clockwise on the map, so LEFT adds) */
+    else if(k & J_RIGHT){ if(turn_h < 20) turn_h++; yaw -= 280 + turn_h * 12; }
     else turn_h = 0;
     if(k & J_UP){ if(pit16 < 40 * 256) pit16 += 200; }
     else if(k & J_DOWN){ if(pit16 > -40 * 256) pit16 -= 200; }

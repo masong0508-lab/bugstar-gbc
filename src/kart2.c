@@ -158,6 +158,19 @@ void kart_run(void) BANKED {
     SCX_REG = 0; SCY_REG = 0;
 }
 
+UINT8 kart_post(UINT8 t) BANKED {                                       /* the town's race post: the same setup and teardown as kart_run, one race */
+    UINT8 was = LCDC_REG & LCDCF_OBJ16, r;
+    DISPLAY_OFF; HIDE_WIN;
+    kart_setup(); ks_load();
+    SHOW_BKG; DISPLAY_ON;
+    r = kart_race(t % 3, 0, 0);
+    DISPLAY_OFF; kart_pal0(); SHOW_BKG; DISPLAY_ON;
+    HIDE_SPRITES; HIDE_WIN; if(!was) SPRITES_8x8;
+    txt_win(0); VBK_REG = 0; txt_cls();
+    SCX_REG = 0; SCY_REG = 0;
+    return r;
+}
+
 /* ---- the stunt jump (it lives here, in bank 25, because bank 24 is full) ---- */
 #define AIRN 44
 static const UINT16 PADM[3] = { 450, 1100, 1700 };                     /* where the jump pads are in a lap */

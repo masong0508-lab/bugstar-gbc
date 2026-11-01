@@ -15,6 +15,7 @@
 #include "dialog.h"
 #include "dungeon.h"
 #include "wild.h"
+#include "spell.h"
 
 enum { SV_INN, SV_QUEST, SV_STORE, SV_YARD, SV_ACADEMY, SV_FORTUNE, SV_CASINO, SV_SHRINE, SV_WORK, SV_PIT };
 static const char *const pre[16] = { "BRAM", "WEN", "KOR", "ASH", "MIR", "TOL", "FEN", "DUN", "SAL", "OAK", "VEX", "LUM", "NOR", "PIP", "ZAN", "HOL" };
@@ -203,14 +204,21 @@ void town_pit_reward(UINT8 res, UINT8 tier) BANKED {
 #define Q_N sv.el.rsv[6]
 #define Q_R (sv.rsv[0] | ((UINT16)sv.rsv[1] << 8))
 static UINT8 qt, qa, qb, qs; static UINT16 qr;
+static UINT8 seen_n(void){ UINT8 i, c = 0, b; for(i = 0; i < 32; i++) for(b = ex.seen[i]; b; b &= b - 1) c++; return c; }   /* worlds landed on */
 static void q_offer(UINT8 star, UINT8 idx, UINT8 tier){
     UINT16 r = th ^ ((UINT16)Q_N * 0x3D5u); UINT8 t; r ^= r >> 6; r *= 0x2D3Bu; r ^= r >> 5;
-    t = 1 + (UINT8)(r % 4); qs = star; qb = 0;
+    t = 1 + (UINT8)(r % 8); qs = star; qb = 0;
     if(t == 3 && sv.friends >= 250) t = 1;
+    if(t == 6 && EX_FISHN > 240) t = 5;
+    if(t == 8 && ex.pit >= 9) t = 7;
     qt = t;
     if(t == 1){ qa = (idx + 1 + ((r >> 3) & 1)) % 3; qr = 40 + 25 * (UINT16)tier + (r & 15); }
     else if(t == 2){ qa = sv.deepest < 90 ? sv.deepest + 2 : 92; qr = 50 + 8 * (UINT16)qa + 20 * (UINT16)tier; }
     else if(t == 3){ qa = sv.friends + 1; qr = 90 + 40 * (UINT16)tier; }
+    else if(t == 5){ qa = 6 + 3 * tier + (UINT8)((r >> 4) & 3); qs = (UINT8)EX_KILLS; qr = 30 + 8 * (UINT16)qa; }              /* squash monsters */
+    else if(t == 6){ qa = 2 + (UINT8)((r >> 4) & 3); qs = EX_FISHN; qr = 30 + 18 * (UINT16)qa; }                                  /* catch fish */
+    else if(t == 7){ qa = 1 + (UINT8)((r >> 4) & 1) + (tier > 2); qb = seen_n(); qr = 60 + 45 * (UINT16)qa; }                    /* land on new worlds */
+    else if(t == 8){ qa = ex.pit + 2; qr = 50 + 18 * (UINT16)qa + 15 * (UINT16)tier; }                                           /* reach a pit wave */
     else { qa = (UINT8)((r >> 4) & 7); qb = 2 + tier; qr = econ_base(qa) * (UINT16)qb * 3 / 2 + 25; }
 }
 static void q_load(void){ qt = Q_T; qa = Q_A; qb = Q_B; qs = Q_S; qr = Q_R; }
@@ -218,6 +226,10 @@ static UINT8 q_done(UINT8 idx){
     if(qt == 1) return sv.star == qs && idx == qa;
     if(qt == 2) return sv.deepest >= qa;
     if(qt == 3) return sv.friends >= qa;
+    if(qt == 5) return (UINT8)((UINT8)EX_KILLS - qs) >= qa && (UINT8)((UINT8)EX_KILLS - qs) < 200;
+    if(qt == 6) return EX_FISHN >= (UINT8)(qs + qa) && EX_FISHN >= qs;
+    if(qt == 7) return seen_n() >= qb + qa;
+    if(qt == 8) return ex.pit >= qa;
     return sv.el.cargo[qa] >= qb;
 }
 static void q_text(char *l1, char *l2){
@@ -225,6 +237,10 @@ static void q_text(char *l1, char *l2){
     if(qt == 1){ scat(l1, "PARCEL FOR:"); tname(l2, thash(qs, qa)); }
     else if(qt == 2){ scat(l1, "REACH DUNGEON"); d = u16s(scat(l2, "FLOOR "), qa); d = u16s(scat(d, " (BEST "), sv.deepest); scat(d, ")"); }
     else if(qt == 3){ scat(l1, "FREE A BUG FRIEND"); d = u16s(scat(l2, "FROM A CAGE: "), sv.friends); d = u16s(scat(d, "/"), qa); }
+    else if(qt == 5){ d = u16s(scat(l1, "SQUASH "), qa); scat(d, " MONSTERS"); d = u16s(scat(l2, "SO FAR "), (UINT8)((UINT8)EX_KILLS - qs)); u16s(scat(d, "/"), qa); }
+    else if(qt == 6){ d = u16s(scat(l1, "CATCH "), qa); scat(d, " FISH"); d = u16s(scat(l2, "SO FAR "), EX_FISHN >= qs ? EX_FISHN - qs : 0); u16s(scat(d, "/"), qa); }
+    else if(qt == 7){ d = u16s(scat(l1, "LAND ON "), qa); scat(d, " NEW WORLDS"); d = u16s(scat(l2, "SO FAR "), seen_n() > qb ? seen_n() - qb : 0); u16s(scat(d, "/"), qa); }
+    else if(qt == 8){ d = u16s(scat(l1, "REACH PIT WAVE "), qa); d = u16s(scat(l2, "YOUR BEST: "), ex.pit); }
     else { char g[12]; good_label(qa, g); d = u16s(scat(l1, "BRING "), qb); d = scat(d, " "); scat(d, g); scat(l2, "FROM YOUR HOLD"); }
 }
 static void quest(UINT8 star, UINT8 idx, UINT8 tier){
@@ -246,6 +262,7 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
             if(HIT(J_A) && ok){
                 UINT16 g = LUCKY(qr);
                 if(qt == 4) sv.el.cargo[qa] -= qb;
+                bounty_tick();
                 sv.gold += g; fame_add(3 + tier * 2); unlocks_update(); gain_xp(5 + (qr > 400 ? 40 : qr / 10));
                 Q_T = 0; Q_N++; sfx(SFX_FANFARE); m = "THANK YOU! PAID."; break;
             }
@@ -257,7 +274,7 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
 /* ---------------------------------------------------------------- the town page */
 static const char *const sv_nm[10] = { "THE INN", "QUEST BOARD", "GENERAL STORE", "SHIPYARD", "ACADEMY", "FORTUNE TELLER", "CASINO", "SHRINE", "WORKSHOP", "BUG PIT" };
 UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {   /* returns 0, or tier + 1 when the person paid for the bug pit */
-    UINT8 ids[14], n = 0, sel = 0, top = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
+    UINT8 ids[18], n = 0, sel = 0, top = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
     th = thash(star, idx); shrine_used = 0; mpal = TXT_GOLD;
     rs = (UINT16)frames32() ^ ((UINT16)DIV_REG << 8) ^ th; if(!rs) rs = 1;
     ids[n++] = SV_INN; ids[n++] = SV_QUEST;

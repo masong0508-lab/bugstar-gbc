@@ -19,6 +19,17 @@ typedef struct {
     UINT8  lib;                   /* the library's lore page, next */
     UINT8  arc;                   /* the arcade's best streak */
     UINT8  chk;
+    UINT8  ok;                    /* 0xB6 once the fields below are set up (older saves had nothing here: zeroed on first load) */
+    UINT8  p_star, p_floor;       /* PORTAL spell: the world and the dungeon floor the door will take you back to (floor 0: none) */
+    UINT8  bt, bn;                /* BOUNTY OFFICE: kind of job (0 none), how many to do */
+    UINT8  bq[2], bg[2];          /* ... the counter when you took it (16 bit), and the pay (16 bit) */
+    UINT8  bdone;                 /* ... jobs finished */
+    UINT32 gos;                   /* CANTINA: a bit per rumour heard */
+    UINT16 rid;                   /* riddle ruins: a bit per riddle solved */
+    UINT8  race;                  /* RACE POST: races won */
+    UINT8  form, call;            /* HUMANOID: 0 bug, 1 humanoid; the calling (outfit perk) */
+    UINT8  hl[8];                 /* HUMANOID: the look (see human.c) */
+    UINT8  rock[4];               /* ASTEROIDS: [0] ore grade stack of the last mined rock, [1] mine floors cleared, [2] megadeposits found, [3] smelted parts */
 } XA;
 #define XA_OFF 480U
 /* The state lives in WRAM bank 2 (D000..; the stack has no room left in C000..CFFF). Every function here switches to bank 2 on entry and back to
@@ -68,4 +79,17 @@ void  town2_go(UINT8 id, UINT8 tier, UINT16 th) BANKED;
 #define SV2_TAILOR  17
 #define SV2_BANK    18
 #define SV2_ARCADE  19
+void  xa_get(void *dst) BANKED;                 /* a copy of the whole XA block (wild_load first) */
+void  xa_put(const void *src) BANKED;           /* ... and back (wild_save after) */
+
+/* ---- bank 40: town extras, part 2. Same hooks, ids 20.. (town2.c passes them on) */
+#define SV3_BOUNTY  20
+#define SV3_CANTINA 21
+#define SV3_RACE    22
+#define SV3_MARKET  23
+UINT8 town3_add(UINT8 *ids, UINT8 n, UINT8 tier, UINT16 th) BANKED;
+void  town3_name(UINT8 id, char *out) BANKED;
+UINT8 town3_open(UINT8 id, UINT8 night) BANKED;
+void  town3_go(UINT8 id, UINT8 tier, UINT16 th) BANKED;
+void  bounty_tick(void) BANKED;                 /* pays the bounty office's job the moment it is done (called whenever a counter may have moved) */
 #endif

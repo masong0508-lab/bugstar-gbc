@@ -17,14 +17,14 @@
 #include "wild.h"
 
 static const char *const nm[4] = { "LIBRARY", "TAILOR", "BANK", "ARCADE" };
-void town2_name(UINT8 id, char *out) BANKED { scat(out, nm[id - SV2_LIBRARY]); }
-UINT8 town2_open(UINT8 id, UINT8 night) BANKED { return id == SV2_ARCADE || !night; }
+void town2_name(UINT8 id, char *out) BANKED { if(id >= SV3_BOUNTY){ town3_name(id, out); return; } scat(out, nm[id - SV2_LIBRARY]); }
+UINT8 town2_open(UINT8 id, UINT8 night) BANKED { if(id >= SV3_BOUNTY) return town3_open(id, night); return id == SV2_ARCADE || !night; }
 UINT8 town2_add(UINT8 *ids, UINT8 n, UINT8 tier, UINT16 th) BANKED {
     (void)th;
     if(tier >= 1) ids[n++] = SV2_LIBRARY;
     if(tier >= 2){ ids[n++] = SV2_TAILOR; ids[n++] = SV2_ARCADE; }
     if(tier >= 3) ids[n++] = SV2_BANK;
-    return n;
+    return town3_add(ids, n, tier, th);
 }
 
 static void line(UINT8 y, const char *s, UINT8 pal){ txt_win(1); txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); txt_win(0); }
@@ -192,7 +192,7 @@ static void arcade(void){
 }
 
 void town2_go(UINT8 id, UINT8 tier, UINT16 th) BANKED {
-    (void)th;
+    if(id >= SV3_BOUNTY){ town3_go(id, tier, th); return; }
     if(id == SV2_LIBRARY) library(tier);
     else if(id == SV2_TAILOR) tailor(tier);
     else if(id == SV2_BANK) bank();

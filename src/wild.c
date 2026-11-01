@@ -21,6 +21,7 @@ void wild_load(void) BANKED {
     for(i = 0; i < sizeof(XA); i++) p[i] = *(volatile UINT8 *)(0xA000U + XA_OFF + i);
     DISABLE_RAM;
     if(XAP->seed != sv.seed){ memset(p, 0, sizeof(XA)); XAP->seed = sv.seed; }
+    if(XAP->ok != 0xB6){ memset(&XAP->ok, 0, sizeof(XA) - ((UINT8 *)&XAP->ok - p)); XAP->ok = 0xB6; }
     wram_bank(1);
 }
 void wild_save(void) BANKED {
@@ -32,6 +33,9 @@ void wild_save(void) BANKED {
     DISABLE_RAM;
     wram_bank(1);
 }
+
+void xa_get(void *dst) BANKED { wild_load(); wram_bank(2); memcpy(dst, XAP, sizeof(XA)); wram_bank(1); }
+void xa_put(const void *src) BANKED { wram_bank(2); memcpy(XAP, src, sizeof(XA)); wram_bank(1); wild_save(); }
 
 /* ---- the creatures: [world][0 spider, 1 beetle, 2 wasp, 3 slime, 4 queen] */
 static const char *const nm[30] = {

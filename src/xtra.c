@@ -44,6 +44,7 @@ static void screen(const char *title){
 static void gold_line(void){ char b[21], *d = scat(b, "GOLD "); d = u16s(d, sv.gold > 65000UL ? 65000U : (UINT16)sv.gold); *d = 0; txt_line(2, 16, b, 16); txt_color(2, 16, 16, 1, TXT_GREY); }
 static void wait_a(void){ for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B) || HIT(J_START)) return; } }
 
+UINT16 xtra_ore(void) BANKED { xs_load(); return xs.ore; }          /* ores mined in all (the bounty office counts them) */
 /* ---------------------------------------------------------------- RELICS */
 #define NREL 12
 static const char *const rel_nm[NREL] = { "FIRST BLOOD", "CENTURION", "ANGLER", "HELL WALKER", "MOON WALKER", "HELL KING", "MOON KING", "SPEEDSTER", "CUP HOLDER", "GOLD CUP", "SPELLBOUND", "MINER" };

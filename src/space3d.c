@@ -56,7 +56,7 @@ void s3_basis(void) BANKED {
     UINT8 a = (UINT8)(yaw >> 8), p = (UINT8)(pit16 >> 8);
     INT16 sp = s3_sin[a], cp = s3_sin[(UINT8)(a + 64)], st = s3_sin[p], ct = s3_sin[(UINT8)(p + 64)];
     vfx = (ct * sp) >> 6; vfy = (ct * cp) >> 6; vfz = st;
-    vrx = cp; vry = -sp;
+    vrx = -cp; vry = sp;                                    /* right-hand side of the heading on the map (x east, y south): facing north (-y) it is east */
     vux = -((st * sp) >> 6); vuy = -((st * cp) >> 6); vuz = ct;
 }
 /* camera coordinates of an offset (units, |each| <= 500): returns 1 and the screen place and depth when it is in front of the ship */
@@ -236,7 +236,7 @@ static void list_worlds(void){
 void s3_flush(UINT8 frame) BANKED {                                             /* (in VBlank) the sprites, the background's turn, the twinkle */
     UINT8 i;
     shake_tick();
-    SCX_REG = (UINT8)((((yaw >> 5) * 5) >> 4) + shake_x); SCY_REG = (UINT8)(-(((INT16)(pit16 >> 8) * 5) >> 1) + shake_y);
+    SCX_REG = (UINT8)(-(((yaw >> 5) * 5) >> 4) + shake_x); SCY_REG = (UINT8)(-(((INT16)(pit16 >> 8) * 5) >> 1) + shake_y);
     for(i = 0; i < dn; i++){ set_sprite_tile(i, dl_t[i]); set_sprite_prop(i, dl_p[i]); move_sprite(i, dl_x[i], dl_y[i]); }
     for(; i < prev_dn; i++) move_sprite(i, 0, 0);
     prev_dn = dn;

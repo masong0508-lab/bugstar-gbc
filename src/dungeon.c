@@ -216,10 +216,13 @@ static void spell_hit(Mon *m, UINT8 p){                            /* a spell hu
     m->hp -= p; m->flash = 12; fx_add(m->x, m->y - 18, p, 2);
     if(!m->hp){ m->alive = 0; sfx(SFX_DIE); fx_add(m->x - 8, m->y - 10, 255, m->kind); kill_pay(m); }
 }
+static UINT8 portal_go;
 static void cast(void){
-    UINT8 s = EX_SPELL & 3, i;
+    UINT8 s = EX_SPELL & 7, i;
+    if(s > 4) s = EX_SPELL &= 0x80;
+    if(s == 4 && (hell || pit)){ sfx(SFX_BACK); dlg_say(0, "THE PORTAL FIZZLES HERE."); return; }
     if(!spell_pay(s)) return;
-    if(s > 1){ if(s == 3) inv = 250; return; }
+    if(s > 1){ if(s == 3) inv = 250; if(s == 4){ portal_set(depth); portal_go = 1; dlg_say(0, "A PORTAL OPENS! THE DOOR WILL TAKE YOU BACK TO THIS FLOOR."); } return; }
     sfx(SFX_FIRE); shake(6);
     for(i = 0; i < NMON; i++){
         Mon *m = &mon[i]; UINT8 d;
@@ -401,9 +404,9 @@ static int play_floor(void){                                       /* returns DG
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! B+SELECT DRINKS IT."); } }
         if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
-        if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 3); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 3, b); dlg_say(0, b); } }
+        if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 7); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 7, b); dlg_say(0, b); } }
         else if(HIT(J_SELECT) && (k & J_DOWN)){ char lb[28]; loot_eat(lb); dlg_say(0, lb); }
-        else if(HIT(J_SELECT) && !(k & J_B)) cast();
+        else if(HIT(J_SELECT) && !(k & J_B)){ cast(); if(portal_go) return DG_EXIT; }
         else if(HIT(J_SELECT)){
             if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
@@ -433,7 +436,8 @@ int dungeon_run(void) BANKED {
     int r;
     kind = world_kind(world_seed(sv.star));
     floors = 3 + (sv.zone > 3 ? 3 : sv.zone);
-    depth = 1; inv = 0; atk = 0; face = 3;
+    depth = 1; inv = 0; atk = 0; face = 3; portal_go = 0;
+    { UINT8 pf = portal_take(); if(pf && pf <= floors) depth = pf; }
 #ifdef TEST_LAB
     depth = 2;
 #endif
@@ -448,7 +452,7 @@ int dungeon_run(void) BANKED {
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
     if(r == DG_FAINT){ if(opt.diff && opt.faint) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT OF YOUR POCKETS."); }
     else if(r == DG_WIN) dungeon_won(kind);
-    else if(r == DG_EXIT) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
+    else if(r == DG_EXIT && !portal_go) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     feats_check();
     return r;
 }
