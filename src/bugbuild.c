@@ -6,6 +6,7 @@
 
 /* ---- the picture */
 BugSet bug_set;
+typedef char bug_tiles_size_check[(BUG_MAXCELL == 11 && BUG_FRAMES == 2) ? 1 : -1];   /* BUG_TILE in wram.h assumes 2 x 11 x 32 */
 #define bpx WRAM_AT(WRAM_BPX, UINT8)                     /* the canvas, BUG_BW x BUG_BH (wram.h) */
 #define PX(x, y) bpx[(UINT16)(y) * BUG_BW + (x)]
 #define HEAD_UP 1                                  /* the head sits level with the shell: its oval (rows 0..9 of its cell) is centred on the body */
@@ -150,7 +151,7 @@ static UINT8 mini_px(UINT8 mx, UINT8 my, UINT8 hc, UINT8 *reg){
 }
 static void mini_cut(UINT8 f, UINT8 hc, UINT8 *used){
     UINT8 mx, my, v, r, c, cx, row, *t, bw = hc * 4;
-    for(c = 0; c < BUG_MAXCELL; c++) memset(bug_set.tiles[f][c], 0, 32);
+    wram_bank(WB_BUGTILES); for(c = 0; c < BUG_MAXCELL; c++) memset(BUG_TILE(f, c), 0, 32); wram_bank(1);
     for(my = 0; my < 17; my++) for(mx = 0; mx < bw + 4; mx++){
         v = mini_px(mx, my, hc, &r);
         if(!v) continue;
@@ -158,8 +159,9 @@ static void mini_cut(UINT8 f, UINT8 hc, UINT8 *used){
         else { c = (r == 3 ? 0 : 4) + (mx >> 3); cx = mx & 7; }
         row = r == 3 ? my + 8 : r == 2 ? my + 7 : my - 8;
         if(row > 15) continue;
-        t = bug_set.tiles[f][c] + row * 2;
+        wram_bank(WB_BUGTILES); t = BUG_TILE(f, c) + row * 2;      /* the canvas (bank 1) is read above, the tiles (bank 5) written here */
         t[0] |= (v & 1) << (7 - cx); t[1] |= (v >> 1) << (7 - cx);
+        wram_bank(1);
         used[c] = 1;
     }
 }

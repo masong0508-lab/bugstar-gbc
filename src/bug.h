@@ -71,8 +71,7 @@ typedef struct {
     UINT8  n;                                                /* sprites in use */
     UINT8  w;                                                /* canvas width in pixels (16 + the tail's 8 + head 8 + shell) */
     BugSpr s[BUG_MAXCELL];
-    UINT8  tiles[BUG_FRAMES][BUG_MAXCELL][32];               /* one 8x16 sprite (two tiles) per cell and frame */
-} BugSet;
+} BugSet;                                                    /* the sprite tiles (one 8x16 sprite = 32 bytes per cell and frame) are BUG_TILE(f, c) in WRAM bank 5, see wram.h */
 extern BugSet bug_set;
 void   bug_build(const BugLook *l) BANKED;                          /* draw both frames, cut them into bug_set */
 void   bug_palettes(const BugLook *l, UINT16 *out16) BANKED;        /* 4 palettes x 4 colours (entry 0 of each is clear) */

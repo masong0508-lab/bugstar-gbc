@@ -73,6 +73,10 @@ Each step ends with a ROM that boots in an emulator.
 - WRAM: the stack now tops out at D000 (-Wl-g.STACK=0xD000), so D000-DFFF is free: the big buffers (bug canvas, fade copies,
   dungeon map, stars) sit there at fixed addresses (src/wram.h). The variables in C000-CFFF went from 5.6 KB to 2.2 KB,
   leaving ~1.9 KB for the stack, and WRAM banks 2..7 (24 KB) are untouched, for later.
+- RAM, second pass: the bug's cut sprite tiles (bug_set.tiles, 704 bytes) are only written by bug_build and read once to upload to VRAM, so they now live in WRAM bank 5
+  (BUG_TILE(f, c) in src/wram.h, bank WB_BUGTILES; bugbuild.c and bugspr.c switch to it for the writes / the upload and back to 1). Variables in C000-CFFF end at 0xCA16 (was 0xCCD6): the stack has 1514 bytes (was 810).
+  tools/ram_report.py reads the linker's three-per-row map again. Next candidates (scene-only state, each needs a check that nothing in an interrupt or in text/WRAM_TXT code reads it with another bank selected):
+  space3d (518 bytes of pir/bolt/orb/pod/dust), dungeon (rooms/mon/fxs, 252), warp (154), space_foe (118). Not kart: its road ISR reads bend/tab. WRAM bank 6 is still free.
 - Code: space.c split into space.c (bank 6) and space_foe.c (bank 10), sharing state through space_int.h.
 - Build: one object per file in build/ (make -j2, only what changed is rebuilt; a full build went from ~8 to ~2.5 minutes).
   Test builds: make DEFS="-DTEST_SPACE" BUILD=build_t OUT=test.gbc

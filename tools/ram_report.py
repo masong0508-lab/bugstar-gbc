@@ -5,10 +5,12 @@ import re, sys
 try:
     t = open(sys.argv[1]).read()
     syms = {}
-    for m in re.finditer(r'^\s+([0-9A-F]{8})\s+(\S+)\s*(\S*)\s*$', t, re.M):
-        a = int(m.group(1), 16); n = m.group(2)
-        if 0xC000 <= a < 0xD000 and not n.startswith(('s__', 'l__', '.')) and n not in ('__start', '__end'):
-            syms.setdefault(a, (n, m.group(3)))
+    # the linker prints three "ADDRESS  name" pairs per row, separated by "|" (names are cut to about 9 letters)
+    for line in t.split("\n"):
+        for m in re.finditer(r'([0-9A-F]{8})\s+(\S+)', line):
+            a = int(m.group(1), 16); n = m.group(2)
+            if 0xC000 <= a < 0xD000 and not n.startswith(('s__', 'l__', '.')) and n not in ('__start', '__end'):
+                syms.setdefault(a, (n, ''))
     end = None
     m = re.search(r'([0-9A-F]{8})\s+s__HEAP_E', t)
     if m: end = int(m.group(1), 16)

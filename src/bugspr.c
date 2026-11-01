@@ -1,6 +1,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include "bugspr.h"
+#include "wram.h"
 
 void bugspr_colors(const BugLook *l){
     UINT16 p[16];
@@ -12,8 +13,10 @@ void bugspr_load(const BugLook *l){
     bug_build(l);
     SPRITES_8x16;
     VBK_REG = VBK_BANK_0;
+    wram_bank(WB_BUGTILES);
     for(f = 0; f < BUG_FRAMES; f++)
-        set_sprite_data(BUGSPR_TILE0 + f * BUG_MAXCELL * 2, BUG_MAXCELL * 2, bug_set.tiles[f][0]);
+        set_sprite_data(BUGSPR_TILE0 + f * BUG_MAXCELL * 2, BUG_MAXCELL * 2, BUG_TILE(f, 0));
+    wram_bank(1);
     bugspr_colors(l);
 }
 UINT8 bugspr_w(void){ return bug_set.w; }
