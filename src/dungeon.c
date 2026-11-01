@@ -28,109 +28,31 @@
 #include "feat.h"
 #include "wild.h"
 
-#define DW        32               /* the floor is DW x DW metatiles */
-#define NROOM     8
-#define NMON      10
-#define VIEW_W    11
-#define VIEW_H    9
-#define BUG_SX    80               /* the screen spot the camera keeps the bug's feet near */
-#define BUG_SY    72
-#define MON_TILE0 64               /* monster sprite tiles live in VRAM bank 1 from here */
-#define OAM_BITE  0                /* 0,1: the bite flash. 4..14: the bug. 16..39: monsters */
-#define OAM_MON0  16
+#include "dungeon_int.h"
 
-enum { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_QUEEN };
-typedef struct { UINT16 x, y; UINT8 kind, hp, cool, flash, frame, alive; INT8 kx, ky; UINT8 st, t; INT8 lx, ly; } Mon;
-/* st/t: spiders crouch (st 1, they blink) then lunge (st 2); a slime with st 9 is a small one that will not split again;
-   the queen counts t up to calling her spiderlings */
-typedef struct { UINT8 x, y, w, h; } Room;
-
-#define dmap WRAM_AT(WRAM_DMAP, UINT8)                  /* DW x DW (wram.h) */
-static Room   rooms[NROOM]; static UINT8 nrooms;
-static Mon    mon[NMON];
+Room   rooms[NROOM]; UINT8 nrooms;
+Mon    mon[NMON];
 typedef struct { UINT16 x, y; UINT8 t, n, pal; } Fx;              /* a burst (n = 255) or a damage number rising, t frames left */
 #define NFX 4
 static Fx     fxs[NFX];
-static UINT8  depth, floors, kind, inv, atk, face, frame, step;
-static UINT8  hell;
-static UINT8  pit, pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
+UINT8  depth, floors, kind; static UINT8 inv, atk, face, frame, step;
+UINT8  hell, pit;
+static UINT8  pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
 static const UINT8 qbrood[6] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, K_WASP };   /* what each kind of queen calls */
-static UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
+UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
 static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
-static UINT16 bx, by, cam_x, cam_y, rng;
-static UINT8 dn_x = 255, dn_y;   /* the way down (metatile), for the STAIRS HINT in the HUD; 255 = none on this floor */
+UINT16 bx, by, rng; static UINT16 cam_x, cam_y;
+UINT8 dn_x = 255, dn_y;   /* the way down (metatile), for the STAIRS HINT in the HUD; 255 = none on this floor */
 static UINT8  left_mt, top_mt;
 
 static UINT8 rnd8(void){ rng ^= rng << 7; rng ^= rng >> 9; rng ^= rng << 8; return (UINT8)rng; }
 static UINT8 rndn(UINT8 n){ return n ? (UINT8)(((UINT16)rnd8() * n) >> 8) : 0; }
-#define DM(x, y) dmap[((y) & 31) * DW + ((x) & 31)]
 static const UINT8 solid_tab[DG_NMT] = { 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0 };   /* by tile: wall, face, cage, chest, opened chest and freed cage stop you */
 #define solid_mt(t) solid_tab[t]
 /* (x >> 4 done as (x >> 1) >> 3 on a byte, and the row as a mask and one shift: 16-bit shifts by 4 are slow on this CPU, and this runs for every step of every monster) */
 static UINT8 ground_at(UINT16 x, UINT16 y){ if((x | y) >= DW * 16) return D_WALL; return dmap[(UINT16)((y & 0x1F0) << 1) + (UINT8)(((UINT8)(x >> 1)) >> 3)]; }
 
-/* ------------------------------------------------------------ making a floor */
-static void carve(UINT8 x, UINT8 y){ if(x > 0 && y > 0 && x < DW - 1 && y < DW - 1 && (DM(x, y) == D_WALL)) DM(x, y) = (rnd8() & 3) ? D_FLOOR : D_FLOOR2; }
-static void make_floor(void){
-    UINT8 i, t, x, y, a, b;
-    rng = (UINT16)world_seed(sv.star) ^ ((UINT16)depth * 0x3C1Bu) ^ ((UINT16)sv.zone << 11) ^ 0x2B7Du; if(!rng) rng = 1;
-    memset(dmap, D_WALL, DW * DW);
-    nrooms = 0;
-    lab = !pit && depth > 1 && depth < floors && !(rnd8() & 3);
-#ifdef TEST_LAB
-    lab = !pit;
-#endif
-    if(lab){ lab_make(dmap, (UINT8 *)rooms, rng, D_WALL, D_FLOOR, D_FLOOR2); nrooms = 5; }
-    if(pit){ Room *r = &rooms[0]; r->x = 8; r->y = 9; r->w = 16; r->h = 13; nrooms = 1; for(y = r->y; y < r->y + r->h; y++) for(x = r->x; x < r->x + r->w; x++) carve(x, y); }
-    for(t = 0; !pit && !lab && t < 60 && nrooms < NROOM; t++){                    /* rooms: place them where they do not touch */
-        Room r; UINT8 ok = 1;
-        r.w = 4 + rndn(5); r.h = 4 + rndn(4); r.x = 1 + rndn(DW - 2 - r.w); r.y = 2 + rndn(DW - 3 - r.h);
-        for(i = 0; i < nrooms && ok; i++){ Room *o = &rooms[i];
-            if(r.x < o->x + o->w + 2 && o->x < r.x + r.w + 2 && r.y < o->y + o->h + 2 && o->y < r.y + r.h + 2) ok = 0; }
-        if(!ok) continue;
-        rooms[nrooms++] = r;
-        for(y = r.y; y < r.y + r.h; y++) for(x = r.x; x < r.x + r.w; x++) carve(x, y);
-    }
-    for(i = 1; !pit && !lab && i < nrooms; i++){                         /* corridors: each room to the one before, an L shape */
-        UINT8 x0 = rooms[i - 1].x + rooms[i - 1].w / 2, y0 = rooms[i - 1].y + rooms[i - 1].h / 2, x1 = rooms[i].x + rooms[i].w / 2, y1 = rooms[i].y + rooms[i].h / 2;
-        a = x0 < x1 ? x0 : x1; b = x0 < x1 ? x1 : x0; for(x = a; x <= b; x++) carve(x, y0);
-        a = y0 < y1 ? y0 : y1; b = y0 < y1 ? y1 : y0; for(y = a; y <= b; y++) carve(x1, y);
-    }
-    for(y = DW - 2; y > 0; y--) for(x = 0; x < DW; x++)           /* a wall with floor below shows its face */
-        if(DM(x, y) == D_WALL && (DM(x, y + 1) == D_FLOOR || DM(x, y + 1) == D_FLOOR2)) DM(x, y) = D_FACE;
-    { Room *r = &rooms[0]; DM(r->x + r->w / 2, r->y + 1) = D_UP; bx = ((UINT16)(r->x + r->w / 2) << 4) + 8; by = ((UINT16)(r->y + 3) << 4) - 2; }
-    dn_x = 255;
-    evt = (pit || depth == floors) ? 0 : lab ? 7 : ev_roll(depth);
-    if(pit){ memset(mon, 0, sizeof mon); return; }
-    { Room *r = &rooms[nrooms - 1];
-      if(depth < floors){ dn_x = r->x + r->w / 2; dn_y = r->y + r->h / 2; DM(dn_x, dn_y) = D_DOWN; }
-      else DM(r->x + r->w / 2, r->y + 1) = D_CAGE; }               /* the last floor: a caged friend, guarded */
-    for(i = 1; i < nrooms; i++){                                  /* chests and potions */
-        Room *r = &rooms[i];
-        if(evt == 1 || rndn(3) == 0){ x = r->x + 1 + rndn(r->w - 2); y = r->y + 1 + rndn(r->h - 2); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_CHEST; }
-        if(rndn(5) == 0){ x = r->x + rndn(r->w); y = r->y + rndn(r->h); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_POTION; }
-    }
-    memset(mon, 0, sizeof mon);                                    /* monsters: in every room but the first */
-    for(i = 0, t = 0; t < 40 && i < NMON; t++){
-        Room *r = &rooms[1 + rndn(nrooms - 1)]; Mon *m = &mon[i];
-        UINT8 k = rndn(depth + 1 > 4 ? 4 : depth + 1);
-        x = r->x + rndn(r->w); y = r->y + rndn(r->h);
-        if(DM(x, y) != D_FLOOR && DM(x, y) != D_FLOOR2) continue;
-        m->x = ((UINT16)x << 4) + 8; m->y = ((UINT16)y << 4) + 12; m->kind = k; m->alive = 1;
-        m->hp = (k == K_BEETLE ? 8 : k == K_WASP ? 3 : k == K_SLIME ? 5 : 4) + depth * 2 + sv.zone * 3;
-        if(evt == 5) m->hp += m->hp / 2;
-        if(hell) m->hp = hell_hp(m->hp);
-        m->hp = bst_hp(m->hp, k, kind);
-        i++;
-        if(i >= (UINT8)(4 + depth * 2 + (evt == 3 ? 3 : 0) - (evt == 6 ? 3 : 0))) break;
-    }
-    if(depth == floors && nrooms > 1){                             /* the queen waits by the cage */
-        Room *r = &rooms[nrooms - 1]; Mon *m = &mon[NMON - 1];
-        memset(m, 0, sizeof *m); m->kind = K_QUEEN; m->alive = 1; m->x = ((UINT16)(r->x + r->w / 2) << 4) + 8; m->y = ((UINT16)(r->y + r->h / 2 + 1) << 4) + 8;
-        m->hp = sv.zone >= 8 ? 250 : 40 + sv.zone * 25;
-    }
-}
-
+/* making a floor: dungeon_gen.c (bank 37) */
 /* ------------------------------------------------------------ drawing */
 /* Walls and floors are blended like the planet's ground (dungeon_art.h): a quarter whose cell and three neighbours are not all
    the same (wall or floor) is a blend tile, flipped to face its corner, so rooms get rounded corners with a shadow along the wall. */
@@ -420,7 +342,7 @@ static UINT8 pit_tick(void){                                        /* the next 
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
     { UINT8 i; for(i = 0; i < NFX; i++) fxs[i].t = 0; }
-    fade_out(); DISPLAY_OFF; make_floor(); enter_gfx(); hud_init(); music(depth == floors || pit ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
+    fade_out(); DISPLAY_OFF; dg_make_floor(); enter_gfx(); hud_init(); music(depth == floors || pit ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
     show_bug(); fade_in();
     if(depth == floors && !pit) banner(BN_QUEEN);
     if(depth > sv.deepest) sv.deepest = depth;

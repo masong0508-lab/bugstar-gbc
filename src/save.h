@@ -60,6 +60,7 @@ typedef struct {                 /* what comes after the slot (SRAM offset 256 o
     UINT32 sum;
 } Extra;
 extern Extra ex;
+void sv_sanitize(Save *s) BANKED;        /* save_guard.c (bank 38): clamp every field of a loaded save into its range */
 
 typedef struct {                 /* options, same set as the GBA game */
     UINT8 music;                 /* 0 off, 1 low, 2 full */

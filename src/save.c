@@ -148,6 +148,7 @@ UINT8 slot_peek(UINT8 slot, Save *out){
 UINT8 slot_read(UINT8 slot){
     Save t;
     if(!slot_peek(slot, &t)) return 0;
+    sv_sanitize(&t);
     sv = t;
     sram_read_at(slot, EX_OFF, &ex, sizeof ex);
     if(ex.magic != EX_MAGIC || ex.sum != fnv(&ex, sizeof ex - 4)) memset(&ex, 0, sizeof ex);
