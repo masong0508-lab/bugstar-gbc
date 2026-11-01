@@ -439,7 +439,7 @@ static int play_floor(void){                                       /* returns DG
             if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
-        if(!((UINT8)frames32() & 127)) loot_regen();
+        if(!((UINT8)frames32() & 127) && loot_regen()) dlg_say(0, "YOUR BELLY RUMBLES. EAT! (SELECT+DOWN)");
         wait_vbl_done();
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
         show_bug(); show_mons(); show_bite(); pet_push(bx, by); { UINT8 po[3]; po[0] = 2; po[1] = 3; po[2] = 15; pet_draw(po, cam_x, cam_y, 0); }

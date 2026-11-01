@@ -69,7 +69,19 @@ UINT8 loot_bite(void) BANKED { UINT8 e; ensure(); e = wearing(0); return e < 6 ?
 UINT8 loot_armor(void) BANKED { UINT8 e, a = 0; ensure(); e = wearing(1); if(e < 5) a = pw[A0 + e]; if(wearing(2) == 3) a++; return a; }
 UINT16 loot_clover(UINT16 g) BANKED { ensure(); return wearing(2) == 0 ? g * 15 / 100 : 0; }
 UINT8 loot_xp(UINT8 x) BANKED { ensure(); return wearing(2) == 2 ? (x >> 2) + 1 : 0; }
-void loot_regen(void) BANKED { UINT16 mx; ensure(); if(wearing(2) != 1) return; mx = hud_hpmax(sv.level); if(sv.hp && sv.hp < mx) sv.hp += 1 + mx / 40; if(sv.hp > mx) sv.hp = mx; }
+#define HUNGRY_AT 120                                      /* ticks of ~2 s: about 4 minutes in a dungeon, then 1 HP every 4 s until you eat (never to 0) */
+static UINT8 hg;                                           /* hunger: not saved, starts full each time the game is loaded */
+static void fed(UINT8 n){ hg = hg > n ? hg - n : 0; }
+UINT8 loot_regen(void) BANKED {
+    UINT16 mx = hud_hpmax(sv.level); UINT8 ret = 0; ensure();
+    if(wearing(2) == 1 && sv.hp && sv.hp < mx){ sv.hp += 1 + mx / 40; if(sv.hp > mx) sv.hp = mx; }
+    if(opt.hunger && sv.hp){
+        if(hg < 255) hg++;
+        if(hg == HUNGRY_AT) ret = 1;
+        if(hg > HUNGRY_AT && !(hg & 1) && sv.hp > 1) sv.hp--;
+    }
+    return ret;
+}
 
 /* what falls where: depth 1..6 */
 UINT8 loot_chest(UINT8 depth, char *msg) BANKED {
@@ -106,7 +118,8 @@ static UINT8 use(UINT8 i, char *msg){                      /* 1 if it was used u
     if(i == L_ELIXIR){ if(sv.hp >= mx && sv.mp >= mm){ scat(msg, "ALL FULL"); return 0; } sv.hp = mx; sv.mp = mm; (*slot(i))--; sfx(SFX_FANFARE); scat(msg, "FULL HP AND MANA!"); bag_save(); return 1; }
     if(i == L_POTION){ if(!heal(mx / 2 + mx / 20 * UPG(SK_VIGOR))){ scat(msg, "HP IS FULL"); return 0; } sv.potions--; sfx(SFX_SPARK); scat(msg, "GLUG GLUG. BETTER."); return 1; }
     if(i >= L_BERRY && i <= L_JELLY){
-        if(!heal(i == L_BERRY ? mx / 8 + 3 : i == L_CAKE ? mx / 3 : i == L_STEW ? mx / 5 * 3 : i == L_NECTAR ? mx / 2 : mx)){ scat(msg, "HP IS FULL"); return 0; }
+        if(!heal(i == L_BERRY ? mx / 8 + 3 : i == L_CAKE ? mx / 3 : i == L_STEW ? mx / 5 * 3 : i == L_NECTAR ? mx / 2 : mx) && !(opt.hunger && hg >= 30)){ scat(msg, "HP IS FULL"); return 0; }
+        fed(i == L_BERRY ? 60 : i == L_CAKE ? 120 : 255);
         if(i == L_NECTAR){ sv.mp = sv.mp + mm / 4 > mm ? mm : sv.mp + mm / 4; }
         (*slot(i))--; sfx(SFX_SPARK); scat(msg, "YUM!"); bag_save(); return 1;
     }
@@ -114,7 +127,7 @@ static UINT8 use(UINT8 i, char *msg){                      /* 1 if it was used u
 }
 UINT8 loot_eat(char *msg) BANKED {
     UINT8 i; ensure(); msg[0] = 0;
-    if(sv.hp >= hud_hpmax(sv.level)){ scat(msg, "NOT HUNGRY (HP FULL)"); return 0; }
+    if(sv.hp >= hud_hpmax(sv.level) && !(opt.hunger && hg >= 30)){ scat(msg, "NOT HUNGRY (HP FULL)"); return 0; }
     for(i = L_BERRY; i <= L_STEW; i++) if(have(i)) return use(i, msg);
     scat(msg, "NO FOOD IN THE BAG"); return 0;
 }
@@ -143,6 +156,7 @@ static void draw(UINT8 mode, UINT8 n, UINT8 cur, UINT8 top, const char *msg){
     if(!n){ put("NOTHING IN THE BAG", 1, 4, TXT_GREY); put("OPEN CHESTS, BITE BUGS,", 1, 5, TXT_GREY); put("SHOOT PIRATES.", 1, 6, TXT_GREY); }
     put(n ? ds[list[cur]] : "", 1, 13, TXT_WHITE);
     put(msg ? msg : "", 1, 14, TXT_GOLD);
+    if(!mode && opt.hunger){ put(hg >= HUNGRY_AT ? "BELLY: STARVING!" : hg >= 80 ? "BELLY: HUNGRY" : hg >= 30 ? "BELLY: PECKISH" : "BELLY: FULL", 1, 15, hg >= HUNGRY_AT ? TXT_RED : TXT_GREY); }
     put(mode ? "A:SELL ONE SEL:ALL" : "SELECT+DOWN EATS", 1, 16, TXT_GREY);
     txt_win(0);
 }
