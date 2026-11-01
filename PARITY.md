@@ -12,6 +12,9 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
   `tools/make_bolt.py` (`src/bolt_data.h`).
 - **Rumble** (new in this pass): rumble cartridge type (0x1E), the GBA's pattern engine (19 patterns, strength, event filter, engine
   hum), OPTIONS rows RUMBLE / RUMBLE EVENTS / RUMBLE HUM. Motor is held off while the cartridge RAM is open (saves can never leave it on).
+- **Town places** (boot-tested in the emulator): MARKET (buy and sell the 8 goods at the town's prices), BOUNTY OFFICE (a job paid the moment it is done),
+  CANTINA (soup, 24 rumours plus true tips, a round for fame, arm wrestling), RACE POST (a quick kart race for an entry fee). The quest board has the GBA's 8 kinds.
+  The **PORTAL spell** (level 10, 7 MP) keeps the floor you cast it on; the next door down on that world opens on it (checked: cast on floor 3, the door reopened on floor 3).
 - Bug creator: 16 parts (length, shape, finish, pattern, eyes, mouth, antennae, legs, feet, horn, wings, tail, hat, cheeks, collar, back),
   8 colours, 18 presets, lock row, matching colours, surprise me, undo, RGB mixer, name entry.
 - Planets: 6 kinds of world, towns/cities, shops, the ship menu (GO / SHOP / CARE / YOU), berries, fishing, weird worlds with marks,
@@ -38,7 +41,7 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Tabbed hangar-style creators for bug and humanoid; ornaments; the deeper anchored wings/horns/hats/tails. (The GBC creator already has wings, horns, hats and tails as parts; the GBA's new anchoring and ornaments are not in.)
 - Humanoid form, humanoid CALLINGS (outfit perks) and creature shapes. The GBC has no humanoid form at all, so callings have nothing to attach to.
 - The new MARKET screen layout (the GBC market works, the GBA's new screen is not copied).
-- Bounty office, cantina gossip, race post, ruins that ask riddles, the PORTAL spell, quest board's 8 kinds, Tech Hive campaign.
+- Ruins that ask riddles, the Tech Hive campaign.
 - Landable asteroids, hollow-rock mines, mine hazards, megadeposits, ore grade stacks, ship parts at a smelter, SCAN of the richest vein.
 - Keycard/locked-door outposts and power cores; the kart garage's 16 bodies and track maker; kart camera settings.
 - IDENTIFY and WORKBENCH (SELL and buy-back are in the loot screen).

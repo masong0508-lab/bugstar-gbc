@@ -98,7 +98,7 @@ static void bounty(UINT8 tier, UINT16 th){
         if(have){ UINT16 so = cnt(t, &x), bs = w16(x.bq); d = u16s(scat(b, "SO FAR "), so > bs ? so - bs : 0); d = u16s(scat(d, "/"), n); *d = 0; line(7, b, TXT_WHITE); }
         d = u16s(scat(b, "PAYS "), pay); scat(d, "G AND FAME"); line(9, b, TXT_GOLD);
         d = u16s(scat(b, "DONE BEFORE: "), x.bdone); *d = 0; line(11, b, TXT_GREY);
-        line(13, m ? m : "PAID THE MOMENT IT IS DONE", m ? mp : TXT_GREY);
+        line(13, m ? m : "PAID WHEN DONE", m ? mp : TXT_GREY);
         if(m && w[0]) line(14, w, TXT_GOLD);
         line(16, have ? "SEL: DROP  B: BACK" : "A: TAKE  B: BACK", TXT_GREY);
         m = 0; mp = TXT_GREY; w[0] = 0; l1[0] = 0;
@@ -165,15 +165,15 @@ static void gossip(char (*g)[20]){                                   /* one rumo
     }
 }
 static void cantina(UINT8 tier, UINT16 th){
-    static const char *const it[4] = { "A BOWL OF SOUP", "LISTEN FOR GOSSIP", "BUY A ROUND  40G", "ARM WRESTLE  20G" };
+    static const char *const it[4] = { "BOWL OF SOUP", "LISTEN FOR GOSSIP", "BUY A ROUND  40G", "ARM WRESTLE  20G" };
     UINT8 sel = 0, i; UINT16 soup = 5 + 2 * (UINT16)tier; char b[24], *d, gl[3][20]; const char *m = 0; UINT8 mp = TXT_GREY;
     seed_rs(th); gl[0][0] = 0;
     for(;;){
         page("CANTINA");
-        for(i = 0; i < 4; i++){ d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, it[i]); if(i == 0) u16s(scat(d, "  "), soup); line(10 + i, b, i == sel ? TXT_GOLD : TXT_WHITE); }
+        for(i = 0; i < 4; i++){ d = scat(b, i == sel ? S_CURSOR : " "); d = scat(d, it[i]); if(i == 0) u16s(scat(d, " "), soup); line(10 + i, b, i == sel ? TXT_GOLD : TXT_WHITE); }
         if(m) line(5, m, mp);
         else if(gl[0][0]){ line(5, gl[0], TXT_WHITE); line(6, gl[1], TXT_WHITE); line(7, gl[2], TXT_WHITE); }
-        else { line(5, "IT IS WARM IN HERE.", TXT_GREY); line(6, "THE BARTENDER IS A", TXT_GREY); line(7, "VERY LARGE BEETLE.", TXT_GREY); }
+        else { line(5, "IT IS WARM IN HERE", TXT_GREY); line(6, "THE BARTENDER IS A", TXT_GREY); line(7, "VERY LARGE BEETLE.", TXT_GREY); }
         line(15, "A: DO IT  B: BACK", TXT_GREY);
         m = 0; gl[0][0] = 0;
         for(;;){
@@ -189,13 +189,13 @@ static void cantina(UINT8 tier, UINT16 th){
                 } else if(sel == 1){ gossip(gl); sfx(SFX_OK); }
                 else if(sel == 2){
                     if(sv.gold < 40){ m = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
-                    else { sv.gold -= 40; fame_add(2); unlocks_update(); m = "THE CROWD CHEERS! +2 FAME"; mp = TXT_GOLD; sfx(SFX_FANFARE); }
+                    else { sv.gold -= 40; fame_add(2); unlocks_update(); m = "CHEERS! +2 FAME"; mp = TXT_GOLD; sfx(SFX_FANFARE); }
                 } else {
                     if(sv.gold < 20){ m = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
                     else {
                         UINT8 pct = 35 + 4 * UPG(SK_MIGHT); if(pct > 85) pct = 85;
                         if((rnd() % 100) < pct){ sv.gold += 30; gain_xp(2 + sv.level / 2); m = "YOU WIN! +30 GOLD"; mp = TXT_GOLD; sfx(SFX_FANFARE); }
-                        else { sv.gold -= 20; m = "THE BEETLE WINS. -20G"; sfx(SFX_HURT); }
+                        else { sv.gold -= 20; m = "BEETLE WINS! -20G"; sfx(SFX_HURT); }
                     }
                 }
                 break;
@@ -227,8 +227,8 @@ static void racepost(UINT8 tier, UINT16 th){
                 if(place == 1){
                     UINT16 g = LUCKY(60 + 10 * (UINT16)tier);
                     xa_get(&x); if(x.race < 255) x.race++; xa_put(&x);
-                    sv.gold += g; fame_add(3); unlocks_update(); mp = TXT_GOLD; m = "YOU WON! BONUS PAID"; sfx(SFX_FANFARE);
-                } else if(place){ m = "NOT FIRST. TRY AGAIN"; }
+                    sv.gold += g; fame_add(3); unlocks_update(); mp = TXT_GOLD; m = "YOU WON! PAID!"; sfx(SFX_FANFARE);
+                } else if(place){ m = "NOT FIRST. AGAIN?"; }
                 else m = "YOU LEFT THE RACE";
                 trk = (trk + 1) % 3;
                 break;
@@ -252,7 +252,7 @@ static void market(UINT8 tier){
         }
         d = u16s(scat(b, "SELL "), econ_sell(sv.star, kind, sel)); d = u16s(scat(d, "  BUY "), econ_price(sv.star, kind, sel)); line(14, b, TXT_GOLD);
         d = u16s(scat(b, "HOLD "), econ_load()); d = u16s(scat(d, "/"), HOLD_CAP()); line(15, b, TXT_GREY);
-        line(16, m ? m : "A:SELL ALL L:-1 R:BUY", m ? mp : TXT_GREY);
+        line(16, m ? m : "A:ALL L:ONE R:BUY", m ? mp : TXT_GREY);
         m = 0; mp = TXT_GREY; left = 0;
         for(;;){
             wait_vbl_done(); input_poll();

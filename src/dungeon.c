@@ -437,6 +437,9 @@ int dungeon_run(void) BANKED {
     kind = world_kind(world_seed(sv.star));
     floors = 3 + (sv.zone > 3 ? 3 : sv.zone);
     depth = 1; inv = 0; atk = 0; face = 3; portal_go = 0;
+#ifdef TEST_DEPTH
+    { static UINT8 once; if(!once){ once = 1; depth = TEST_DEPTH; } }                 /* (test builds: the first run starts deep; later runs open where the PORTAL spell says) */
+#endif
     { UINT8 pf = portal_take(); if(pf && pf <= floors) depth = pf; }
 #ifdef TEST_LAB
     depth = 2;
