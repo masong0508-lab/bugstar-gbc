@@ -319,7 +319,7 @@ static void scene(void){
           else if(dz < 48){ put_obj(n, rk2 ? KU_ROCK1 : KU_TREE1, 2, 1, rk2, x, y); n += 2; }
           else { put_obj(n, rk2 ? KU_ROCK0 : KU_TREE0, 1, 1, rk2, x, y); n += 1; } }
       } }
-    hide_from(n);
+    for(; n < 37; n++) shadow_OAM[n].y = 0;                                  /* (slots 37..39 are the jump pad's: hiding them too made the pad never show) */
 }
 
 static void me_draw(INT8 dir){
