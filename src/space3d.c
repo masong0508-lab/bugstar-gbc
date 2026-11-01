@@ -77,9 +77,9 @@ static UINT8 proj(INT16 dx, INT16 dy, INT16 dz, INT16 *sx, INT16 *sy, INT16 *dep
 }
 
 /* ---------------------------------------------------------------- the sprite list */
-static UINT8 ld[20];                                                        /* sprites per 8-line band: the hardware shows only 10 on a line, the rest vanish (that cut planets) */
-static UINT8 band_lo(INT16 y){ return (UINT8)((y < 0 ? 0 : y) >> 3); }
-static UINT8 band_hi(INT16 y){ INT16 h = (y + 15) >> 3; return (UINT8)(h > 19 ? 19 : (h < 0 ? 0 : h)); }
+static UINT8 ld[32];                                                        /* sprites per 4-line band: the hardware shows only 10 on a line, the rest vanish (that cut planets) */
+static UINT8 band_lo(INT16 y){ return y < 0 ? 0 : y > 127 ? 31 : (UINT8)(y >> 2); }
+static UINT8 band_hi(INT16 y){ INT16 h = (y + 15) >> 2; return (UINT8)(h > 31 ? 31 : (h < 0 ? 0 : h)); }
 static void spr(UINT8 tile, INT16 x, INT16 y, UINT8 pal){                  /* x, y: the sprite's top left on the screen */
     UINT8 b, h;
     if(dn >= 40 || x < -7 || x > 159 || y < -15 || y > 119) return;
@@ -90,7 +90,7 @@ static void spr(UINT8 tile, INT16 x, INT16 y, UINT8 pal){                  /* x,
 }
 static UINT8 blit(UINT8 tile, UINT8 cols, UINT8 rows, INT16 cx, INT16 cy, UINT8 pal){     /* cols x rows of 8x16 sprites, middle at (cx, cy) */
     UINT8 r, c;
-    INT16 x0 = cx - cols * 4, y0 = cy - rows * 8;
+    INT16 x0 = cx - cols * 4, y0 = (cy - rows * 8) & (INT16)~3;       /* (rows start on a 4-line band: a picture's rows never share a band, so 6 sprites a row fit) */
     UINT8 k, h;
     if(dn + cols * rows > 40) return 0;
     h = band_hi(y0 + rows * 16 - 16);
@@ -99,6 +99,11 @@ static UINT8 blit(UINT8 tile, UINT8 cols, UINT8 rows, INT16 cx, INT16 cy, UINT8 
     return 1;
 }
 static void dot(UINT8 tile, INT16 cx, INT16 cy, UINT8 pal){ spr(tile, cx - 4, cy - 4, pal); }   /* the picture is in the top 8x8 of its sprite */
+static void dust_dot(INT16 cx, INT16 cy){                                  /* a speck of dust never takes the last places on a line (the worlds drawn after it need them) */
+    UINT8 b, h = band_hi(cy - 4);
+    for(b = band_lo(cy - 4); b <= h; b++) if(ld[b] >= 3) return;
+    spr(TS(DOT1), cx - 4, cy - 4, PAL_MISC);
+}
 
 /* ---------------------------------------------------------------- worlds */
 static UINT8 pal_for(UINT8 kind){                                           /* a planet palette slot (4..7) that holds this kind */
@@ -206,7 +211,7 @@ static void list_things(UINT8 frame){
     for(i = 0; i < NDUST; i++){
         sx = 80 + ((INT16)dust_x[i] * 64) / dust_z[i]; sy = 60 + ((INT16)dust_y[i] * 64) / dust_z[i];
         if(sx < 2 || sx > 156 || sy < 2 || sy > 116){ s3_dust_born(i, 1); continue; }
-        dot(TS(DOT1), sx, sy, PAL_MISC);
+        dust_dot(sx, sy);
     }
 }
 static void draw_cand(Cand *c){
@@ -236,7 +241,7 @@ static void list_worlds(void){
 void s3_flush(UINT8 frame) BANKED {                                             /* (in VBlank) the sprites, the background's turn, the twinkle */
     UINT8 i;
     shake_tick();
-    SCX_REG = (UINT8)(-(((yaw >> 5) * 5) >> 4) + shake_x); SCY_REG = (UINT8)(-(((INT16)(pit16 >> 8) * 5) >> 1) + shake_y);
+    SCX_REG = (UINT8)(-(INT16)((((UINT16)(yaw >> 6)) * 63) >> 7) + shake_x); SCY_REG = (UINT8)(-(pit16 >> 7) + shake_y);   /* the stars turn as fast as the worlds do (80 pixels a radian) */
     for(i = 0; i < dn; i++){ set_sprite_tile(i, dl_t[i]); set_sprite_prop(i, dl_p[i]); move_sprite(i, dl_x[i], dl_y[i]); }
     for(; i < prev_dn; i++) move_sprite(i, 0, 0);
     prev_dn = dn;
@@ -245,7 +250,7 @@ void s3_flush(UINT8 frame) BANKED {                                             
 
 void s3_render(UINT8 frame) BANKED {
     UINT8 q;
-    dn = 0; for(q = 0; q < 20; q++) ld[q] = 0;
+    dn = 0; for(q = 0; q < 32; q++) ld[q] = 0;
     spr(TS(CROSS), 76, 52, PAL_MISC);
     if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); } else target_mark();
     list_things(frame);
