@@ -36,6 +36,7 @@ static void ws_load(void){
     DISABLE_RAM;
     if(ws.magic != WS_MAGIC || ws.seed != sv.seed || ws.sum != fnv(&ws, sizeof ws - 4) || (ws.clr & ~7)) memset(&ws, 0, sizeof ws);
 }
+UINT16 warship_count(UINT8 wins) BANKED { ws_load(); return wins ? ws.wins : ws.tries; }
 void warship_reset(void) BANKED { memset(&ws, 0, sizeof ws); ws_save(); }
 UINT8 warship_info(char *out) BANKED {
     UINT8 n = 0, i; ws_load();

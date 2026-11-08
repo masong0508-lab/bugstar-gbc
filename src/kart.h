@@ -27,6 +27,7 @@ void kart_setup(void) BANKED;
 void kart_gfx(void) BANKED;                           /* (bank 25) the tiles, road map and sprites into video memory */
 void kart_pal0(void) BANKED;
 void kart_ks_save(void) BANKED;
+UINT16 kart_count(UINT8 wins) BANKED;                 /* (bank 25) races run (0) or won (1), all in all */
 void kart_rec_reset(void) BANKED;                     /* (bank 25) forget every kart record (the EXTRAS reset) */
 UINT16 kart_rec(UINT8 kind, UINT8 t, UINT8 rev) BANKED;   /* (bank 25) a record: kind 0 best lap, 1 best race, 2 best time trial (60ths of a second, 0 = none) */
 #define KART_SECS(n) ((n) * 60)

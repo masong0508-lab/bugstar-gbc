@@ -8,5 +8,6 @@
 #define WAR_OPEN (sv.level >= 6)
 void   warship_run(void) BANKED;                  /* the size menu, then the raids */
 UINT8  warship_info(char *out) BANKED;            /* a line for the EXTRAS card ("RAIDS 1/3"); returns how many sizes are beaten */
+UINT16 warship_count(UINT8 wins) BANKED;          /* raids won (1) or flown (0) */
 void   warship_reset(void) BANKED;                /* forget the records (the EXTRAS reset) */
 #endif

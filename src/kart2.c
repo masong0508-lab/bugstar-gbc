@@ -55,6 +55,7 @@ UINT16 kart_rec(UINT8 kind, UINT8 t, UINT8 rev) BANKED {
     UINT8 ri = (rev ? 3 : 0) + (t % 3);
     return kind == 0 ? k2.bl[ri] : kind == 1 ? k2.rt[ri] : k2.tt[ri];
 }
+UINT16 kart_count(UINT8 wins) BANKED { ks_load(); k2_load(); return wins ? k2.wins : k2.races; }
 void kart_rec_reset(void) BANKED { memset(&k2, 0, sizeof k2); k2_save(); }
 
 static const UINT16 prize[4] = { 200, 100, 50, 20 };
