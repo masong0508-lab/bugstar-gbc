@@ -29,3 +29,5 @@ run('skills', s, cont + 'hS:6 w60 D D D D D hA:6 w60 shot [ w40 ] D w5 [ w20 ] h
 run('feats', s, cont + 'hS:6 w60 D D D D D D D hA:6 w60 shot [ w40 ] hB:6 w60 shot')
 run('guide', s, cont + 'hS:6 w60 D D D D D D D D hA:6 w120 shot [ w40 ] hR:3 w10 shot [ w20 ] hR:3 w10 shot hB:6 w80 shot')
 run('extras', s, cont + 'hS:6 w60 D D D D D D hA:6 w120 shot [ w40 ] D w5 shot [ w20 ] hD:30 w5 shot hB:6 w60')
+# BUG HIVE: extras card 12 (twelve steps down), the intro pages, the map idle, the menu idle, a page
+run('hive', s, cont + 'hS:6 w60 D D D D D D hA:6 w120 ' + 'D w4 ' * 12 + 'hA:6 w200 shot A w60 A w60 A w60 shot A w60 shot [ w300 ] hS:6 w60 shot [ w120 ] D w5 A w40 shot [ w120 ] hB:6 w30 hB:6 w30 hB:6 w30 shot')

@@ -4,7 +4,7 @@ LCC = $(GBDK_HOME)/bin/lcc
 # -Wm-yC: GBC only. -Wm-yt0x1E: MBC5+RUMBLE+RAM+BATTERY. -Wm-yo512: 512 ROM banks = 8 MB, the most MBC5 can do. -Wm-ya4: 32K SRAM
 # (GBDK banked calls reach banks 1..255; banks 256..511 are for data, switched with SWITCH_ROM_MBC5_8M)
 # -Wl-g.STACK=0xD000: the stack tops out at D000, so all of WRAM D000-DFFF (7 banks) is free for big buffers (src/wram.h)
-FLAGS = -Wm-yC -Wm-yt0x1E -Wm-yo512 -Wm-ya4 -Wm-yn"BUGSTAR" -Wl-g.STACK=0xD000
+FLAGS = -Wm-yC -Wm-yt0x1E -Wm-yo512 -Wm-ya4 -Wm-yn"BUGSTAR" -Wl-g.STACK=0xD000 -Wl-g_hvs=0xD370 -Wl-g_hv_map=0xD600 -Wl-g_hv_vis=0xDA00 -Wl-g_hv_que=0xDE00 -Wl-g_hv_dq=0xDF00 -Wl-g_hvd=0xDF40
 # Each .c compiles to its own object in build/ (make -j2 builds two at once, and only what changed is rebuilt).
 # Test builds go to their own folder and ROM: make DEFS="-DTEST_SPACE" BUILD=build_test OUT=test.gbc
 DEFS ?=
