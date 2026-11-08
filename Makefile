@@ -14,7 +14,12 @@ SRCS = $(wildcard src/*.c)
 OBJS = $(SRCS:src/%.c=$(BUILD)/%.o)
 HDRS = $(wildcard src/*.h)
 all: $(OUT)
-$(BUILD)/%.o: src/%.c $(HDRS)
+# which headers each object needs (tools/deps.py follows the #includes), so a header change rebuilds only the files that use it
+$(BUILD)/deps.mk: $(SRCS) $(HDRS) tools/deps.py
+	@mkdir -p $(BUILD)
+	python3 tools/deps.py $(BUILD) > $@
+-include $(BUILD)/deps.mk
+$(BUILD)/%.o: src/%.c
 	@mkdir -p $(BUILD)
 	$(LCC) $(FLAGS) $(DEFS) -c -o $@ $<
 $(OUT): $(OBJS)
@@ -34,5 +39,5 @@ font:
 	python3 tools/make_font.py
 # Runs the save/menu logic on the PC against a fake SRAM (needs only gcc).
 test:
-	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/save_guard.c src/rumble.c src/econ.c src/menus.c src/util.c src/text.c src/textsoft.c src/font.c src/hud.c src/dialog.c src/sysmenu.c src/spell.c src/bug.c src/bugbuild.c src/bugparts.c -o host_test && ./host_test > /dev/null && echo "host tests: ALL OK"
+	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/save_guard.c src/rumble.c src/econ.c src/menus.c src/util.c src/text.c src/textsoft.c src/font.c src/hud.c src/dialog.c src/sysmenu.c src/spell.c src/bug.c src/bugbuild.c src/bugparts.c src/traits.c -o host_test && ./host_test > /dev/null && echo "host tests: ALL OK"
 .PHONY: all clean art bug font test

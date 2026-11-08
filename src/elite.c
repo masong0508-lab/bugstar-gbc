@@ -16,6 +16,7 @@
 #include "shop.h"
 #include "space_int.h"
 #include "elite.h"
+#include "warship.h"
 
 #define FUEL_PRICE 5
 #define KIND(s) star_k[s]
@@ -185,9 +186,11 @@ static void jb_draw(UINT8 kind, UINT8 n, UINT8 dest, UINT16 rew, UINT8 active, c
     u16s(v, rew); lv(1, 9, 18, "PAYS", v, TXT_GOLD);
     txt_line(1, 11, kind == J_HUNT ? "PAID AT ANY STATION" : "PAID AT THAT STATION", 18); txt_color(1, 11, 18, 1, TXT_GREY);
     txt_line(1, 14, active ? "A: GIVE UP   B: BACK" : "A: TAKE IT   B: BACK", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_line(1, 15, WAR_OPEN ? "SELECT: WARSHIPS" : "", 18); txt_color(1, 15, 18, 1, TXT_GREY);
     txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
     txt_win(0);
 }
+static UINT8 war_ran;                                                 /* the war board was opened from the job board: the view is redrawn from scratch */
 static void jobs(void){
     UINT8 kind, n, dest; UINT16 rew; const char *msg = 0;
     frame_clear();
@@ -198,6 +201,7 @@ static void jobs(void){
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
+            if(HIT(J_SELECT) && WAR_OPEN){ sfx(SFX_OK); DISPLAY_OFF; warship_run(); DISPLAY_OFF; txt_pal_reset(); msg = 0; war_ran = 1; return; }      /* the warship board */
             if(HIT(J_A)){
                 if(active){ job_take(J_NONE, 0, 0, 0); msg = "JOB DROPPED"; sfx(SFX_BACK); }
                 else { job_take(kind, n, dest, rew); msg = "GOOD LUCK, PILOT!"; sfx(SFX_OK); }
@@ -252,9 +256,11 @@ static void dock_draw(UINT8 sel, const char *msg){
 }
 static void dock_frame(void){ txt_win(1); txt_soft(); txt_win(0); move_win(7, 0); SHOW_WIN; }
 
+extern volatile UINT8 snd_song;
 UINT8 elite_dock(UINT8 star) BANKED {
+    UINT8 old_song;
     UINT8 sel = 0, sprites = LCDC_REG & LCDCF_OBJON, go = 0; char b[32], *d; const char *msg = 0;
-    here = star;
+    here = star; old_song = snd_song; music(MUS_STATION);
     HIDE_SPRITES; sfx(SFX_STAIRS);
     sv.mp = hud_mpmax(sv.level);                                     /* the shield recharges on the dock */
     if(job_done(here)){ UINT16 g = job_pay(); d = num(b, "JOB DONE! +", g, " GOLD"); msg = b; sfx(SFX_FANFARE); }
@@ -276,11 +282,12 @@ UINT8 elite_dock(UINT8 star) BANKED {
                 else { sv.el.rsv[0] ^= 2; go = 1; break; }
                 dock_draw(sel, msg); continue;
             }
-            if(sel == 0) market(); else if(sel == 1) service(); else if(sel == 2) shop_run(1); else if(sel == 3) jobs(); else lounge();
+            if(sel == 0) market(); else if(sel == 1) service(); else if(sel == 2) shop_run(1); else if(sel == 3){ war_ran = 0; jobs(); if(war_ran) go = 1; } else lounge();
+            if(go) break;
             dock_frame(); msg = 0; dock_draw(sel, msg);
         }
     }
-    sfx(SFX_BACK);
+    sfx(SFX_BACK); music(old_song);
     if(opt.autosave) slot_write(cur_slot);
     txt_win(1); txt_soft(); txt_win(0);
     if(sprites && !go) SHOW_SPRITES;

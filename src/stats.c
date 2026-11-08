@@ -11,6 +11,7 @@
 #include "xtra.h"
 #include "kart.h"
 #include "warship.h"
+#include "traits.h"
 
 static UINT8 pop(const UINT8 *a, UINT8 n){ UINT8 i, c = 0, b; for(i = 0; i < n; i++) for(b = a[i]; b; b &= b - 1) c++; return c; }
 static void ln(UINT8 y, const char *lab, const char *val, UINT8 pal){        /* "LABEL ........ value" in 17 columns */
@@ -29,7 +30,7 @@ static void best(UINT8 y, const char *lab, UINT16 t){                           
 static void page(UINT8 p, UINT8 again){
     char t[16], *d; UINT8 r, i; UINT16 k;
     txt_soft(); txt_box(0, 0, 20, 18);                           /* (a redraw is a diff: only the changed cells are written) */
-    txt_line(2, 1, p == 0 ? "ADVENTURE" : p == 1 ? "THE GALAXY" : "GAMES", 13); txt_color(2, 1, 13, 1, TXT_GOLD);
+    txt_line(2, 1, p == 0 ? "ADVENTURE" : p == 1 ? "THE GALAXY" : p == 2 ? "GAMES" : "TRAITS", 13); txt_color(2, 1, 13, 1, TXT_GOLD);
     if(p == 0){
         fmt_time(t, play_secs()); ln(3, "TIME", t, TXT_WHITE);
         lnu(4, "SAVES", sv.saves, TXT_WHITE);
@@ -56,6 +57,17 @@ static void page(UINT8 p, UINT8 again){
         lnu(12, "WARP BEST", sv.warp_best, TXT_WHITE);
         lnu(13, "ARENA WAVES", ARENA_BEST, TXT_WHITE);
         lnu(14, "RELICS", xtra_relics(), TXT_WHITE);
+    } else if(p == 3){
+        static const char *const lab[TP_N] = { "HEALTH", "MANA", "BITE", "GOLD", "XP", "POTIONS", "SPELLS" };
+        char u[24];
+        ln(3, "GIFT", "", TXT_GOLD); u[0] = 0; tr_name(sv.gift, u); txt_line(8, 3, u, 11); txt_color(8, 3, 11, 1, TXT_GOLD);
+        ln(4, "QUIRK", "", TXT_GOLD); u[0] = 0; tr_name(sv.quirk, u); txt_line(8, 4, u, 11); txt_color(8, 4, 11, 1, TXT_GOLD);
+        txt_line(2, 6, "WHAT THEY DO", 17); txt_color(2, 6, 17, 1, TXT_GREY);
+        for(i = 0; i < TP_N; i++){
+            INT8 v = tr_pct(i); char *e = t; if(v < 0){ *e++ = '-'; v = -v; } else *e++ = '+';
+            e = u16s(e, (UINT8)v); *e++ = '%'; *e = 0;
+            ln(8 + i, lab[i], t, v == 0 ? TXT_GREY : tr_pct(i) > 0 ? TXT_WHITE : TXT_RED);
+        }
     } else {
         k = 0; for(i = 0; i < 3; i++){ UINT16 b = kart_rec(0, i, 0), c = kart_rec(0, i, 1); if(b && (!k || b < k)) k = b; if(c && (!k || c < k)) k = c; }
         lnu(3, "KART RACES", kart_count(0), TXT_WHITE);
@@ -71,7 +83,7 @@ static void page(UINT8 p, UINT8 again){
         txt_line(2, 9, "", 17); txt_line(2, 14, "", 17);
     }
     txt_line(2, 16, "< > PAGE  B: BACK", 17); txt_color(2, 16, 17, 1, TXT_GREY);
-    d = t; d = scat(d, p == 0 ? "1/3" : p == 1 ? "2/3" : "3/3"); txt_line(16, 1, t, 3); txt_color(16, 1, 3, 1, TXT_GREY);
+    d = t; d = scat(d, p == 0 ? "1/4" : p == 1 ? "2/4" : p == 2 ? "3/4" : "4/4"); txt_line(16, 1, t, 3); txt_color(16, 1, 3, 1, TXT_GREY);
 }
 void stats_run(void) BANKED {
     UINT8 p = 0, d = 1, first = 1;
@@ -80,7 +92,7 @@ void stats_run(void) BANKED {
         if(d){ page(p, !first); d = 0; DISPLAY_ON; first = 0; }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); return; }
-        if(HITR(J_RIGHT) || HIT(J_A)){ p = p < 2 ? p + 1 : 0; d = 1; sfx(SFX_MOVE); }
-        if(HITR(J_LEFT)){ p = p ? p - 1 : 2; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_RIGHT) || HIT(J_A)){ p = p < 3 ? p + 1 : 0; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_LEFT)){ p = p ? p - 1 : 3; d = 1; sfx(SFX_MOVE); }
     }
 }

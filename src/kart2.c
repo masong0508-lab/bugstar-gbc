@@ -15,7 +15,7 @@
 
 /* KART WORLD's menus and records (bank 25): GRAND PRIX, TIME TRIAL, QUICK RACE, the track list, FORWARD / REVERSE, 1 / 3 / 5 laps, the cup, the best times.
    The race itself is in kart.c (bank 24). */
-static const char tname[3][10] = { "MEADOW", "DESERT", "SNOW PEAK" };
+static const char tname[6][12] = { "MEADOW", "DESERT", "SNOW PEAK", "LAVA RIM", "CANDY COAST", "NIGHT CITY" };
 static char *ftime(char *d, UINT16 t){                          /* m:ss.d from 60ths of a second */
     UINT16 s = t / 60;
     d = u16s(d, s / 60); d = scat(d, ":"); if(s % 60 < 10) d = scat(d, "0");
@@ -31,9 +31,9 @@ static void ks_load(void){
 }
 
 /* ---- the records: every track, each way round. Own block in the slot's SRAM bank (offset 3072), own magic and checksum, so older saves just start empty. [way * 3 + track] */
-typedef struct { UINT32 magic, seed; UINT16 bl[6], rt[6], tt[6]; UINT16 races, wins; UINT32 sum; } KS2;
+typedef struct { UINT32 magic, seed; UINT16 bl[12], rt[12], tt[12]; UINT16 races, wins; UINT8 cup2, pad; UINT32 sum; } KS2;   /* [way * 6 + track]; cup2: the best cup of the second grand prix (tracks 4..6) */
 #define KS2_OFF   3072U
-#define KS2_MAGIC 0x32534B42UL                                         /* "BKS2" */
+#define KS2_MAGIC 0x33534B42UL                                         /* "BKS2" */
 static KS2 k2;
 static void k2_save(void){
     const UINT8 *p = (const UINT8 *)&k2; UINT16 i;
@@ -52,7 +52,7 @@ static void k2_load(void){
     }
 }
 UINT16 kart_rec(UINT8 kind, UINT8 t, UINT8 rev) BANKED {
-    UINT8 ri = (rev ? 3 : 0) + (t % 3);
+    UINT8 ri = (rev ? 6 : 0) + (t % 6);
     return kind == 0 ? k2.bl[ri] : kind == 1 ? k2.rt[ri] : k2.tt[ri];
 }
 UINT16 kart_count(UINT8 wins) BANKED { ks_load(); k2_load(); return wins ? k2.wins : k2.races; }
@@ -61,15 +61,15 @@ void kart_rec_reset(void) BANKED { memset(&k2, 0, sizeof k2); k2_save(); }
 static const UINT16 prize[4] = { 200, 100, 50, 20 };
 static const char *const waynm[2] = { "FORWARD", "REVERSE" };
 void kart_results(UINT8 place, UINT8 gpn) BANKED {
-    char b[21], *d; UINT8 ri = (kart_rev ? 3 : 0) + kart_trk, nl = kart_nlaps, nbl = 0, nrc = 0; UINT16 pz = 0;
+    char b[21], *d; UINT8 ri = (kart_rev ? 6 : 0) + kart_trk, nl = kart_nlaps, nbl = 0, nrc = 0; UINT16 pz = 0;
     if(best_run && (!k2.bl[ri] || best_run < k2.bl[ri])){ k2.bl[ri] = best_run; nbl = 1; }
     if(best_run && (!EX_KART || best_run < EX_KART)) EX_KART = best_run;
     if(nl == 3){                                                    /* the total times count only over the standard three laps */
         if(rivals_on){ if(!k2.rt[ri] || tot_t < k2.rt[ri]){ k2.rt[ri] = tot_t; nrc = 1; } }
-        else if(!k2.tt[ri] || tot_t < k2.tt[ri]){ k2.tt[ri] = tot_t; nrc = 1; if(!kart_rev){ ks.tt[kart_trk] = tot_t; kart_ks_save(); } }
+        else if(!k2.tt[ri] || tot_t < k2.tt[ri]){ k2.tt[ri] = tot_t; nrc = 1; if(!kart_rev && kart_trk < 3){ ks.tt[kart_trk] = tot_t; kart_ks_save(); } }
     }
     k2.races++; if(rivals_on && place == 1) k2.wins++;
-    if(rivals_on){ pz = (UINT16)((UINT32)prize[place - 1] * nl / 3); if(kart_rev) pz += pz >> 1; if(!pz) pz = 5; sv.gold += pz; }
+    if(rivals_on){ pz = (UINT16)((UINT32)prize[place - 1] * nl / 3); if(kart_trk >= 3) pz += pz >> 1; if(kart_rev) pz += pz >> 1; if(!pz) pz = 5; sv.gold += pz; }
     k2_save(); if(opt.autosave) slot_write(cur_slot);
     txt_win(1); txt_soft(); txt_box(0, 0, 20, 15);
     if(gpn){ d = scat(b, "RACE "); d = u16s(d, gpn); d = scat(d, " OF 3 DONE"); *d = 0; txt_line(3, 1, b, 16); }
@@ -95,20 +95,22 @@ static void menu_box(const char *title, UINT8 h){
 static void menu_show(void){ move_win(7, 16); SHOW_WIN; }                 /* (the menu keeps drawing into the WINDOW layer: txt_win(1) stays on until it leaves. It used to switch to the background here, so the cursor and the colour blink were written into the road picture: tile 10 and palette 0 in the sky, a black box) */
 
 static const char *const cupnm[4] = { "NONE YET", "BRONZE", "SILVER", "GOLD" };
-static void way_line(void){ char b[17], *d = scat(b, "WAY: "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(4, 6, b, 14); }
+#define NTRK() (ks.cup ? 6 : 3)                                                 /* tracks open: the second three come with any cup */
+static void way_line(void){ char b[17], *d = scat(b, "WAY: "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(4, 7, b, 14); }
 static void mode_info(UINT8 sel){
     char b[19], *d = b;
     if(sel == 0){ d = scat(d, "CUP: "); d = scat(d, cupnm[ks.cup]); }
-    else if(sel == 1) d = scat(d, "BEAT YOUR TIMES");
-    else if(sel == 2) d = scat(d, "ONE RACE, PAYS GOLD");
-    else if(sel == 3) d = scat(d, "LEFT/RIGHT TURNS IT");
+    else if(sel == 1){ if(!ks.cup) d = scat(d, "WIN A CUP FIRST"); else { d = scat(d, "CUP: "); d = scat(d, cupnm[k2.cup2 & 3]); } }
+    else if(sel == 2) d = scat(d, "BEAT YOUR GHOST");
+    else if(sel == 3) d = scat(d, "ONE RACE, PAYS GOLD");
+    else if(sel == 4) d = scat(d, "LEFT/RIGHT TURNS IT");
     else { d = scat(d, "WON "); d = u16s(d, k2.wins); d = scat(d, " OF "); d = u16s(d, k2.races); }
     *d = 0; txt_line(2, 9, b, 17);
 }
-static UINT8 pick_mode(void){                                                 /* 0 grand prix, 1 time trial, 2 quick race, 3 exit */
-    UINT8 sel = 0, i, f = 0;
+static UINT8 pick_mode(void){                                                 /* 0 grand prix, 1 time trial, 2 quick race, 3 exit, 4 the second grand prix */
+    UINT8 sel = 0, f = 0;
     DISPLAY_OFF; txt_win(1); menu_box("KART WORLD", 15);
-    txt_line(4, 3, "GRAND PRIX", 14); txt_line(4, 4, "TIME TRIAL", 14); txt_line(4, 5, "QUICK RACE", 14); way_line(); txt_line(4, 7, "EXIT", 14);
+    txt_line(4, 3, "GRAND PRIX 1", 14); txt_line(4, 4, ks.cup ? "GRAND PRIX 2" : "GRAND PRIX 2 *", 14); txt_line(4, 5, "TIME TRIAL", 14); txt_line(4, 6, "QUICK RACE", 14); way_line(); txt_line(4, 8, "EXIT", 14);
     txt_color(2, 9, 17, 1, TXT_GREY);
     txt_line(1, 11, "A GAS  DOWN BRAKE", 18); txt_line(1, 12, "B ITEM  START QUIT", 18); txt_line(1, 13, "LONG TURN = TURBO", 18);
     txt_color(1, 11, 18, 3, TXT_GREY);
@@ -116,52 +118,53 @@ static UINT8 pick_mode(void){                                                 /*
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
-        f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 5, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
-        if(HITR(J_DOWN)){ txt_put(2, 3 + sel, " "); sel = sel < 4 ? sel + 1 : 0; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
-        if(HITR(J_UP)){ txt_put(2, 3 + sel, " "); sel = sel ? sel - 1 : 4; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
-        if(sel == 3 && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){ kart_rev ^= 1; way_line(); sfx(SFX_OK); continue; }
-        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; txt_win(0); return i == 4 ? 3 : i; }
+        f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 6, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
+        if(HITR(J_DOWN)){ txt_put(2, 3 + sel, " "); sel = sel < 5 ? sel + 1 : 0; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ txt_put(2, 3 + sel, " "); sel = sel ? sel - 1 : 5; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
+        if(sel == 4 && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){ kart_rev ^= 1; way_line(); sfx(SFX_OK); continue; }
+        if(HIT(J_A)){
+            if(sel == 1 && !ks.cup){ sfx(SFX_BACK); continue; }
+            sfx(SFX_OK); HIDE_WIN; txt_win(0); return sel == 0 ? 0 : sel == 1 ? 4 : sel == 2 ? 1 : sel == 3 ? 2 : 3; }
         if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; txt_win(0); return 3; }
     }
 }
 static void rec_line(UINT8 y, const char *nm, UINT16 t){
-    char b[19], *d = scat(b, nm); while(d - b < 11) *d++ = ' ';
+    char b[19], *d = scat(b, nm); while(d - b < 8) *d++ = ' ';
     if(t) d = ftime(d, t); else d = scat(d, "-:--.-");
     *d = 0; txt_line(2, y, b, 17);
 }
-static void track_info(UINT8 sel, UINT8 tt){                                  /* the records of the track the arrow is on */
-    if(sel > 2){ txt_line(2, 9, "", 17); txt_line(2, 10, "", 17); txt_line(2, 11, "", 17); txt_line(2, 12, "", 17); return; }
-    txt_line(2, 9, kart_rev ? "BEST: REVERSE" : "BEST: FORWARD", 17);
-    rec_line(10, "LAP", kart_rec(0, sel, kart_rev));
-    rec_line(11, "RACE", kart_rec(1, sel, kart_rev));
-    rec_line(12, "TRIAL", kart_rec(2, sel, kart_rev));
-    txt_color(2, 9, 17, 1, TXT_GREY); txt_color(2, 10, 17, 3, TXT_GOLD);
-    (void)tt;
+static void track_info(UINT8 sel, UINT8 nt){                                  /* the records of the track the arrow is on */
+    UINT8 y = 3 + nt;
+    if(sel >= nt){ txt_line(2, y, "", 17); txt_line(2, y + 1, "", 17); txt_line(2, y + 2, "", 17); return; }
+    rec_line(y, "LAP", kart_rec(0, sel, kart_rev));
+    rec_line(y + 1, "RACE", kart_rec(1, sel, kart_rev));
+    rec_line(y + 2, "TRIAL", kart_rec(2, sel, kart_rev));
+    txt_color(2, y, 17, 3, TXT_GOLD);
 }
-static void laps_line(void){ char b[17], *d = scat(b, "LAPS: "); d = u16s(d, kart_laps); *d = 0; txt_line(4, 6, b, 14); }
-static UINT8 pick_track(UINT8 tt){                                            /* 0..2, or 3 to go back */
-    UINT8 sel = 0, i;
-    DISPLAY_OFF; txt_win(1); menu_box("PICK A TRACK", 15);
-    for(i = 0; i < 3; i++) txt_line(4, 3 + i, tname[i], 14);
-    laps_line(); txt_line(4, 7, "BACK", 14);
+static void laps_line(UINT8 nt){ char b[17], *d = scat(b, "LAPS: "); d = u16s(d, kart_laps); *d = 0; txt_line(4, 2 + nt, b, 14); }
+static UINT8 pick_track(UINT8 tt){                                            /* 0..5, or 255 to go back */
+    UINT8 sel = 0, i, nt = NTRK();
+    DISPLAY_OFF; txt_win(1); menu_box("PICK A TRACK", 15); txt_line(2, 1, tt ? "TIME TRIAL: GHOST" : "PICK A TRACK", 16);
+    for(i = 0; i < nt; i++) txt_line(4, 2 + i, tname[i], 14);
+    laps_line(nt);
     txt_line(1, 13, kart_laps == 3 ? "A: GO   B: BACK" : "RECORDS: 3 LAPS ONLY", 18); txt_color(1, 13, 18, 1, TXT_GREY);
-    txt_put(2, 3, ">"); track_info(0, tt);
+    txt_put(2, 2, ">"); track_info(0, nt);
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HITR(J_DOWN)){ txt_put(2, 3 + sel, " "); sel = sel < 4 ? sel + 1 : 0; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
-        if(HITR(J_UP)){ txt_put(2, 3 + sel, " "); sel = sel ? sel - 1 : 4; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
-        if(sel == 3 && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){
+        if(HITR(J_DOWN)){ txt_put(2, 2 + sel, " "); sel = sel < nt ? sel + 1 : 0; txt_put(2, 2 + sel, ">"); track_info(sel, nt); sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ txt_put(2, 2 + sel, " "); sel = sel ? sel - 1 : nt; txt_put(2, 2 + sel, ">"); track_info(sel, nt); sfx(SFX_MOVE); }
+        if(sel == nt && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){
             if(HITR(J_LEFT)) kart_laps = kart_laps == 1 ? 5 : kart_laps == 3 ? 1 : 3; else kart_laps = kart_laps == 1 ? 3 : kart_laps == 3 ? 5 : 1;
-            laps_line(); txt_line(1, 13, kart_laps == 3 ? "A: GO   B: BACK" : "RECORDS: 3 LAPS ONLY", 18); sfx(SFX_OK); continue;
+            laps_line(nt); txt_line(1, 13, kart_laps == 3 ? "A: GO   B: BACK" : "RECORDS: 3 LAPS ONLY", 18); sfx(SFX_OK); continue;
         }
-        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; txt_win(0); return i == 4 ? 3 : i; }
-        if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; txt_win(0); return 3; }
+        if(HIT(J_A) && sel < nt){ sfx(SFX_OK); i = sel; HIDE_WIN; txt_win(0); return i; }
+        if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; txt_win(0); return 255; }
     }
 }
 
 static const char *const rname[4] = { "YOU", "RED", "BLUE", "YELLOW" };
-static void trophy(const UINT8 *pts){                                         /* the cup: standings, the trophy, the prize */
+static void trophy(const UINT8 *pts, UINT8 cupn){                                         /* the cup: standings, the trophy, the prize */
     static const UINT16 cupg[4] = { 40, 120, 250, 500 };
     UINT8 ord[4], i, j, t, tr; char b[21], *d;
     for(i = 0; i < 4; i++) ord[i] = i;
@@ -176,7 +179,7 @@ static void trophy(const UINT8 *pts){                                         /*
     }
     d = scat(b, tr == 3 ? "GOLD CUP!" : tr == 2 ? "SILVER CUP" : tr == 1 ? "BRONZE CUP" : "NO CUP THIS TIME"); *d = 0; txt_line(2, 9, b, 16); txt_color(2, 9, 16, 1, tr ? TXT_GOLD : TXT_GREY);
     d = scat(b, "PRIZE +"); d = u16s(d, cupg[tr]); d = scat(d, " G"); *d = 0; txt_line(2, 11, b, 16); txt_color(2, 11, 16, 1, TXT_GOLD);
-    if(tr > ks.cup){ ks.cup = tr; kart_ks_save(); txt_line(2, 12, "NEW BEST CUP!", 16); txt_color(2, 12, 16, 1, TXT_GOLD); }
+    if(cupn ? tr > (k2.cup2 & 3) : tr > ks.cup){ if(cupn){ k2.cup2 = tr; k2_save(); } else { ks.cup = tr; kart_ks_save(); } txt_line(2, 12, "NEW BEST CUP!", 16); txt_color(2, 12, 16, 1, TXT_GOLD); }
     txt_line(2, 14, "A: OK", 16); txt_color(2, 14, 16, 1, TXT_GREY);
     sv.gold += cupg[tr]; if(opt.autosave) slot_write(cur_slot);
     txt_win(0); txt_soft_end(); move_win(7, 8); SHOW_WIN;
@@ -188,14 +191,14 @@ static void trophy(const UINT8 *pts){                                         /*
 #endif
     HIDE_WIN;
 }
-static void grand_prix(void){
+static void grand_prix(UINT8 cupn){
     UINT8 pts[4], r, i; static const UINT8 gp[4] = { 10, 6, 3, 1 };
     for(i = 0; i < 4; i++) pts[i] = 0;
     for(r = 0; r < 3; r++){
-        if(!kart_race(r, 0, r + 1)) return;
+        if(!kart_race(cupn * 3 + r, 0, r + 1)) return;
         for(i = 0; i < 4; i++) pts[i] += gp[kart_rk[i] - 1];
     }
-    trophy(pts);
+    trophy(pts, cupn);
 }
 
 void kart_gfx(void) BANKED {                                                   /* the tiles, the road map and the sprites into video memory (the LCD is off) */
@@ -223,13 +226,13 @@ void kart_run(void) BANKED {
 #ifdef KX_LAPS
     kart_laps = KX_LAPS;
 #endif
-    if(KX_MODE == 2) grand_prix(); else kart_race(KX_TRK, KX_MODE, 0);
+    if(KX_MODE == 2) grand_prix(0); else kart_race(KX_TRK, KX_MODE, 0);
 #else
     for(;;){
         m = pick_mode();
         if(m == 3) break;
-        if(m == 0){ grand_prix(); }
-        else { t = pick_track(m == 1); if(t < 3) kart_race(t, m == 1, 0); }
+        if(m == 0 || m == 4){ grand_prix(m == 4); }
+        else { t = pick_track(m == 1); if(t != 255) kart_race(t, m == 1, 0); }
         DISPLAY_OFF; kart_pal0(); SHOW_BKG; DISPLAY_ON;
     }
 #endif

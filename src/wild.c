@@ -38,25 +38,39 @@ void xa_get(void *dst) BANKED { wild_load(); wram_bank(2); memcpy(dst, XAP, size
 void xa_put(const void *src) BANKED { wram_bank(2); memcpy(XAP, src, sizeof(XA)); wram_bank(1); wild_save(); }
 
 /* ---- the creatures: [world][0 spider, 1 beetle, 2 wasp, 3 slime, 4 queen] */
-static const char *const nm[30] = {
+static const char *const nm[60] = {
     "EARWIG", "WEEVIL", "BUMBLEBEE", "SNAIL", "GARDEN QUEEN",
     "SOLIFUGE", "SCARAB", "ANTLION", "SANDWORM", "DUNE QUEEN",
     "FROSTMITE", "YETI", "ICICLE", "SNOWBALL", "FROST QUEEN",
     "TARANTULA", "BULLETANT", "MANTIS", "TREEFROG", "JUNGLE QUEEN",
     "CRAYFISH", "URCHIN", "PIRANHA", "JELLYFISH", "TIDE QUEEN",
-    "ZOMBUG", "MUMMY", "BANSHEE", "WRAITH", "DUSK QUEEN" };
-static const char *const wn[6] = { "GARDEN", "DESERT", "ICE", "JUNGLE", "OCEAN", "DUSK" };
+    "ZOMBUG", "MUMMY", "BANSHEE", "WRAITH", "DUSK QUEEN",
+    "SCORPION", "ARMADILLO", "DUST DEVIL", "MUD BLOB", "MESA QUEEN",
+    "SPORE SPIDER", "TRUFFLE BUG", "FIREFLY", "MOLD BLOB", "FUNGAL QUEEN",
+    "PRISM SPIDER", "GEODE BEETLE", "SHARD WASP", "GEL CUBE", "CRYSTAL QUEEN",
+    "EMBER SPIDER", "MAGMA BEETLE", "FIRE WASP", "LAVA BLOB", "LAVA QUEEN",
+    "BOG SPIDER", "LEECH", "MIDGE", "BOG SLIME", "SWAMP QUEEN",
+    "LICORICE", "GUMDROP", "SUGAR BEE", "JELLY BLOB", "CANDY QUEEN" };
+static const char *const wn[12] = { "GARDEN", "DESERT", "ICE", "JUNGLE", "OCEAN", "DUSK", "MESA", "FUNGAL", "CRYSTAL", "LAVA", "SWAMP", "CANDY" };
 /* health in eighths of the usual, and extra bite, for each of the 4 */
-static const UINT8 hpm[24] = { 7, 9, 6, 11,   6, 14, 8, 12,   4, 14, 7, 10,   8, 9, 8, 7,   12, 11, 5, 8,   9, 13, 5, 10 };
-static const UINT8 dm[24]  = { 0, 0, 0, 0,    1, 0, 1, 0,     0, 1, 1, 0,     1, 1, 1, 0,   1, 1, 1, 0,    0, 1, 2, 0 };
+static const UINT8 hpm[48] = { 7, 9, 6, 11,   6, 14, 8, 12,   4, 14, 7, 10,   8, 9, 8, 7,   12, 11, 5, 8,   9, 13, 5, 10,
+    8, 15, 7, 12,   6, 9, 5, 13,   9, 10, 8, 14,   9, 12, 9, 11,   10, 8, 5, 14,   5, 8, 6, 15 };
+static const UINT8 dm[48]  = { 0, 0, 0, 0,    1, 0, 1, 0,     0, 1, 1, 0,     1, 1, 1, 0,   1, 1, 1, 0,    0, 1, 2, 0,
+    2, 0, 1, 0,   1, 0, 0, 0,   1, 1, 2, 0,   2, 1, 2, 1,   1, 0, 0, 0,   0, 1, 0, 0 };
 #define C3(a,b,c,d,e,f,g,h,i) RGB(0,0,0), RGB(a,b,c), RGB(d,e,f), RGB(g,h,i)
-static const palette_color_t pal[6][16] = {
+static const palette_color_t pal[12][16] = {
     { C3(4,2,6, 16,6,22, 28,20,31),  C3(2,6,4, 6,18,10, 18,30,16),  C3(6,4,2, 30,24,4, 28,30,31),  C3(2,8,12, 8,24,22, 24,31,30) },
     { C3(8,4,1, 22,14,4, 31,26,12),  C3(4,3,2, 14,12,10, 28,24,18), C3(10,3,0, 28,14,2, 31,26,10), C3(6,5,1, 20,18,6, 30,29,14) },
     { C3(2,4,10, 10,18,28, 26,30,31), C3(4,6,10, 16,22,28, 28,31,31), C3(6,8,12, 20,26,31, 31,31,31), C3(2,8,14, 8,22,31, 22,30,31) },
     { C3(1,6,2, 4,20,6, 18,31,12),   C3(8,2,6, 24,8,18, 31,22,28),  C3(10,6,0, 31,18,2, 31,28,10), C3(0,8,8, 2,26,18, 18,31,26) },
     { C3(10,2,2, 30,8,6, 31,22,18),  C3(4,2,8, 16,8,22, 26,20,31),  C3(2,8,10, 6,22,26, 22,31,31), C3(6,6,12, 22,22,31, 31,31,31) },
-    { C3(6,2,8, 18,6,24, 31,16,31),  C3(6,5,3, 18,14,10, 28,24,18), C3(8,0,8, 24,2,24, 31,18,31),  C3(2,2,6, 10,10,22, 24,24,31) } };
+    { C3(6,2,8, 18,6,24, 31,16,31),  C3(6,5,3, 18,14,10, 28,24,18), C3(8,0,8, 24,2,24, 31,18,31),  C3(2,2,6, 10,10,22, 24,24,31) },
+    { C3(10,4,1, 26,12,4, 31,24,12), C3(8,6,5, 20,14,12, 30,26,22), C3(12,6,2, 30,20,6, 31,30,20), C3(8,5,2, 22,14,6, 31,24,14) },       /* MESA */
+    { C3(4,2,8, 18,8,22, 30,22,31),  C3(2,6,6, 6,20,18, 18,31,26),  C3(8,6,0, 28,24,4, 31,31,16),  C3(6,2,10, 22,6,24, 31,16,31) },     /* FUNGAL */
+    { C3(2,4,10, 12,18,30, 28,30,31), C3(8,2,10, 24,8,26, 31,22,31), C3(2,8,10, 8,24,26, 24,31,31), C3(8,8,12, 24,24,30, 31,31,31) },   /* CRYSTAL */
+    { C3(8,1,0, 28,6,2, 31,22,8),    C3(3,3,3, 14,12,12, 26,24,22), C3(10,2,0, 31,12,0, 31,28,6),  C3(4,0,0, 18,2,2, 31,10,8) },       /* LAVA */
+    { C3(2,5,2, 8,16,6, 22,28,12),   C3(6,4,1, 18,12,4, 28,24,12),  C3(3,8,4, 8,24,12, 22,31,22),  C3(6,6,1, 22,22,4, 31,31,14) },      /* SWAMP */
+    { C3(10,2,6, 31,12,20, 31,26,28), C3(2,8,6, 8,24,16, 24,31,26), C3(12,8,0, 31,22,4, 31,30,16), C3(8,2,10, 26,10,28, 31,24,31) } };  /* CANDY */
 
 void bst_pals(UINT8 wk) BANKED { set_sprite_palette(0, 4, pal[wk]); }
 UINT8 bst_hp(UINT8 hp, UINT8 k, UINT8 wk) BANKED {
@@ -67,7 +81,7 @@ UINT8 bst_hp(UINT8 hp, UINT8 k, UINT8 wk) BANKED {
 }
 UINT8 bst_dmg(UINT8 k, UINT8 wk) BANKED { return (k < 4 ? dm[wk * 4 + k] : 0) + weird_pct(weird_of(sv.star), WP_HIT); }
 void bst_kill(UINT8 k, UINT8 wk, UINT8 depth) BANKED {
-    UINT8 i = k == 4 ? 24 + wk : wk * 4 + k, p = weird_pct(weird_of(sv.star), WP_GOLD);
+    UINT8 i = k == 4 ? 48 + wk : wk * 4 + k, p = weird_pct(weird_of(sv.star), WP_GOLD);
     wild_load();
     wram_bank(2); if(XAP->kills[i] < 255) XAP->kills[i]++; wram_bank(1);
     wild_save();
@@ -80,33 +94,33 @@ static void bk_page(UINT8 pg, const UINT8 *kl){
     UINT8 i; char b[21], *d;
     DISPLAY_OFF; txt_win(0); txt_cls(); txt_box(0, 0, 20, 18);
     txt_line(2, 1, "BESTIARY", 8); txt_color(2, 1, 8, 1, TXT_GOLD);
-    d = u16s(b, pg + 1); d = scat(d, "/7"); *d = 0; txt_line(15, 1, b, 3); txt_color(15, 1, 3, 1, TXT_GREY);
-    if(pg < 6){
+    d = u16s(b, pg + 1); d = scat(d, "/14"); *d = 0; txt_line(15, 1, b, 3); txt_color(15, 1, 3, 1, TXT_GREY);
+    if(pg < 12){
         UINT16 all = 0;
         txt_line(2, 3, wn[pg], 10); txt_color(2, 3, 10, 1, TXT_WHITE);
         for(i = 0; i < 5; i++){
-            UINT8 n = kl[i < 4 ? pg * 4 + i : 24 + pg], y = 5 + i * 2;
+            UINT8 n = kl[i < 4 ? pg * 4 + i : 48 + pg], y = 5 + i * 2;
             all += n;
             txt_line(2, y, n ? nm[pg * 5 + i] : "?????", 12); txt_color(2, y, 12, 1, n ? (i == 4 ? TXT_GOLD : TXT_WHITE) : TXT_GREY);
             d = u16s(b, n); *d = 0; txt_line(14, y, b, 4); txt_color(14, y, 4, 1, n ? TXT_WHITE : TXT_GREY);
         }
         d = scat(b, "KILLED HERE "); d = u16s(d, all); *d = 0; txt_line(2, 15, b, 16); txt_color(2, 15, 16, 1, TXT_GREY);
     } else {
-        txt_line(2, 3, "WEIRD WORLDS", 12); txt_color(2, 3, 12, 1, TXT_WHITE);
-        weird_screen(5);
+        txt_line(2, 3, pg == 12 ? "WEIRD WORLDS 1" : "WEIRD WORLDS 2", 14); txt_color(2, 3, 14, 1, TXT_WHITE);
+        weird_screen(5, pg - 12);
     }
     txt_line(2, 16, "< > PAGE B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
     txt_pal_reset(); SHOW_BKG; DISPLAY_ON;
 }
 void bst_screen(void) BANKED {
-    UINT8 kl[30], pg = 0, i;
+    UINT8 kl[60], pg = 0, i;
     wild_load();
-    wram_bank(2); for(i = 0; i < 30; i++) kl[i] = XAP->kills[i]; wram_bank(1);
+    wram_bank(2); for(i = 0; i < 60; i++) kl[i] = XAP->kills[i]; wram_bank(1);
     bk_page(pg, kl);
     for(;;){
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) return;
-        if(HITR(J_RIGHT)){ pg = pg < 6 ? pg + 1 : 0; sfx(SFX_MOVE); bk_page(pg, kl); }
-        if(HITR(J_LEFT)){ pg = pg ? pg - 1 : 6; sfx(SFX_MOVE); bk_page(pg, kl); }
+        if(HITR(J_RIGHT)){ pg = pg < 13 ? pg + 1 : 0; sfx(SFX_MOVE); bk_page(pg, kl); }
+        if(HITR(J_LEFT)){ pg = pg ? pg - 1 : 13; sfx(SFX_MOVE); bk_page(pg, kl); }
     }
 }

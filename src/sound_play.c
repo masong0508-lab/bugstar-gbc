@@ -8,6 +8,8 @@
 #include "sound.h"
 
 extern volatile UINT8 snd_song, snd_restart, snd_req;
+extern const UINT8 *snd_pm, *snd_pb, *snd_pd; extern UINT8 snd_bk, snd_s0, snd_s1, snd_s2, snd_o[4];
+void snd_fetch(void);
 static UINT8 step, wait, busy1, busy4, muted, waved;
 static const UINT8 wave[16] = { 0x02, 0x46, 0x8A, 0xCE, 0xFF, 0xFE, 0xEC, 0xA8, 0x64, 0x20, 0x00, 0x01, 0x23, 0x45, 0x67, 0x9B };   /* a soft, round bass */
 
@@ -61,19 +63,20 @@ void snd_tick(void){
     if(--wait) return;
     t = &snd_tracks[snd_song]; wait = t->tempo;
     v = opt.music == 1 ? (t->vol >> 1) : t->vol;
-    m = t->mel[step];                                  /* the tune */
+    snd_pm = t->mel; snd_pb = t->bas; snd_pd = t->drm; snd_bk = t->bank ? t->bank : 7; snd_s0 = step; snd_s1 = (UINT8)(step - 3) & t->mask; snd_s2 = step & 15; snd_fetch();
+    m = snd_o[0];                                      /* the tune */
     if(m == 0) NR22_REG = 0;
     else if(m > 1){ f = snd_sq[m]; NR21_REG = 0x80; NR22_REG = (v << 4) | 2; NR23_REG = (UINT8)f; NR24_REG = 0x80 | (UINT8)(f >> 8); }
-    m = t->bas[step];                                  /* the bass */
+    m = snd_o[1];                                      /* the bass */
     if(m == 0) NR32_REG = 0;
     else if(m > 1){ f = snd_wv[m]; NR30_REG = 0x80; NR32_REG = opt.music == 1 ? 0x40 : 0x20; NR33_REG = (UINT8)f; NR34_REG = 0x80 | (UINT8)(f >> 8); }
     if(!busy1){                                        /* the echo */
-        m = t->mel[(UINT8)(step - 3) & t->mask];
+        m = snd_o[2];
         if(m == 0) NR12_REG = 0;
         else if(m > 1){ f = snd_sq[m]; NR10_REG = 0; NR11_REG = 0x40; NR12_REG = ((v / 3 + 1) << 4) | 3; NR13_REG = (UINT8)f; NR14_REG = 0x80 | (UINT8)(f >> 8); }
     }
     if(!busy4){                                        /* the drums */
-        m = t->drm[step & 15];
+        m = snd_o[3];
         if(m == 1){ NR41_REG = 0; NR42_REG = opt.music == 1 ? 0x61 : 0xB1; NR43_REG = 0x71; NR44_REG = 0x80; }
         else if(m == 2){ NR41_REG = 0; NR42_REG = opt.music == 1 ? 0x52 : 0x92; NR43_REG = 0x42; NR44_REG = 0x80; }
         else if(m == 3){ NR41_REG = 0; NR42_REG = opt.music == 1 ? 0x21 : 0x41; NR43_REG = 0x10; NR44_REG = 0x80; }

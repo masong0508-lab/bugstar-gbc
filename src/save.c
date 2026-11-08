@@ -44,7 +44,7 @@ void sram_read_at(UINT8 bank, UINT16 off, void *d, UINT16 n){
     for(i = 0; i < n; i++) p[i] = SRAM[off + i];
     RAM_OFF();
 }
-static void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n){
+void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n){
     const UINT8 *p = (const UINT8 *)s; UINT16 i;
     RAM_ON(); RAM_BANK(bank);
     for(i = 0; i < n; i++) SRAM[off + i] = p[i];
@@ -55,7 +55,7 @@ static void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n){
 static void opts_default(void){
     opt.music = 2; opt.sfx = 1; opt.autosave = 1; opt.shake = 1; opt.diff = 2;
     opt.baby = 2;   /* 2 = difficulty list has BABY first (older saves: baby on = BABY, else diff + 1) */ opt.hunger = 1; opt.faint = 1; opt.xpm = 0; opt.goldm = 0;
-    opt.cam = RUM_DEFAULT; opt.minimap = 1; opt.nums = 1; opt.hints = 1; opt.arrow = 1;
+    opt.cam = RUM_DEFAULT; opt.minimap = 1; opt.nums = 1; opt.hints = 1; opt.arrow = 1; opt.tspd = 1; opt.runb = 0; opt.asv = 1; opt.clr = 0;
 }
 void settings_save(void){
     Settings s;
@@ -77,6 +77,7 @@ static void settings_load(void){
     if(opt.goldm > 2) opt.goldm = 2;
     opt.sfx &= 1; opt.autosave &= 1; opt.shake &= 1; opt.hunger &= 1; opt.faint &= 1;
     if(RUM_LVL() > 5) opt.cam = (opt.cam & ~7) | 2; if(RUM_EV() > 2) opt.cam = (opt.cam & ~0x18) | 8; opt.cam &= 0x3F;
+    if(opt.tspd > 3) opt.tspd = 1; opt.runb &= 1; if(opt.asv > 2) opt.asv = 1; if(opt.clr > 2) opt.clr = 0;
     opt.minimap &= 1; opt.nums &= 1; opt.hints &= 1; opt.arrow &= 0x0F; if(BUD_CODE() > 6) opt.arrow &= 1;
 }
 
@@ -85,6 +86,7 @@ void save_init(void){
     set_interrupts(VBL_IFLAG);
     play_reset(0);
     settings_load();
+    { Save t; UINT8 i; for(i = 0; i < NSLOT; i++) slot_peek(i, &t); }      /* (looks at every slot once: a slot from an older version is erased now, and sv_wiped says so) */
 }
 
 /* SAVE SAFETY: every slot is written twice, the mirror first (SRAM offset BK_OFF of the same bank), then the real thing. A power cut in the middle of either write leaves the other copy whole;
@@ -137,7 +139,7 @@ void new_game(UINT8 slot, UINT32 seed, const BugLook *look, const char *name){
     strcpy(sv.name, name ? name : "BUG");
     if(look) sv.look = *look; else bug_default(&sv.look);
     bug_clamp(&sv.look);
-    play_reset(0);
+    play_reset(0); tr_roll(seed ^ frames32());
     slot_write(slot);
 }
 UINT8 first_good_slot(void){

@@ -13,8 +13,8 @@
 #include "hud.h"
 #include "wild.h"
 
-extern const UINT8 life_tiles[6][128];
-extern const palette_color_t life_pal[6][4];
+extern const UINT8 life_tiles[12][128];
+extern const palette_color_t life_pal[12][4];
 
 typedef struct { UINT16 x, y, ox, oy; INT8 vx, vy; UINT8 sp, mood, hop, pat, t, face; } An;
 typedef struct { UINT16 rs; An a[4]; } LifeS;

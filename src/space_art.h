@@ -32,7 +32,7 @@ void space_tiles_load(UINT8 bg0, UINT8 spr0) BANKED;   /* (space_gfx.c, bank 8) 
 void title_ship_load(UINT8 tile0) BANKED;              /* just the ship facing right, 4 tiles, for the title */
 void space_spr_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED;   /* n sprite tiles from SP_T_... src to VRAM tile dst (the warp borrows some) */
 extern const palette_color_t sp_space_pal[4];
-extern const palette_color_t sp_kind_pal[6 * 4];
+extern const palette_color_t sp_kind_pal[12 * 4];
 extern const palette_color_t sp_spr_pal[24];   /* sprite palettes 0..5 */
 extern const UINT8 sp_perm[256];               /* a shuffle of 0..255, for the starfield hash */
 #endif

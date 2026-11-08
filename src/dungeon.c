@@ -38,7 +38,7 @@ static Fx     fxs[NFX];
 UINT8  depth, floors, kind; static UINT8 inv, atk, face, frame, step;
 UINT8  hell, pit;
 static UINT8  pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
-static const UINT8 qbrood[6] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, K_WASP };   /* what each kind of queen calls */
+static const UINT8 qbrood[12] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, K_WASP, K_SPIDER, K_SLIME, K_WASP, K_BEETLE, K_SLIME, K_WASP };   /* what each kind of queen calls */
 UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
 static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
 UINT16 bx, by, rng; static UINT16 cam_x, cam_y;
@@ -205,11 +205,11 @@ static void hurt(UINT8 n, INT8 kx, INT8 ky){
 #ifdef TEST_BOSS
 static UINT8 bite_power(void){ return 30; }
 #else
-static UINT8 bite_power(void){ return CLAMP8((UINT16)2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite()); }
+static UINT8 bite_power(void){ return CLAMP8(tr_bite((UINT16)2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite())); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
-static void kill_pay(Mon *m){ UINT16 lg = LUCKY(3 + m->kind * 2 + depth) * gmul(); UINT8 lx = 3 + m->kind + depth; sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(m->kind, depth); bst_kill(m->kind, kind, depth); }
+static void kill_pay(Mon *m){ UINT16 lg = LUCKY(3 + m->kind * 2 + depth) * gmul(); UINT8 lx = 3 + m->kind + depth; kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(m->kind, depth); bst_kill(m->kind, kind, depth); }
 static void spell_hit(Mon *m, UINT8 p){                            /* a spell hurts a monster (it never finishes the queen) */
     if(m->kind == K_QUEEN && p >= m->hp) p = m->hp - 1;
     if(p > m->hp) p = (UINT8)m->hp;
@@ -218,12 +218,12 @@ static void spell_hit(Mon *m, UINT8 p){                            /* a spell hu
 }
 static UINT8 portal_go;
 static void cast(void){
-    UINT8 s = EX_SPELL & 7, i;
-    if(s > 4) s = EX_SPELL &= 0x80;
+    UINT8 s = EX_SPELL & 15, i;
+    if(s > 9) s = EX_SPELL &= 0x80;
     if(s == 4 && (hell || pit)){ sfx(SFX_BACK); dlg_say(0, "THE PORTAL FIZZLES HERE."); return; }
     if(!spell_pay(s)) return;
-    if(s > 1){ if(s == 3) inv = 250; if(s == 4){ portal_set(depth); portal_go = 1; dlg_say(0, "A PORTAL OPENS! THE DOOR WILL TAKE YOU BACK TO THIS FLOOR."); } return; }
-    sfx(SFX_FIRE); shake(6);
+    if(s > 1 && s < 5){ if(s == 3) inv = 250; if(s == 4){ portal_set(depth); portal_go = 1; dlg_say(0, "A PORTAL OPENS! THE DOOR BRINGS YOU BACK HERE."); } return; }
+    if(s < 5) sfx(SFX_FIRE); shake(s == 7 ? 24 : s == 9 ? 30 : 6);
     for(i = 0; i < NMON; i++){
         Mon *m = &mon[i]; UINT8 d;
         if(!m->alive) continue;
@@ -254,11 +254,11 @@ static void do_bite(void){
       if(tx < DW && ty < DW){
           if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); g = LUCKY(g); sv.gold += g + loot_clover(g); sfx(SFX_COIN);
               { char lb[40]; lb[0] = 0; if(loot_chest(depth, lb)){ dlg_say(0, lb); } else
-              if(rndn(3) == 0 && sv.potions < 9){ sv.potions++; dlg_say(0, "THE CHEST HOLDS GOLD AND A HEALTH POTION. (B+SELECT DRINKS IT)"); }
+              if(rndn(3) == 0 && sv.potions < 9){ sv.potions++; dlg_say(0, "GOLD AND A POTION! (B+SELECT DRINKS IT)"); }
               else { d = scat(b, "THE CHEST HOLDS "); d = u16s(d, g); scat(d, " GOLD"); dlg_say(0, b); } } }
           else if(DM(tx, ty) == D_CAGE){
               UINT8 q; for(q = 0; q < NMON; q++) if(mon[q].alive && mon[q].kind == K_QUEEN) break;
-              if(q < NMON) dlg_say("BOLT", "THE QUEEN IS STILL HERE. BEAT HER FIRST!");
+              if(q < NMON) dlg_say("BOLT", "THE QUEEN IS STILL HERE!");
               else { set_mt(tx, ty, D_FREED); sv.friends++; atk = 0; sfx(SFX_FANFARE); } } } }
 }
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py){   /* a new monster in a free slot (not the queen's); (px, py): where to put it if (x, y) is in a wall */
@@ -292,12 +292,12 @@ static void mon_step(void){
             if(m->t) m->t--;
             else if(dx > -56 && dx < 56 && dy > -48 && dy < 48){ m->st = 1; m->t = 18; sfx(SFX_HISS); continue; }
         }
-        if(m->kind == K_QUEEN && ++m->t >= 230 - kind * 12){        /* she calls her brood: each kind of queen calls something else, some also stamp */
-            UINT8 bk = qbrood[kind];
+        if(m->kind == K_QUEEN && ++m->t >= 230 - (kind >= 6 ? kind - 6 : kind) * 12){        /* she calls her brood: each kind of queen calls something else, some also stamp */
+            UINT8 bk = qbrood[kind], kq = kind >= 6 ? kind - 6 : kind;
             m->t = 0; sfx(SFX_HISS); shake(8);
             mon_spawn(bk, m->x - 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16); mon_spawn(bk, m->x + 20, m->y + 4, 3 + depth, 0, m->x, m->y + 16);
-            if(kind == 1 || kind == 3 || kind == 5) mon_spawn(bk, m->x, m->y + 22, 3 + depth, 0, m->x, m->y + 16);
-            if(kind == 2 || kind == 5){ shake(14); sfx(SFX_BOOM); if(dx < 52 && dx > -52 && dy < 44 && dy > -44) hurt(2 + sv.zone, dx > 0 ? 2 : -2, dy > 0 ? 2 : -2); }   /* she stamps */
+            if(kq == 1 || kq == 3 || kq == 5) mon_spawn(bk, m->x, m->y + 22, 3 + depth, 0, m->x, m->y + 16);
+            if(kq == 2 || kq == 5){ shake(14); sfx(SFX_BOOM); if(dx < 52 && dx > -52 && dy < 44 && dy > -44) hurt(2 + sv.zone, dx > 0 ? 2 : -2, dy > 0 ? 2 : -2); }   /* she stamps */
         }
         sp = m->kind == K_WASP ? 3 : m->kind == K_SLIME ? 0 : m->kind == K_QUEEN ? 1 : 1;   /* steps per 2 frames */
         if(m->kind == K_SLIME) sp = (step & 1); else if(m->kind == K_QUEEN) sp = (step & 1) ? 1 : 0; else if(m->kind == K_BEETLE) sp = (step & 3) ? 1 : 0; else if(m->kind == K_SPIDER) sp = (step & 1) ? 2 : 1;
@@ -404,14 +404,14 @@ static int play_floor(void){                                       /* returns DG
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! B+SELECT DRINKS IT."); } }
         if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
-        if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 7); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 7, b); dlg_say(0, b); } }
+        if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 15); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 15, b); dlg_say(0, b); } }
         else if(HIT(J_SELECT) && (k & J_DOWN)){ char lb[28]; loot_eat(lb); dlg_say(0, lb); }
         else if(HIT(J_SELECT) && !(k & J_B)){ cast(); if(portal_go) return DG_EXIT; }
         else if(HIT(J_SELECT)){
-            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
+            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); h = tr_pot(h); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; if(TRICK(7)){ UINT16 mm = hud_mpmax(sv.level); sv.mp = sv.mp + mm / 4 > mm ? mm : sv.mp + mm / 4; } } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
-        if(!((UINT8)frames32() & 127) && loot_regen()) dlg_say(0, "YOUR BELLY RUMBLES. EAT! (SELECT+DOWN)");
+        if(!((UINT8)frames32() & 127) && loot_regen()) dlg_say(0, "YOU ARE HUNGRY. EAT! (SELECT+DOWN)");
         wait_vbl_done();
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;
         show_bug(); show_mons(); show_bite(); pet_push(bx, by); { UINT8 po[3]; po[0] = 2; po[1] = 3; po[2] = 15; pet_draw(po, cam_x, cam_y, 0); }
@@ -445,7 +445,7 @@ int dungeon_run(void) BANKED {
     depth = 2;
 #endif
 #ifdef TEST_BOSS
-    depth = floors; ex.tricks = 63; sv.friends = 3;              /* (test builds: straight to the queen) */
+    depth = floors; ex.tricks = 0xFFF; sv.friends = 3;              /* (test builds: straight to the queen) */
 #endif
     for(;;){
         r = play_floor();
@@ -453,7 +453,7 @@ int dungeon_run(void) BANKED {
         break;
     }
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
-    if(r == DG_FAINT){ if(opt.diff && opt.faint) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT OF YOUR POCKETS."); }
+    if(r == DG_FAINT){ if(opt.diff && opt.faint) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT."); }
     else if(r == DG_WIN) dungeon_won(kind);
     else if(r == DG_EXIT && !portal_go) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     feats_check();
@@ -461,7 +461,7 @@ int dungeon_run(void) BANKED {
 }
 int dungeon_hell(UINT8 moon) BANKED {
     int r;
-    kind = world_kind(world_seed(sv.star)); if(moon) kind = (kind + 3) % 6; floors = 99; depth = 1; inv = 0; atk = 0; face = 3; hell = 1 + moon;
+    kind = world_kind(world_seed(sv.star)); if(moon) kind = (kind + 6) % 12; floors = 99; depth = 1; inv = 0; atk = 0; face = 3; hell = 1 + moon;
     for(;;){ hell_set(depth, moon); r = play_floor(); if(r == DG_DOWN){ depth++; continue; } break; }
     hell = 0; { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
     if(r == DG_EXIT || r == DG_FAINT) hell_end(r, depth, moon); else hell_t = 0;

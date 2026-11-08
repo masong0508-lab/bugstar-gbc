@@ -284,6 +284,7 @@ static UINT8 chart(void){                                                   /* S
     fade_out(); DISPLAY_OFF;
     shx = star_px((UINT8)r) << 4; shy = (star_py((UINT8)r) + 120) << 4; sz = star_z((UINT8)r) * 16; yaw = 0x8000; pit16 = 0; vel = 24; inv = 0;
     objects_clear(); basis();
+    warship_ambush();
     gfx3();
     warp_report(&wr);
     if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");

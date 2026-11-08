@@ -16,7 +16,7 @@
 
 /* mode: 0 none, 1 tint (quarters per channel), 2 rainbow, 3 inverted, 4 sepia, 5 neon, 6 pulse. The rest are per strength: gold %, monster health %, monster bite (tenths of a point), ore %, healing */
 typedef struct { const char *nm; UINT8 mode, tr, tg, tb, gold, foe, hit, ore; INT8 heal; } WT;
-static const WT wt[16] = {
+static const WT wt[32] = {
     { "GOLDEN",   1, 6, 5, 2, 6, 0, 0, 0,  0 },
     { "ARMORED",  4, 0, 0, 0, 0, 6, 0, 0,  0 },
     { "FIERCE",   1, 6, 2, 2, 3, 0, 4, 0,  0 },
@@ -32,8 +32,24 @@ static const WT wt[16] = {
     { "FROZEN",   1, 3, 4, 7, 0, 4, 0, 0,  1 },
     { "TOXIC",    1, 3, 7, 2, 0, 0, 0, 6, -1 },
     { "LUCKY",    2, 0, 0, 0, 7, 0, 0, 3,  0 },
-    { "STORMY",   6, 0, 0, 0, 3, 3, 3, 0,  0 } };
-static const char *const adj[9] = { "FAINT", "MILD", "SOFT", "PLAIN", "STRONG", "HARSH", "WILD", "FIERCE", "EXTREME" };
+    { "STORMY",   6, 0, 0, 0, 3, 3, 3, 0,  0 },
+    { "SOLAR",    1, 7, 6, 3, 5, 0, 0, 3,  0 },
+    { "MISTY",    4, 0, 0, 0, 3, 0, 0, 0,  1 },
+    { "SHADOW",   1, 2, 2, 3, 7, 0, 3, 0,  0 },
+    { "EMERALD",  1, 2, 7, 3, 0, 0, 0, 8,  0 },
+    { "AMETHYST", 1, 5, 2, 7, 4, 0, 0, 4,  0 },
+    { "SCARLET",  1, 7, 1, 1, 6, 2, 3, 0,  0 },
+    { "AURORA",   2, 0, 0, 0, 3, 0, 0, 0,  1 },
+    { "FLICKER",  6, 0, 0, 0, 5, 0, 0, 3,  0 },
+    { "SUNKEN",   3, 0, 0, 0, 6, 4, 0, 0,  0 },
+    { "MAGNETIC", 5, 0, 0, 0, 0, 0, 0, 9,  0 },
+    { "FROSTBITE",1, 3, 5, 7, 5, 5, 0, 0, -1 },
+    { "VERDANT",  1, 3, 7, 3, 0, 0, 0, 4,  1 },
+    { "ROYAL",    1, 5, 3, 7, 9, 0, 0, 0,  0 },
+    { "RUSTY",    1, 6, 4, 2, 0, 4, 0, 6,  0 },
+    { "HAUNTED",  4, 0, 0, 0, 7, 0, 4, 0,  0 },
+    { "CURSED",   5, 0, 0, 0, 9, 0, 6, 0, -1 } };
+static const char *const adj[7] = { "FAINT", "MILD", "PLAIN", "STRONG", "HARSH", "WILD", "EXTREME" };   /* strength 1..7 (w = strength << 5 | trait 0..31) */
 
 UINT8 weird_of(UINT8 star) BANKED {
     UINT32 ws = world_seed(star);
@@ -43,11 +59,11 @@ UINT8 weird_of(UINT8 star) BANKED {
     UINT16 h = (UINT16)ws ^ (UINT16)(ws >> 16);
     h ^= h >> 7; h *= 0x2D3; h ^= h >> 5;
     if(h % 9) return 0;
-    return (UINT8)(((1 + ((h >> 3) & 0x7FF) % 9) << 4) | ((h >> 9) & 15));
+    return (UINT8)(((1 + ((h >> 3) & 0x7FF) % 7) << 5) | ((h >> 9) & 31));
 }
-void weird_name(char *out, UINT8 w) BANKED { char *d = scat(out, adj[(w >> 4) - 1]); d = scat(d, " "); scat(d, wt[w & 15].nm); }
+void weird_name(char *out, UINT8 w) BANKED { char *d = scat(out, adj[(w >> 5) - 1]); d = scat(d, " "); scat(d, wt[w & 31].nm); }
 UINT8 weird_pct(UINT8 w, UINT8 what) BANKED {
-    const WT *t = &wt[w & 15]; UINT8 s = w >> 4;
+    const WT *t = &wt[w & 31]; UINT8 s = w >> 5;
     if(!w) return 0;
     switch(what){
     case WP_GOLD: return s * t->gold;
@@ -57,17 +73,17 @@ UINT8 weird_pct(UINT8 w, UINT8 what) BANKED {
     }
 }
 void weird_note(char *out, UINT8 w) BANKED {
-    const WT *t = &wt[w & 15]; char *d = out; UINT8 s = w >> 4;
+    const WT *t = &wt[w & 31]; char *d = out; UINT8 s = w >> 5;
     if(t->gold){ d = u16s(scat(d, "+"), s * t->gold); scat(d, "% GOLD"); }
     else if(t->ore){ d = u16s(scat(d, "+"), s * t->ore); scat(d, "% ORE"); }
     else if(t->foe){ d = u16s(scat(d, "FOES +"), s * t->foe); scat(d, "% HP"); }
     else if(t->heal){ scat(d, t->heal > 0 ? "THE AIR HEALS" : "THE AIR STINGS"); }
     else scat(d, "STRANGE COLOURS");
 }
-#define BL(o, a) ((UINT8)(((UINT16)(o) * (9 - s) + (UINT16)(a) * s) / 9))
+#define BL(o, a) ((UINT8)(((UINT16)(o) * (7 - s) + (UINT16)(a) * s) / 7))
 #define CL(v) ((v) > 31 ? 31 : (v))
 void weird_pal(palette_color_t *p, UINT8 n, UINT8 w, UINT8 tick) BANKED {
-    const WT *t = &wt[w & 15]; UINT8 s = w >> 4, i;
+    const WT *t = &wt[w & 31]; UINT8 s = w >> 5, i;
     if(!w || !t->mode) return;
     for(i = 0; i < n; i++){
         UINT16 c = p[i], R, G, B;
@@ -89,7 +105,7 @@ void weird_pal(palette_color_t *p, UINT8 n, UINT8 w, UINT8 tick) BANKED {
     }
 }
 UINT8 weird_tick(UINT8 w, UINT8 tick) BANKED {
-    INT8 h = wt[w & 15].heal; UINT16 mx = hud_hpmax(sv.level);
+    INT8 h = wt[w & 31].heal; UINT16 mx = hud_hpmax(sv.level);
     (void)tick;
     if(!w || !h) return 0;
     if(h > 0){ if(sv.hp >= mx) return 0; sv.hp += 1 + (w >> 6); if(sv.hp > mx) sv.hp = mx; return 1; }
@@ -100,22 +116,22 @@ void weird_land(UINT8 w) BANKED {
     char *b = WRAM_AT(WRAM_TXT, char), *d; UINT8 first;
     if(!w) return;
     wild_load();
-    wram_bank(2); first = !(XAP->wseen & (1U << (w & 15))); XAP->wseen |= 1U << (w & 15); wram_bank(1);
+    wram_bank(2); first = !(XAP->wseen & (1UL << (w & 31))); XAP->wseen |= 1UL << (w & 31); wram_bank(1);
     if(!first) return;
     wild_save();
     d = scat(b, "THIS WORLD IS "); weird_name(d, w); d = b + strlen(b); d = scat(d, ": "); weird_note(d, w); d = b + strlen(b); scat(d, ". LOOK AT THE COLOURS!");
     sfx(SFX_FANFARE);
     dlg_say("BOLT", b);
 }
-void weird_screen(UINT8 y0) BANKED {
-    UINT8 i, n = 0; UINT16 seen; char b[21], *d; UINT8 pt;
+void weird_screen(UINT8 y0, UINT8 half) BANKED {
+    UINT8 i, n = 0; UINT32 seen; char b[21], *d; UINT8 pt;
     wild_load();
     wram_bank(2); seen = XAP->wseen; pt = XAP->petn; wram_bank(1);
+    for(i = 0; i < 32; i++) n += (UINT8)((seen >> i) & 1);
     for(i = 0; i < 16; i++){
-        UINT8 x = (i & 1) ? 11 : 2, y = y0 + (i >> 1), got = (seen >> i) & 1;
-        n += got;
-        txt_line(x, y, got ? wt[i].nm : "?????", 8); txt_color(x, y, 8, 1, got ? TXT_GOLD : TXT_GREY);
+        UINT8 k = half * 16 + i, x = (i & 1) ? 11 : 2, y = y0 + (i >> 1), got = (UINT8)((seen >> k) & 1);
+        txt_line(x, y, got ? wt[k].nm : "?????", 8); txt_color(x, y, 8, 1, got ? TXT_GOLD : TXT_GREY);
     }
-    d = u16s(b, n); d = scat(d, " OF 16 MET"); *d = 0; txt_line(2, y0 + 9, b, 16); txt_color(2, y0 + 9, 16, 1, TXT_WHITE);
+    d = u16s(b, n); d = scat(d, " OF 32 MET"); *d = 0; txt_line(2, y0 + 9, b, 16); txt_color(2, y0 + 9, 16, 1, TXT_WHITE);
     d = scat(b, "FRIENDS MADE "); d = u16s(d, pt); *d = 0; txt_line(2, y0 + 10, b, 16); txt_color(2, y0 + 10, 16, 1, TXT_GREY);
 }

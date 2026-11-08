@@ -7,8 +7,8 @@
 
 static const char *const good_name[G_N] = { "FOOD", "ORE", "CRYSTAL", "SILK", "AMBER", "MEDS", "TECH", "NECTAR" };
 static const UINT8 base[G_N] = { 12, 18, 34, 28, 24, 46, 70, 55 };
-/* percent of the middle price, by the kind of world (GARDEN DESERT ICE JUNGLE OCEAN DUSK): cheap where it is made, dear where it is missed */
-static const UINT8 mod[6][G_N] = {
+/* percent of the middle price, by the kind of world (GARDEN DESERT ICE JUNGLE OCEAN DUSK MESA FUNGAL CRYSTAL LAVA SWAMP CANDY): cheap where it is made, dear where it is missed */
+static const UINT8 mod[12][G_N] = {
     /* FOOD ORE CRY SILK AMB MEDS TECH NEC */
     {   60, 120, 130, 100,  90, 110, 140,  70 },     /* GARDEN: farms */
     {  150,  60, 100, 130,  70, 120, 110, 140 },     /* DESERT: mines */
@@ -16,6 +16,12 @@ static const UINT8 mod[6][G_N] = {
     {   80, 140, 120,  60,  65,  70, 150,  90 },     /* JUNGLE: silk and amber */
     {   70, 130,  90, 120, 130,  60, 125,  80 },     /* OCEAN: healers and nectar */
     {  140, 100,  75,  90, 140, 130,  60, 150 },     /* DUSK: factories */
+    {  120,  70, 140,  90, 100, 130, 110, 150 },     /* MESA: clay mines */
+    {   70, 130, 110,  60, 140,  80, 150,  65 },     /* FUNGAL: farms of spores, nectar */
+    {  140,  90,  55, 130, 150, 120,  75, 110 },     /* CRYSTAL: crystal and tech */
+    {  150,  55, 130, 140, 120, 140,  80, 130 },     /* LAVA: smelters (ore) */
+    {   90, 120, 140,  75,  60,  65, 140,  85 },     /* SWAMP: amber and meds */
+    {   65, 140,  95, 110,  90, 100, 130,  60 },     /* CANDY: food and nectar */
 };
 void good_label(UINT8 g, char *out) BANKED { scat(out, good_name[g]); }
 UINT16 econ_base(UINT8 g) BANKED { return base[g]; }
@@ -25,7 +31,7 @@ static UINT8 hash8(UINT8 star, UINT8 g, UINT8 epoch){
     return (UINT8)h;
 }
 UINT16 econ_price(UINT8 star, UINT8 kind, UINT8 g) BANKED {
-    UINT32 p = (UINT32)base[g] * mod[kind > 5 ? 0 : kind][g] / 100;
+    UINT32 p = (UINT32)base[g] * mod[kind > 11 ? 0 : kind][g] / 100;
     p = p * (85 + hash8(star, g, 0) % 31) / 100;                     /* this star: 85..115% */
     p = p * (90 + hash8(star, g, 1 + sv.el.jumps / 3) % 21) / 100;   /* this season: 90..110%, changes every 3 jumps */
     return p ? (UINT16)p : 1;

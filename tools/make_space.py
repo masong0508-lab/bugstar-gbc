@@ -231,7 +231,9 @@ def spr16(g):     # a 16x16 sprite: two 8x16 columns
 
 # world kinds (same order as the planets): a planet's three colours, seen from space
 KIND_COLS = [[(4, 10, 20), (8, 20, 6), (24, 30, 16)], [(16, 9, 3), (29, 21, 10), (31, 29, 20)], [(10, 16, 26), (24, 28, 31), (31, 31, 31)],
-             [(2, 10, 4), (5, 20, 6), (14, 28, 10)], [(2, 6, 22), (6, 16, 30), (22, 30, 16)], [(10, 3, 18), (21, 9, 28), (31, 22, 26)]]
+             [(2, 10, 4), (5, 20, 6), (14, 28, 10)], [(2, 6, 22), (6, 16, 30), (22, 30, 16)], [(10, 3, 18), (21, 9, 28), (31, 22, 26)],
+             [(14, 5, 2), (26, 13, 6), (31, 22, 12)], [(6, 3, 14), (8, 18, 18), (20, 28, 24)], [(8, 10, 24), (20, 22, 30), (31, 24, 31)],
+             [(8, 1, 0), (24, 6, 0), (31, 20, 4)], [(3, 8, 3), (8, 14, 6), (18, 22, 10)], [(24, 8, 16), (31, 18, 24), (31, 28, 28)]]
 SPACE_PAL = [(0, 0, 3), (10, 10, 16), (20, 20, 28), (31, 31, 31)]
 SPR_PALS = [[(0, 0, 0), (6, 4, 8), (26, 6, 8), (31, 24, 20)],      # 0 ship
             [(0, 0, 0), (4, 6, 4), (12, 18, 12), (30, 30, 6)],     # 1 pirate
@@ -295,7 +297,7 @@ def main():
     g.append("void title_ship_load(UINT8 tile0) BANKED { set_sprite_data(tile0, 4, &sp_spr[SP_T_SHIP(2) * 16]); }")
     open(os.path.join(ROOT, "src", "space_gfx.c"), "w").write("\n".join(g) + "\n")
     c.append("const palette_color_t sp_space_pal[4] = {" + ",".join("RGB(%d,%d,%d)" % col for col in SPACE_PAL) + "};")
-    c.append("const palette_color_t sp_kind_pal[6 * 4] = {" + ",".join("RGB(0,0,3)," + ",".join("RGB(%d,%d,%d)" % col for col in k) for k in KIND_COLS) + "};")
+    c.append("const palette_color_t sp_kind_pal[12 * 4] = {" + ",".join("RGB(0,0,3)," + ",".join("RGB(%d,%d,%d)" % col for col in k) for k in KIND_COLS) + "};")
     perm = list(range(256)); random.Random(77).shuffle(perm)
     c.append("const UINT8 sp_perm[256] = {" + ",".join(str(v) for v in perm) + "};")
     c.append("const palette_color_t sp_spr_pal[24] = {" + ",".join("RGB(%d,%d,%d)" % col for p2 in SPR_PALS for col in p2) + "};")
@@ -331,7 +333,7 @@ def main():
          "void title_ship_load(UINT8 tile0) BANKED;              /* just the ship facing right, 4 tiles, for the title */",
          "void space_spr_copy(UINT8 dst, UINT8 src, UINT8 n) BANKED;   /* n sprite tiles from SP_T_... src to VRAM tile dst (the warp borrows some) */",
          "extern const palette_color_t sp_space_pal[4];",
-         "extern const palette_color_t sp_kind_pal[6 * 4];",
+         "extern const palette_color_t sp_kind_pal[12 * 4];",
          "extern const palette_color_t sp_spr_pal[24];   /* sprite palettes 0..5 */",
          "extern const UINT8 sp_perm[256];               /* a shuffle of 0..255, for the starfield hash */",
          "#endif"]

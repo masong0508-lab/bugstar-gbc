@@ -2,6 +2,7 @@
 #define SAVE_H
 #include <gb/gb.h>
 #include "bug.h"
+#include "traits.h"
 
 /* SRAM map (MBC5, 4 banks of 8 KB = 32 KB, see Makefile -Wm-ya4):
      bank 0,1,2 : save slot 1,2,3 (one whole bank each, so a slot can grow later)
@@ -9,7 +10,7 @@
    The GBA game's 64-bit economy and huge galaxy address are gone: a world is one 32-bit seed. */
 #define NSLOT 3
 #define SAVE_MAGIC 0x43475542UL      /* "BUGC" */
-#define SAVE_VER   5
+#define SAVE_VER   6
 
 typedef struct {                 /* the Elite layer: what the ship carries, the fuel, the job, the fame (version 5) */
     UINT8  cargo[8];             /* units of each good in the hold (econ.h: FOOD ORE CRYSTAL SILK AMBER MEDS TECH NECTAR) */
@@ -24,7 +25,7 @@ typedef struct {                 /* the Elite layer: what the ship carries, the 
     UINT8  rsv[8];
 } Elite;
 
-typedef struct {                 /* one save slot: 146 bytes on the cartridge (version 5; versions 1 (64 bytes), 2 (the bug had 13 parts), 3 (no upgrades) and 4 (no Elite layer) are converted on load) */
+typedef struct {                 /* one save slot: 170 bytes on the cartridge (version 6). A version 5 slot is converted on load (the new fields start empty); older versions (1 to 4) are erased with a message: see save_guard.c */
     UINT32 magic;                /* SAVE_MAGIC */
     UINT16 ver;
     UINT32 seed;                 /* the world: everything is generated from this */
@@ -47,6 +48,10 @@ typedef struct {                 /* one save slot: 146 bytes on the cartridge (v
     UINT8  rsv[4];              /* (new fields come out of here; a fresh game zeroes them, older saves had them zero too) */
     UINT8  up[16];               /* upgrades, one byte each (UP_* below): skills bought with level-up points, gear bought with gold (version 4) */
     Elite  el;                   /* (version 5) */
+    UINT8  gift, quirk;          /* the bug's birth traits (version 6): 1..15, 0 = not rolled yet (traits.c) */
+    UINT8  drank;                /* potions drunk, for the stats */
+    UINT8  mood;                 /* (spare) */
+    UINT8  rsv2[20];             /* more room for later versions */
     UINT32 sum;                  /* FNV-1a of everything before it */
 } Save;
 
@@ -54,17 +59,20 @@ typedef struct {                 /* what comes after the slot (SRAM offset 256 o
     UINT32 magic;
     UINT8  seen[32];             /* a bit per star: landed on it */
     UINT8  city[32];             /* a bit per star: walked into one of its cities */
-    UINT8  tricks;               /* a bit per kind of world whose queen was beaten: the trick she gave (feat.h) */
+    UINT16 tricks;               /* a bit per kind of world (12) whose queen was beaten: the trick she gave (feat.h) */
     UINT8  off;                  /* the clock's offset in 20-second hours (sleeping at an inn moves it to the morning) */
     UINT8  fish, rare;           /* fish in the bag, golden fish in the bag */
     UINT8  pit;                  /* the most waves cleared in a city's bug pit */
-    UINT8  rsv[11];
+    UINT8  rsv[11];              /* (spell.h EX_* macros) */
+    UINT8  xs[64];               /* (version 6) more counters and flags: feats 17..48 in xs[0..3], the rest where each feature says */
     UINT32 sum;
 } Extra;
 extern Extra ex;
-UINT8 sv_old(UINT8 slot, Save *out) BANKED;   /* save_guard.c: convert a version 1-4 slot */
+UINT8 sv_old(UINT8 slot, Save *out) BANKED;   /* save_guard.c: a slot from an older version is erased (sv_wiped gets its bit) */
+extern UINT8 sv_wiped;                               /* bit n: slot n held an older save that was erased this session (the title tells the player once) */
 UINT32 fnv(const void *d, UINT16 n);                 /* (private to save.c and save_guard.c) */
 void sram_read_at(UINT8 bank, UINT16 off, void *d, UINT16 n);
+void sram_write_at(UINT8 bank, UINT16 off, const void *s, UINT16 n);
 #define sram_read(b, d, n)  sram_read_at(b, 0, d, n)
 void sv_sanitize(Save *s) BANKED;        /* save_guard.c (bank 38): clamp every field of a loaded save into its range */
 
@@ -75,6 +83,11 @@ typedef struct {                 /* options, same set as the GBA game */
     UINT8 baby, hunger, faint;   /* hunger/faint: 1 = on (default) */
     UINT8 xpm, goldm;            /* 0 x1, 1 x2, 2 x5 */
     UINT8 cam, minimap, nums, hints, arrow;
+    UINT8 tspd;                  /* text speed: 0 SLOW, 1 NORMAL, 2 FAST, 3 INSTANT (version 6) */
+    UINT8 runb;                  /* B to run: 0 HOLD, 1 TOGGLE */
+    UINT8 asv;                   /* timed autosave: 0 OFF, 1 every 2 minutes, 2 every 5 minutes */
+    UINT8 clr;                   /* colours: 0 NORMAL, 1 VIVID, 2 SOFT (planets and dungeons) */
+    UINT8 orsv[4];
 } Opts;
 /* LADYBUGS option: opt.arrow bit 0 is the guide arrow, bits 1..3 the cap code (0 ALL, 1 NONE, 2 one, 3 two, 4 three, 5 five, 6 seven) */
 #define BUD_CODE() ((opt.arrow >> 1) & 7)
@@ -97,8 +110,8 @@ extern const UINT8 hold_tab[6], tank_tab[6];                                   /
 #define HOLD_CAP() (hold_tab[UPG(UP_HOLD) > 5 ? 5 : UPG(UP_HOLD)])
 #define TANK_CAP() (tank_tab[UPG(UP_TANK) > 5 ? 5 : UPG(UP_TANK)])
 #define GMULT()   (opt.goldm == 2 ? 5 : opt.goldm + 1)          /* OPTIONS > GOLD: x1 / x2 / x5 */
-#define LUCKY(g)  ((UINT16)((((g) << (opt.diff ? 0 : 1)) + (UINT16)((g) * UPG(SK_LUCK) / 16)) * GMULT()))   /* (BABY pays double) */                    /* gold with the LUCK skill (6% a rank) */
-#define SP_GOLD(g) ((UINT16)(((g) + (UINT16)((g) * (UPG(SK_LUCK) + 2 * UPG(UP_MAGNET)) / 16)) * GMULT()))   /* and the MAGNET in space (12% a level) */
+#define LUCKY(g)  tr_gold((UINT16)((((g) << (opt.diff ? 0 : 1)) + (UINT16)((g) * UPG(SK_LUCK) / 16)) * GMULT()))   /* (BABY pays double) */                    /* gold with the LUCK skill (6% a rank) */
+#define SP_GOLD(g) tr_gold((UINT16)(((g) + (UINT16)((g) * (UPG(SK_LUCK) + 2 * UPG(UP_MAGNET)) / 16)) * GMULT()))   /* and the MAGNET in space (12% a level) */
 #define ST_INTRO 1               /* Bolt has told the story so far */
 #define ST_BEAST 2               /* ...and met the Technobeast */
 #define ST_DONE  4               /* the Technobeast is beaten: the ending was seen */

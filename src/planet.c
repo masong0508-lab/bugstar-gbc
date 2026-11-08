@@ -33,6 +33,7 @@
 #include "spell.h"
 #include "xtra.h"
 #include "wild.h"
+#include "weather.h"
 
 #define SHIP_TILE0 104           /* sprite tiles in VRAM bank 1 (the terrain uses bank-1 tiles 0..PL_NTILES-1 = 0..85) */
 #define CRIT_TILE0 120           /* the sparkle and butterfly sprites (bank 1, after the ship) */
@@ -53,6 +54,12 @@ static const WorldKind kinds[PL_NWORLD] = {
     {  66,    74,   84,   215,  150,  30,     14 },   /* JUNGLE */
     {  128,   140,  156,  225,  70,   26,     10 },   /* OCEAN: islands */
     {  80,    90,   104,  195,  80,   16,     8  },   /* DUSK */
+    {  50,    58,   150,  185,  14,   12,     5  },   /* MESA: canyon, clay, a little scrub */
+    {  70,    80,   92,   210,  170,  40,     12 },   /* FUNGAL: a dense spore forest */
+    {  74,    84,   98,   170,  40,   34,     6  },   /* CRYSTAL: many glass outcrops */
+    {  100,   110,  150,  180,  10,   6,      2  },   /* LAVA: magma seas and ash */
+    {  120,   132,  150,  225,  110,  22,     10 },   /* SWAMP: soggy, wide shallows */
+    {  76,    86,   100,  215,  70,   70,     16 },   /* CANDY: flowers and sweets everywhere */
 };
 
 static UINT16 seed_a, seed_b;                 /* the world's seed, in two halves */
@@ -233,7 +240,7 @@ static void world_setup(void){
 static const palette_color_t glow_pal[4] = { RGB(0, 0, 0), RGB(8, 12, 2), RGB(31, 29, 6), RGB(31, 31, 20) };   /* the butterflies glow at night */
 static void apply_pal(void){                                    /* the colours, darkened by the time of day */
     palette_color_t b[16], sp[4];
-    memcpy(b, &planet_pals[wk * 16], 32); tod_tint(b, 16); if(wv) weird_pal(b, 16, wv, (UINT8)frames32()); set_bkg_palette(4, 4, b);
+    memcpy(b, &planet_pals[wk * 16], 32); tod_tint(b, 16); if(wv) weird_pal(b, 16, wv, (UINT8)frames32()); weather_pal(b, 16); set_bkg_palette(4, 4, b);
     memcpy(sp, ship_pal, 8); tod_tint(sp, 4); set_sprite_palette(SHIP_PAL, 1, sp);
     if(tod_dark() >= 9) set_sprite_palette(2, 1, glow_pal); else set_sprite_palette(2, 1, &crit_pal[4]);
 }
@@ -243,6 +250,7 @@ static void load_gfx(void){
     set_bkg_data(0, PL_NTILES, planet_tiles);
     set_sprite_data(SHIP_TILE0, 4, ship_tiles);
     set_sprite_data(CRIT_TILE0, 8, crit_tiles);
+    weather_gfx();
     VBK_REG = VBK_BANK_0;
     set_sprite_palette(1, 2, crit_pal);
     life_gfx(wk);
@@ -406,11 +414,12 @@ static void enter(void){                                       /* the planet ont
     fade_in();
 }
 int planet_run(void) BANKED {                                    /* returns PL_TITLE when the person quits to the title */
+    UINT8 runt = 0; UINT16 asv_t = 0;
     UINT8 frame = 0, step = 0, flip = 0, k, ox, oy, was_door = 0, tick = 0, was_gate = 0; char msg[140], *d;
     fade_out(); DISPLAY_OFF;
     cpu_fast();
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);               /* nothing left over from the menus */
-    world_setup(); bolt_wk = wk;
+    world_setup(); bolt_wk = wk; weather_start(wk, sv.star);
     place_things(); note_t = 0; fish_hint = 0; hint_z = 0;
     life_load(wk, ((UINT16)ship_mx << 4) + 8, ((UINT16)ship_my << 4) + 8);
     ex.seen[sv.star >> 3] |= 1 << (sv.star & 7);
@@ -426,13 +435,14 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     }
     dlg_say("BOLT", msg);
     weird_land(wv);
+    if(wx_type){ char wb[24]; weather_name(scat(wb, "WEATHER: ") ); note(wb); }
 #ifdef TEST_FISH
     fish_run(wk);
 #endif
     for(;;){
         input_poll();
         k = keys;
-        { INT8 vx = (k & J_LEFT) ? -1 : (k & J_RIGHT) ? 1 : 0, vy = (k & J_UP) ? -1 : (k & J_DOWN) ? 1 : 0; UINT8 sp = (k & J_B) ? 2 : 1, n;
+        { INT8 vx = (k & J_LEFT) ? -1 : (k & J_RIGHT) ? 1 : 0, vy = (k & J_UP) ? -1 : (k & J_DOWN) ? 1 : 0; UINT8 sp, n; if(opt.runb){ if(HIT(J_B)) runt ^= 1; sp = runt ? 2 : 1; } else sp = (k & J_B) ? 2 : 1;
           if(vx < 0) flip = 1; else if(vx > 0) flip = 0;
           for(n = 0; n < sp; n++){
               if(vx && !blocked(bx + vx, by)) bx = (bx + vx) & 4095;
@@ -442,7 +452,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
         if(mt_at(ox, oy) == MT_BERRY) eat_berry(ox, oy);
-        crit_step(++tick); pet_push(bx, by);
+        if(opt.asv && ++asv_t >= (opt.asv == 1 ? 7200U : 18000U) ){ asv_t = 0; slot_write(cur_slot); note("AUTOSAVED"); }   /* OPTIONS > TIMED SAVE: every 2 or 5 minutes of walking about */
+        crit_step(++tick); weather_step(tick); pet_push(bx, by);
         if(!(tick & 1)){ UINT8 i; UINT16 lx, ly; life_step(bx, by, tick); for(i = 0; i < 4; i++) if(life_peek(i, &lx, &ly) && blocked(lx, ly)) life_back(i); }
         if(wv && !(tick & 63)) weird_tick(wv, tick);
         if(tick == 200) bounty_tick();                                  /* (every 256 frames: the bounty office pays a finished job) */
@@ -484,8 +495,8 @@ int planet_run(void) BANKED {                                    /* returns PL_T
         wait_vbl_done();
         SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y;
         bugspr_show(BUG_SX - bugspr_w() / 2, BUG_SY - BUGSPR_UP, flip, frame);
-        ship_show(); crit_draw(tick); life_draw(cam_x, cam_y); { UINT8 po[3]; po[0] = 0; po[1] = 1; po[2] = 2; pet_draw(po, cam_x, cam_y, 1); }
-        if(!(tick & (wv ? 7 : 63))) apply_pal();
+        ship_show(); crit_draw(tick); weather_draw(); life_draw(cam_x, cam_y); { UINT8 po[3]; po[0] = 0; po[1] = 1; po[2] = 2; pet_draw(po, cam_x, cam_y, 1); }
+        if(!(tick & ((wv || wx_type == WX_STORM) ? 3 : 63)) || wx_flash) apply_pal();
         hud_update();
         if(HIT(J_A) && near_ship()){
             UINT8 sm = 0, r;

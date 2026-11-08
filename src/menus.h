@@ -8,12 +8,13 @@ char *u32s(char *d, UINT32 v);           /* decimal 32-bit; returns pointer to t
 char *scat(char *d, const char *s);       /* copy; returns pointer to the end NUL */
 char *fmt_time(char *d, UINT32 secs);     /* H:MM:SS */
 char *fmt_hex32(char *d, UINT32 v);       /* 8 hex digits */
-extern const char *const kind_name[6];    /* GARDEN DESERT ICE JUNGLE OCEAN DUSK: the kinds of world (same order as the planets) */
+extern const char *const kind_name[12];   /* GARDEN DESERT ICE JUNGLE OCEAN DUSK MESA FUNGAL CRYSTAL LAVA SWAMP CANDY: the kinds of world (same order as the planets) */
 UINT8 world_kind(UINT32 wseed);           /* the kind of the world with that seed (world_seed() in save.h) */
 char *world_name(char *d, UINT32 wseed);  /* its name, two or three made-up syllables, e.g. ZORBAX; returns the end NUL */
 void  options_screen(void) BANKED;              /* bank 2 */
 /* mode 0 = LOAD (used slots only), 1 = NEW (asks before overwriting). Returns slot 0..2, or -1 for back. */
 int   slot_picker(UINT8 mode) BANKED;   /* bank 2 */
+void  wiped_screen(UINT8 mask) BANKED;   /* bank 2: "your old saves were erased" (version 6); mask = the slots */
 void ui_tick(UINT8 x, UINT8 y, UINT8 f, UINT8 hx, UINT8 hw, UINT8 hy, UINT8 win) BANKED;   /* menu animation: arrow at x,y pulses, header (hx,hy,hw) twinkles; f = frame counter */
 void sys_tick(UINT8 sel, UINT8 f) BANKED;
 #endif

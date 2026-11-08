@@ -9,6 +9,8 @@
 #include "input.h"
 #include "title.h"
 #include "save.h"
+#include "warship.h"
+#include "stats.h"
 #include "menus.h"
 #include "text.h"
 #include "hud.h"
@@ -49,6 +51,21 @@ void main(void){
 #ifdef TEST_MAKE
     DISPLAY_OFF; txt_init(); DISPLAY_ON; { BugLook l; char nm[9]; bug_default(&l); strcpy(nm, "PIP"); bugmake_run(&l, nm, 1); }
     for(;;) wait_vbl_done();
+#endif
+#ifdef TEST_STATS
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; cpu_fast();
+    stats_run();
+    for(;;) wait_vbl_done();
+#endif
+#ifdef TEST_WAR
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; sv.up[UP_GUNS] = 3; sv.up[UP_LASER] = 3;
+    cpu_fast();
+#ifdef TEST_WAR_AMB
+    for(;;){ warship_ambush(); }
+#else
+    warship_run();
+    for(;;) wait_vbl_done();
+#endif
 #endif
 #ifdef TEST_PLANET
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.story = ST_INTRO;
@@ -100,6 +117,7 @@ void main(void){
 #endif
     for(;;){ int r = space_run(); if(r == SP_LAND) play(); else if(r == SP_END) ending_run(); }
 #endif
+    if(sv_wiped){ DISPLAY_OFF; txt_init(); DISPLAY_ON; wiped_screen(sv_wiped); sv_wiped = 0; }
     for(;;){
         int choice, s;
         title_init();

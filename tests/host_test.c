@@ -21,6 +21,8 @@ void status_run(void){ }
 void guide_run(void){ }
 UINT8 extras_run(UINT8 in_space){ return 0; }                                          /* (and the skills page) */   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
+UINT16 warship_count(UINT8 w){ (void)w; return 0; }
+UINT16 kart_count(UINT8 w){ (void)w; return 0; }
 unsigned char sram_buf[4*8192];
 /* ---- stubs */
 /* fake BG map (bank 0) and attribute map (bank 1): the real text engine draws into these */
@@ -288,28 +290,23 @@ int main(void){
       slot_peek(0, &t); CHECK(t.level == 33);                                  /* autosave off: not written */
       CHECK(stub_win == 0);
     }
-    /* ---- a version 2 save (13-part bug) is converted */
-    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
-        UINT16 col[BC_N]; UINT8 pt[13]; UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[7]; UINT32 sum; } S2;
-      S2 o; Save t; UINT32 h = 2166136261UL; UINT8 *b = (UINT8 *)&o; UINT16 i;
-      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 2; o.seed = 777; o.level = 9; o.gold = 1234; strcpy(o.name, "OLDIE"); o.col[0] = 0x1234; o.pt[1] = 3; o.pt[12] = 7; o.cores = 2; o.warp_best = 55;
-      for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
-      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
-      CHECK(slot_peek(1, &t) && t.ver == 5 && t.seed == 777 && t.level == 9 && t.gold == 1234 && !strcmp(t.name, "OLDIE") && t.look.col[0] == 0x1234 && t.look.pt[1] == 3 && t.look.pt[12] == 7
-            && t.look.pt[BP_CHEEK] == 0 && t.look.pt[BP_NECK] == 0 && t.look.pt[BP_BACK] == 0 && t.cores == 2 && t.warp_best == 55);
+    /* ---- a save from an older version is erased, and sv_wiped says so (version 6 drops old saves on purpose) */
+    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 pad[40]; } SO;
+      SO o; Save t; extern UINT8 sv_wiped;
+      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 5; o.seed = 777;
+      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o); memcpy(sram_buf + 8192 + 4096, &o, sizeof o);
+      sv_wiped = 0;
+      CHECK(!slot_peek(1, &t) && sv_wiped == 2);
+      CHECK(!slot_peek(1, &t) && sv_wiped == 2);                                    /* erased: nothing more to say about it */
+      CHECK(sram_buf[8192] == 0 && sram_buf[8192 + 4096] == 0);
+      new_game(1, 5, 0, 0); cur_slot = 1; CHECK(slot_peek(1, &t) && t.ver == SAVE_VER && t.gift >= 1 && t.gift <= 15 && t.quirk >= 1 && t.quirk <= 15 && t.gift != t.quirk);
     }
-    /* ---- a version 3 save (no upgrades) is converted, and a version 4 save keeps its upgrades */
-    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
-        BugLook look; UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT32 sum; } S3;
-      S3 o; Save t; UINT32 h = 2166136261UL; UINT8 *b = (UINT8 *)&o; UINT16 i;
-      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 3; o.seed = 4242; o.level = 12; o.gold = 99; strcpy(o.name, "THREE"); o.look.pt[BP_NECK] = 2; o.potions = 4;
-      for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
-      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
-      CHECK(slot_peek(1, &t) && t.ver == 5 && t.seed == 4242 && t.level == 12 && t.gold == 99 && !strcmp(t.name, "THREE") && t.look.pt[BP_NECK] == 2 && t.potions == 4);
-      { UINT8 k, z = 1; for(k = 0; k < sizeof t.up; k++) if(t.up[k]) z = 0; CHECK(z); }
+    /* ---- upgrades are saved */
+    { Save t;
       new_game(1, 5, 0, 0); cur_slot = 1; sv.up[SK_MIGHT] = 7; sv.up[UP_HULL] = 3; slot_write(1);
       CHECK(slot_peek(1, &t) && t.up[SK_MIGHT] == 7 && t.up[UP_HULL] == 3 && t.up[SK_GRIT] == 0);
-      CHECK(hud_hpmax(1) == 10); sv.up[SK_GRIT] = 5; CHECK(hud_hpmax(1) == 30); sv.up[SK_GRIT] = 0;
+      sv.gift = sv.quirk = 0; CHECK(hud_hpmax(1) == 10); sv.up[SK_GRIT] = 5; CHECK(hud_hpmax(1) == 30); sv.up[SK_GRIT] = 0;
+      sv.gift = 3; sv.quirk = 11; CHECK(hud_hpmax(1) == 10 && hud_hpmax(99) > 400 && hud_hpmax(99) < 500);        /* STRONG + GREEDY (-5% health) */ sv.gift = 1; sv.quirk = 5; CHECK(hud_hpmax(10) == 55 + 8); sv.gift = sv.quirk = 0;
     }
     /* ---- the Elite layer: prices, trading, fame, jobs, saves */
     { UINT8 g, k, s, ok = 1; Save t;
@@ -342,16 +339,7 @@ int main(void){
         job_take(J_SEND, 0, 0x22, 90); CHECK(!job_done(0x21) && job_done(0x22)); CHECK(job_pay() >= 90); }
       CHECK(cells_between(0x00, 0xFF) == 1 && cells_between(0x08, 0x00) == 8 && cells_between(0x00, 0x44) == 4 && jump_fuel(0x11, 0x11) == 1);
       sv.el.cargo[G_TECH] = 7; sv.el.fuel = 9; sv.el.fame = 33; sv.el.jk = J_SEND; sv.el.jd = 0x66; slot_write(1);
-      CHECK(slot_peek(1, &t) && t.ver == 5 && t.el.cargo[G_TECH] == 7 && t.el.fuel == 9 && t.el.fame == 33 && t.el.jk == J_SEND && t.el.jd == 0x66);
-    }
-    /* ---- a version 4 save gets a full tank and an empty hold */
-    { typedef struct { UINT32 magic; UINT16 ver; UINT32 seed; UINT8 zone; UINT16 level; UINT16 hp, mp; UINT32 gold, xp, secs; UINT16 saves; char name[9];
-        BugLook look; UINT8 friends, deepest, potions, star, cores, story, freed[8]; UINT16 warp_best; UINT8 rsv[4]; UINT8 up[16]; UINT32 sum; } S4;
-      S4 o; Save t; UINT32 h = 2166136261UL; UINT8 *b = (UINT8 *)&o; UINT16 i;
-      memset(&o, 0, sizeof o); o.magic = 0x43475542UL; o.ver = 4; o.seed = 99; o.level = 20; o.gold = 5; strcpy(o.name, "FOUR"); o.up[UP_LASER] = 3; o.up[SK_MIGHT] = 6;
-      for(i = 0; i < sizeof o - 4; i++){ h ^= b[i]; h *= 16777619UL; } o.sum = h;
-      memset(sram_buf, 0xFF, sizeof sram_buf); stub_bank = 1; memcpy(sram_buf + 8192, &o, sizeof o);
-      CHECK(slot_peek(1, &t) && t.ver == 5 && t.seed == 99 && t.level == 20 && !strcmp(t.name, "FOUR") && t.up[UP_LASER] == 3 && t.up[SK_MIGHT] == 6 && t.el.fuel == 14 && t.el.cargo[0] == 0 && t.el.fame == 0);
+      CHECK(slot_peek(1, &t) && t.ver == SAVE_VER && t.el.cargo[G_TECH] == 7 && t.el.fuel == 9 && t.el.fame == 33 && t.el.jk == J_SEND && t.el.jd == 0x66);
     }
     /* ---- the bug builder: nothing may need more than the sprite budget on one scanline, whatever the parts */
     { BugLook l; UINT8 i, k, v, ok = 1;

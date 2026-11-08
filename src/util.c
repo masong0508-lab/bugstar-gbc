@@ -32,8 +32,14 @@ char *fmt_hex32(char *d, UINT32 v){
     *d = 0; return d;
 }
 
-const char *const kind_name[6] = { "GARDEN", "DESERT", "ICE", "JUNGLE", "OCEAN", "DUSK" };
-UINT8 world_kind(UINT32 wseed){ return (UINT8)((wseed >> 8) % 6); }
+const char *const kind_name[12] = { "GARDEN", "DESERT", "ICE", "JUNGLE", "OCEAN", "DUSK", "MESA", "FUNGAL", "CRYSTAL", "LAVA", "SWAMP", "CANDY" };
+UINT8 world_kind(UINT32 wseed){
+#ifdef TEST_KIND
+    (void)wseed; return TEST_KIND;
+#else
+    return (UINT8)((wseed >> 8) % 12);
+#endif
+}
 static const char *const syl[16] = { "ZOR", "BA", "KI", "LU", "MOX", "TE", "VEN", "RA", "QUI", "NO", "PEL", "SA", "DRO", "MI", "GAX", "U" };
 char *world_name(char *d, UINT32 wseed){
     UINT8 a = (UINT8)(wseed >> 16), b = (UINT8)(wseed >> 24);

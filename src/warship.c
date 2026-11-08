@@ -18,9 +18,9 @@
 extern volatile UINT8 snd_song;
 
 /* ---- the records (own SRAM block, offset 3584 of the slot's bank) */
-typedef struct { UINT32 magic, seed; UINT8 clr, pad; UINT16 best[3]; UINT16 wins, tries; UINT32 sum; } WS;
+typedef struct { UINT32 magic, seed; UINT8 clr, rot; UINT16 best[3]; UINT16 wins, tries, bwin, amb; UINT8 bd, rsv; UINT32 sum; } WS;   /* rot: which board; bd: its missions done (bits); bwin: board missions won; amb: ambushes survived */
 #define WS_OFF   3584U
-#define WS_MAGIC 0x31535742UL                                           /* "BWS1" */
+#define WS_MAGIC 0x32535742UL                                           /* "BWS2" */
 static WS ws;
 static void ws_save(void){
     const UINT8 *p = (const UINT8 *)&ws; UINT16 i;
@@ -34,9 +34,9 @@ static void ws_load(void){
     ENABLE_RAM; SWITCH_RAM(cur_slot);
     for(i = 0; i < sizeof ws; i++) p[i] = *(volatile UINT8 *)(0xA000U + WS_OFF + i);
     DISABLE_RAM;
-    if(ws.magic != WS_MAGIC || ws.seed != sv.seed || ws.sum != fnv(&ws, sizeof ws - 4) || (ws.clr & ~7)) memset(&ws, 0, sizeof ws);
+    if(ws.magic != WS_MAGIC || ws.seed != sv.seed || ws.sum != fnv(&ws, sizeof ws - 4) || (ws.clr & ~7) || (ws.bd & ~7)) memset(&ws, 0, sizeof ws);
 }
-UINT16 warship_count(UINT8 wins) BANKED { ws_load(); return wins ? ws.wins : ws.tries; }
+UINT16 warship_count(UINT8 wins) BANKED { ws_load(); return wins == 3 ? ws.amb : wins == 2 ? ws.bwin : wins ? ws.wins : ws.tries; }
 void warship_reset(void) BANKED { memset(&ws, 0, sizeof ws); ws_save(); }
 UINT8 warship_info(char *out) BANKED {
     UINT8 n = 0, i; ws_load();
@@ -146,17 +146,24 @@ static void hud_line(UINT16 tleft, UINT8 lives, UINT8 guns, UINT8 core){
 }
 
 static UINT8 sec_tick(UINT16 t){ while(t >= 60) t -= 60; return !t; }      /* (no division in a per-frame test) */
-static UINT8 raid(UINT8 size, UINT16 *took){                              /* 1 won, 0 lost (the ship or the clock) */
+static UINT16 tlim(UINT8 size, UINT8 mod){ UINT16 t = (size == 0 ? 75 : size == 1 ? 100 : 130); return mod == 1 ? t * 7 / 10 : t; }   /* seconds on the clock */
+static UINT8 raid(UINT8 size, UINT8 mod, UINT16 *took){                              /* 1 won, 0 lost (the ship or the clock) */
     UINT8 ng = size == 0 ? 2 : size == 1 ? 4 : 6, i, j, gleft, lives, inv = 0, cool = 0, core_open = 0, cdone = 0, ccd = 0, spd, dmg, done = 0, res = 0, state = 0, oldsong = snd_song, shown = 0;
     INT16 px = 80, py = 120;
-    UINT16 tleft = (size == 0 ? 75 : size == 1 ? 100 : 130) * 60, el = 0, hs = 0xFFFF; UINT8 core_hp = 6 + 4 * size, hl = 255, hg = 255, hc = 255;
-    UINT8 ghp = 4 + 2 * size, fcool = 14 - UPG(UP_GUNS); UINT8 tbase = 150 - 25 * size;
+    UINT16 tleft = tlim(size, mod) * 60, el = 0, hs = 0xFFFF; UINT8 core_hp = 6 + 4 * size, hl = 255, hg = 255, hc = 255;
+    UINT8 ghp = 4 + 2 * size + (mod == 4 ? 3 : 0), fcool = 14 - UPG(UP_GUNS); UINT8 tbase = 150 - 25 * size;
     if(fcool < 7) fcool = 7;
-    lives = 3 + UPG(UP_HULL) / 2 + (UPG(UP_SHIELD) ? 1 : 0);
+    if(mod == 3){ tbase = tbase * 65 / 100; if(tbase < 40) tbase = 40; }
+    if(mod == 4) core_hp += 3;
+    lives = mod == 2 ? 1 : 3 + UPG(UP_HULL) / 2 + (UPG(UP_SHIELD) ? 1 : 0);
 #ifdef TEST_WAR_GOD
     lives = 200;
 #endif
-    dmg = 1 + UPG(UP_LASER) / 2; spd = 2 + UPG(UP_ENGINE) / 3;
+    dmg = 1 + UPG(UP_LASER) / 2;
+#ifdef TEST_WAR_GOD
+    dmg = 99;
+#endif
+    spd = 2 + UPG(UP_ENGINE) / 3;
     DISPLAY_OFF; HIDE_WIN; SCX_REG = 0; SCY_REG = 0;
     txt_cls(); tiles();
     set_bkg_palette(4, 3, bpal[0]); set_sprite_palette(0, 3, spal[0]); set_sprite_palette_entry(0, 2, sv.look.col[BC_SHELL]);
@@ -266,47 +273,59 @@ static UINT8 raid(UINT8 size, UINT16 *took){                              /* 1 w
 static const char *const sname[3] = { "SMALL", "BIG", "COLOSSAL" };
 static const UINT8 sguns[3] = { 2, 4, 6 };
 static char *mmss(char *d, UINT16 f){ UINT16 s = f / 60; d = u16s(d, s / 60); *d++ = ':'; if(s % 60 < 10) *d++ = '0'; d = u16s(d, s % 60); *d = 0; return d; }
+static UINT8 maxsize(void){ return (ws.clr & 2) ? 2 : (ws.clr & 1) ? 1 : 0; }
 static void draw_menu(UINT8 sel, UINT8 again){
-    UINT8 i; char b[21], *d;
+    UINT8 i, n; char b[21], *d;
     txt_win(0);
     txt_soft(); txt_box(0, 0, 20, 18);                           /* (a redraw is a diff: only the changed cells are written) */
     txt_line(4, 1, "WARSHIP RAID", 12); txt_color(4, 1, 12, 1, TXT_GOLD);
-    for(i = 0; i < 3; i++){
-        d = b; *d++ = i == sel ? T_CURSOR : ' '; d = scat(d, sname[i]); *d = 0;
-        txt_line(2, 3 + i * 2, b, 9);
-        if(i && !(ws.clr & (1 << (i - 1)))){ txt_line(5, 4 + i * 2, "", 12); txt_line(12, 3 + i * 2, "LOCKED", 6); txt_color(2, 3 + i * 2, 16, 1, TXT_GREY); }
-        else {
-            d = u16s(b, sguns[i]); d = scat(d, " GUNS"); *d = 0; txt_line(11, 3 + i * 2, b, 7);
+    for(i = 0; i < 4; i++){
+        d = b; *d++ = i == sel ? T_CURSOR : ' '; d = scat(d, i == 3 ? "WAR BOARD" : sname[i]); *d = 0;
+        txt_line(2, 3 + i * 2, b, 12);
+        if(i && i < 3 && !(ws.clr & (1 << (i - 1)))){ txt_line(5, 4 + i * 2, "", 12); txt_line(13, 3 + i * 2, "LOCKED", 6); txt_color(2, 3 + i * 2, 16, 1, TXT_GREY); }
+        else if(i == 3){
+            for(n = 0; n < 3; n++) if(!(ws.bd & (1 << n))) break;
+            d = u16s(b, ws.bwin); d = scat(d, " DONE  RND "); d = u16s(d, ws.rot + 1); *d = 0; txt_line(5, 4 + i * 2, b, 14); txt_color(5, 4 + i * 2, 14, 1, TXT_GREY);
+            if(!(ws.clr & 1)){ txt_line(13, 3 + i * 2, "LOCKED", 6); txt_color(2, 3 + i * 2, 16, 1, TXT_GREY); }
+            else txt_color(2, 3 + i * 2, 16, 1, i == sel ? TXT_GOLD : TXT_WHITE);
+        } else {
+            d = u16s(b, sguns[i]); d = scat(d, " GUNS"); *d = 0; txt_line(13, 3 + i * 2, b, 6);
             if(ws.best[i]){ d = scat(b, "BEST "); mmss(d, ws.best[i]); txt_line(5, 4 + i * 2, b, 12); txt_color(5, 4 + i * 2, 12, 1, TXT_GREY); }
             else if(ws.clr & (1 << i)){ txt_line(5, 4 + i * 2, "BEATEN", 12); txt_color(5, 4 + i * 2, 12, 1, TXT_GREY); }
             else txt_line(5, 4 + i * 2, "", 12);
             txt_color(2, 3 + i * 2, 16, 1, i == sel ? TXT_GOLD : TXT_WHITE);
         }
     }
-    txt_line(2, 10, "FLY IN AND SHOOT", 17); txt_line(2, 11, "EVERY GUN, THEN", 17); txt_line(2, 12, "THE CORE, BEFORE", 17); txt_line(2, 13, "THE PLANET-BUSTER", 17); txt_line(2, 14, "FIRES!", 17);
-    txt_color(2, 10, 17, 5, TXT_GREY);
+    txt_line(2, 12, "SHOOT EVERY GUN,", 17); txt_line(2, 13, "THEN THE CORE,", 17); txt_line(2, 14, "BEFORE TIME ENDS!", 17);
+    txt_color(2, 12, 17, 3, TXT_GREY);
     txt_line(2, 15, "D-PAD FLY  A FIRE", 17); txt_color(2, 15, 17, 1, TXT_WHITE);
     txt_line(2, 16, "A: GO     B: BACK", 17); txt_color(2, 16, 17, 1, TXT_GREY);
+    (void)again;
 }
-static void results(UINT8 size, UINT8 won, UINT16 took){
-    char b[21], *d; UINT16 gold = 0, tl = 0; UINT8 first = !(ws.clr & (1 << size));
+
+static const char *const mname[5] = { "STANDARD", "RUSH", "IRON HULL", "FLURRY", "ARMOURED" };
+static const UINT8 mpay[5] = { 0, 40, 80, 50, 50 };                       /* percent more pay */
+static void results(UINT8 size, UINT8 mod, UINT8 kind, UINT8 won, UINT16 took){        /* kind 0 a raid, 1 a board mission (bit 1<<2 of bd is set by the caller), 2 an ambush */
+    char b[21], *d; UINT32 gold = 0; UINT16 tl = 0; UINT8 first = !(ws.clr & (1 << size));
     ws.tries++;
     DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0;
     if(won){
-        UINT16 base = size == 0 ? 120 : size == 1 ? 320 : 800; UINT8 secs = (UINT8)((size == 0 ? 75 : size == 1 ? 100 : 130) - took / 60);
-        tl = secs; gold = base; gold += (UINT16)secs * 3; gold *= (UINT16)GMULT(); sv.gold += gold;
-        ws.wins++; ws.clr |= 1 << size; if(!ws.best[size] || took < ws.best[size]) ws.best[size] = took;
-        gain_xp(20 + 40 * size); fame_add(2 + 3 * size);
+        UINT16 base = size == 0 ? 120 : size == 1 ? 320 : 800; UINT8 secs = (UINT8)(tlim(size, mod) - took / 60);
+        tl = secs; gold = base + (UINT16)secs * 3; gold = gold * (100 + mpay[mod] + (kind == 2 ? 50 : 0)) / 100; gold = (UINT32)tr_gold((UINT16)(gold > 60000UL ? 60000UL : gold)) * GMULT(); sv.gold += gold;
+        ws.wins++; ws.clr |= 1 << size; if(!mod && kind != 2 && (!ws.best[size] || took < ws.best[size])) ws.best[size] = took;
+        if(kind == 1) ws.bwin++; if(kind == 2) ws.amb++;
+        gain_xp(20 + 40 * size + (kind ? 20 : 0)); fame_add(2 + 3 * size + (kind ? 1 : 0));
     }
     ws_save(); if(opt.autosave) slot_write(cur_slot);
     txt_win(0); txt_cls(); txt_box(0, 0, 20, 15);
     if(won){
         txt_line(3, 2, "WARSHIP DOWN!", 16); txt_color(3, 2, 16, 1, TXT_GOLD);
         d = scat(b, sname[size]); d = scat(d, " WARSHIP"); *d = 0; txt_line(3, 4, b, 16);
+        d = scat(b, kind == 2 ? "AMBUSH BEATEN" : mname[mod]); *d = 0; txt_line(3, 5, b, 16); txt_color(3, 5, 16, 1, TXT_GREY);
         d = scat(b, "TIME  "); mmss(d, took); txt_line(3, 6, b, 16);
         d = scat(b, "SPARE "); d = u16s(d, tl); d = scat(d, " SECONDS"); *d = 0; txt_line(3, 7, b, 16);
-        d = scat(b, "PAID  "); d = u16s(d, gold); d = scat(d, " GOLD"); *d = 0; txt_line(3, 9, b, 16); txt_color(3, 9, 16, 1, TXT_GOLD);
-        d = scat(b, "+"); d = u16s(d, 20 + 40 * size); d = scat(d, " XP  +"); d = u16s(d, 2 + 3 * size); d = scat(d, " FAME"); *d = 0; txt_line(3, 10, b, 16);
+        d = scat(b, "PAID  "); d = u16s(d, gold > 65000UL ? 65000U : (UINT16)gold); d = scat(d, " GOLD"); *d = 0; txt_line(3, 9, b, 16); txt_color(3, 9, 16, 1, TXT_GOLD);
+        d = scat(b, "+"); d = u16s(d, 20 + 40 * size + (kind ? 20 : 0)); d = scat(d, " XP  +"); d = u16s(d, 2 + 3 * size + (kind ? 1 : 0)); d = scat(d, " FAME"); *d = 0; txt_line(3, 10, b, 16);
         if(size < 2 && first) { txt_line(3, 12, size ? "COLOSSAL IS OPEN" : "BIG IS OPEN!", 16); txt_color(3, 12, 16, 1, TXT_GOLD); }
         sfx(SFX_LEVEL);
     } else {
@@ -321,20 +340,99 @@ static void results(UINT8 size, UINT8 won, UINT16 took){
     for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B) || HIT(J_START)) break; }
 }
 
+/* ---- the war board: three missions a round (a size, a modifier, a world to hover over); finish all three and a new round is posted */
+static void mission(UINT8 i, UINT8 *size, UINT8 *mod, UINT8 *star){
+    UINT32 k[3], h; UINT8 m = maxsize();
+    k[0] = sv.seed; k[1] = ws.rot; k[2] = i; h = fnv(k, 12);
+    *size = i < m ? i : m;
+    *mod = i == 0 && !ws.rot ? 0 : (UINT8)((h >> 8) % 5);
+    *star = (UINT8)h;
+}
+static void board_draw(UINT8 sel, const char *msg){
+    UINT8 i, size, mod, star, n; char b[21], *d; UINT16 pay;
+    txt_win(0); txt_soft(); txt_box(0, 0, 20, 18);
+    d = scat(b, "WAR BOARD  RND "); d = u16s(d, ws.rot + 1); *d = 0; txt_line(2, 1, b, 17); txt_color(2, 1, 17, 1, TXT_GOLD);
+    for(i = 0; i < 3; i++){
+        mission(i, &size, &mod, &star);
+        d = b; *d++ = i == sel ? T_CURSOR : ' '; d = scat(d, sname[size]); d = scat(d, " OVER"); *d = 0; txt_line(2, 3 + i * 4, b, 17);
+        d = world_name(b, world_seed(star)); *d = 0; txt_line(4, 4 + i * 4, b, 15); txt_color(4, 4 + i * 4, 15, 1, TXT_GREY);
+        pay = size == 0 ? 120 : size == 1 ? 320 : 800; pay = (UINT16)((UINT32)pay * (100 + mpay[mod]) / 100);
+        d = scat(b, mname[mod]); d = scat(d, " "); d = u16s(d, pay); d = scat(d, "G"); *d = 0; txt_line(4, 5 + i * 4, b, 15);
+        txt_color(2, 3 + i * 4, 17, 1, (ws.bd & (1 << i)) ? TXT_GREY : i == sel ? TXT_GOLD : TXT_WHITE);
+        txt_color(4, 5 + i * 4, 15, 1, mod ? TXT_GOLD : TXT_GREY);
+        if(ws.bd & (1 << i)) txt_line(13, 3 + i * 4, "DONE", 4);
+    }
+    n = ws.bwin > 99 ? 99 : (UINT8)ws.bwin;
+    d = u16s(b, n); d = scat(d, " MISSIONS WON"); *d = 0; txt_line(2, 15, b, 17); txt_color(2, 15, 17, 1, TXT_GREY);
+    txt_line(2, 16, msg ? msg : "A: GO     B: BACK", 17); txt_color(2, 16, 17, 1, msg ? TXT_RED : TXT_GREY);
+}
+static void board(void){
+    UINT8 sel = 0, d = 1, size, mod, star, got; UINT16 took; const char *msg = 0;
+    for(;;){
+        if(d){ board_draw(sel, msg); DISPLAY_ON; d = 0; }
+        wait_vbl_done(); input_poll();
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 2; msg = 0; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; msg = 0; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); return; }
+        if(HIT(J_A)){
+            if(ws.bd & (1 << sel)){ msg = "ALREADY DONE"; d = 1; sfx(SFX_HURT); continue; }
+            mission(sel, &size, &mod, &star);
+            got = raid(size, mod, &took);
+            if(got){ ws.bd |= 1 << sel; if(ws.bd == 7){ ws.bd = 0; ws.rot++; } }
+            results(size, mod, 1, got, took);
+            DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); d = 1; msg = 0;
+        }
+    }
+}
+
+/* ---- a warship drops out of the warp on top of you: called after a jump (about one in five, from level 6) */
+UINT8 warship_ambush(void) BANKED {
+    UINT8 was = LCDC_REG & LCDCF_OBJ16, size, old = snd_song, hit = 0, got; UINT16 took;
+    if(!WAR_OPEN) return 0;
+    ws_load();
+    rng2 ^= (UINT16)DIV_REG << 8 | 1; rn();
+#ifndef TEST_WAR_AMB
+    if(sv.el.jumps % 5 != 0 && (rn() & 7)) return 0;
+#endif                     /* (every fifth jump, and one other in eight) */
+    size = maxsize(); if(size > 1 && (rn() & 1)) size--;
+    DISPLAY_OFF; HIDE_WIN; HIDE_SPRITES; txt_pal_reset(); txt_win(0); txt_cls(); txt_soft(); txt_box(0, 0, 20, 18);
+    music(MUS_ALERT);
+    txt_line(3, 3, "ALERT! ALERT!", 14); txt_color(3, 3, 14, 1, TXT_RED);
+    txt_line(3, 6, "A WARSHIP DROPS", 16); txt_line(3, 7, "OUT OF THE WARP", 16); txt_line(3, 8, "RIGHT ON TOP OF", 16); txt_line(3, 9, "YOU. ITS GUNS", 16); txt_line(3, 10, "ARE LOCKING ON!", 16);
+    txt_line(3, 13, sname[size], 16); txt_color(3, 13, 16, 1, TXT_GOLD);
+    txt_line(3, 15, "A: FIGHT", 16); txt_color(3, 15, 16, 1, TXT_GREY);
+    DISPLAY_ON;
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_START)) break; }
+    got = raid(size, 0, &took);
+    results(size, 0, 2, got, took);
+    (void)hit;
+    music(old);
+    DISPLAY_OFF; HIDE_SPRITES; if(was) SPRITES_8x16; else SPRITES_8x8;
+    txt_win(0); VBK_REG = 0; txt_cls(); SCX_REG = 0; SCY_REG = 0;
+    return 1;
+}
+
 void warship_run(void) BANKED {
     UINT8 was = LCDC_REG & LCDCF_OBJ16, sel = 0, d = 1, got;
     UINT16 took;
     DISPLAY_OFF; HIDE_WIN; HIDE_SPRITES; ws_load(); txt_pal_reset();
+#ifdef TEST_WAR
+    ws.clr |= 3;
+#endif
     for(;;){
         if(d){ draw_menu(sel, d == 2); DISPLAY_ON; d = 0; }
         wait_vbl_done(); input_poll();
-        if(HITR(J_UP)){ sel = sel ? sel - 1 : 2; d = 2; sfx(SFX_MOVE); }
-        if(HITR(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; d = 2; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 3; d = 2; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 3 ? sel + 1 : 0; d = 2; sfx(SFX_MOVE); }
         if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); break; }
         if(HIT(J_A)){
-            if(sel && !(ws.clr & (1 << (sel - 1)))){ sfx(SFX_HURT); continue; }
-            got = raid(sel, &took);
-            results(sel, got, took);
+            if(sel < 3 && sel && !(ws.clr & (1 << (sel - 1)))){ sfx(SFX_HURT); continue; }
+            if(sel == 3){
+                if(!(ws.clr & 1)){ sfx(SFX_HURT); continue; }
+                board(); DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); d = 1; continue;
+            }
+            got = raid(sel, 0, &took);
+            results(sel, 0, 0, got, took);
             DISPLAY_OFF; HIDE_SPRITES; SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); d = 1;
         }
     }

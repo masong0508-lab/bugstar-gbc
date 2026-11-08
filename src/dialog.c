@@ -3,8 +3,10 @@
 #include "text.h"
 #include "hud.h"
 #include "dialog.h"
+#include "save.h"
 
 static UINT8 speed = 2;
+static const UINT8 spd_t[4] = { 4, 2, 1, 0 };            /* OPTIONS > TEXT SPEED: slow, normal, fast, instant (frames a letter) */
 static void (*blip)(void);
 static UINT8 win_y;                                  /* where the window is right now */
 
@@ -52,7 +54,7 @@ static void type_line(UINT8 row, const char *s, UINT8 n, UINT8 *rush){
         if(*rush){ txt_win(1); txt_put(1 + k, row, s + k); txt_win(0); return; }   /* the rest in one go */
         put_tile(1 + k, row, (UINT8)s[k]);
         if(s[k] != ' ' && blip) blip();
-        for(t = 0; t < speed; t++) if(frame()){ *rush = 1; break; }
+        for(t = 0; t < (speed == 2 ? spd_t[opt.tspd & 3] : speed); t++) if(frame()){ *rush = 1; break; }
     }
 }
 

@@ -11,8 +11,8 @@
 
 typedef struct {
     UINT32 seed;
-    UINT8  kills[30];             /* per creature: world kind * 4 + sprite (0 spider 1 beetle 2 wasp 3 slime), then 24 + world kind = that world's queen */
-    UINT16 wseen;                 /* a bit per weird trait met on a planet */
+    UINT8  kills[60];             /* per creature: world kind * 4 + sprite (0 spider 1 beetle 2 wasp 3 slime), then 48 + world kind = that world's queen */
+    UINT32 wseen;                 /* a bit per weird trait met on a planet (32 traits) */
     UINT16 bank;                  /* gold kept in the town bank */
     UINT8  fed, petn;             /* creatures caught or patted */
     UINT8  visits;                /* bank interest: visits since the last payout (counted in 5-minute steps of play) */
@@ -30,7 +30,10 @@ typedef struct {
     UINT8  form, call;            /* HUMANOID: 0 bug, 1 humanoid; the calling (outfit perk) */
     UINT8  hl[8];                 /* HUMANOID: the look (see human.c) */
     UINT8  rock[4];               /* ASTEROIDS: [0] ore grade stack of the last mined rock, [1] mine floors cleared, [2] megadeposits found, [3] smelted parts */
+    UINT8  xr[32];                /* (version 6) spare: see NEWX_* below */
 } XA;
+#define XR_FEAT2  0               /* xr[0..3]: the second set of feats (32 more bits) */
+#define XR_WARS   4               /* xr[4..]: warship mission board and encounters (see warship.c) */
 #define XA_OFF 480U
 /* The state lives in WRAM bank 2 (D000..; the stack has no room left in C000..CFFF). Every function here switches to bank 2 on entry and back to
    bank 1 before it returns: never hand one of them a pointer into D000..DFFF, and never call them from an interrupt. */
@@ -59,7 +62,7 @@ UINT8 weird_pct(UINT8 w, UINT8 what) BANKED;    /* WP_*: how many percent of som
 #define WP_FOE  1     /* monster health */
 #define WP_HIT  2     /* monster damage points */
 #define WP_ORE  3     /* mining pay */
-void  weird_screen(UINT8 y0) BANKED;            /* the weird worlds found, as lines from row y0 */
+void  weird_screen(UINT8 y0, UINT8 half) BANKED;     /* the weird worlds found (half 0: traits 0..15, 1: 16..31), as lines from row y0 */
 
 /* ---- bank 29: living creatures */
 void  life_gfx(UINT8 wk) BANKED;                          /* the tiles (sprite tiles 128..135, VRAM bank 1) and colours (sprite palette 3) of this world's animals */

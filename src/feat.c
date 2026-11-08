@@ -79,7 +79,7 @@ void pet_draw(const UINT8 *oam, UINT16 cx, UINT16 cy, UINT8 wrap) BANKED {
 }
 
 /* ------------------------------------------------------------ fishing */
-static const char *const fish_nm[6] = { "MINNOW", "SANDFISH", "FROSTFISH", "PIRANHA", "TUNA", "GLOWFISH" };
+static const char *const fish_nm[12] = { "MINNOW", "SANDFISH", "FROSTFISH", "PIRANHA", "TUNA", "GLOWFISH", "MUDSKIPPER", "SPOREFISH", "PRISMFISH", "EMBER EEL", "BOGFISH", "CANDYFISH" };
 static void fline(UINT8 y, const char *s, UINT8 pal){ txt_win(1); txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); txt_win(0); }
 UINT8 fish_run(UINT8 world) BANKED {
     UINT16 wait; UINT8 phase = 0, t = 0, caught = 0, k; char b[24], *d;
@@ -97,8 +97,8 @@ UINT8 fish_run(UINT8 world) BANKED {
         } else {
             if(HIT(J_A)){
                 caught = 1;
-                if((rnd() & 15) == 0){ if(ex.rare < 99) ex.rare++; d = scat(b, "A GOLDEN "); scat(d, fish_nm[world % 6]); fline(3, b, TXT_GOLD); sfx(SFX_FANFARE); rumble(RP_CATCH); }
-                else { if(ex.fish < 99) ex.fish++; if(ex.rsv[3] < 255) ex.rsv[3]++; d = scat(b, "A "); scat(d, fish_nm[world % 6]); scat(d, "!"); fline(3, b, TXT_WHITE); sfx(SFX_COIN); }
+                if((rnd() & 15) == 0){ if(ex.rare < 99) ex.rare++; d = scat(b, "A GOLDEN "); scat(d, fish_nm[world % 12]); fline(3, b, TXT_GOLD); sfx(SFX_FANFARE); rumble(RP_CATCH); }
+                else { if(ex.fish < 99) ex.fish++; if(ex.rsv[3] < 255) ex.rsv[3]++; d = scat(b, "A "); scat(d, fish_nm[world % 12]); scat(d, "!"); fline(3, b, TXT_WHITE); sfx(SFX_COIN); }
                 d = u16s(scat(b, "FISH "), ex.fish); d = scat(d, "  GOLDEN "); u16s(d, ex.rare); fline(4, b, TXT_GREY);
                 for(k = 0; k < 70; k++){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
                 break;
@@ -121,11 +121,13 @@ static const char *const memory[8] = {      /* what each data core gives back to
     "EVERY SHIP IT EATS, IT GROWS. IT IS EATING MY MEMORY TOO. THAT IS WHY I FORGET. THAT IS WHY I AM SMALL.",
     "THERE IS A WORD THAT OPENS MY HEART. THE KING NEVER FOUND IT. IT IS MY NAME. MY REAL NAME.",
     "I KNOW MY NAME NOW. TAKE ME TO THE BEAST. I WILL SAY IT. ITS HEART WILL OPEN. I AM NOT AFRAID. I HAVE YOU." };
-static const char *const trick_nm[6] = { "VINE GRIP: POTIONS HEAL MORE", "SAND DASH: B RUNS FASTER", "FROST FANG: YOUR BITE HITS HARDER",
-                                         "THORN SHELL: YOU TAKE LESS DAMAGE", "TIDE LUNGS: YOU HEAL SLOWLY ON YOUR OWN", "SHADOW STEP: SAFE LONGER AFTER A HIT" };
+static const char *const trick_nm[12] = { "VINE GRIP: POTIONS HEAL MORE", "SAND DASH: B RUNS FASTER", "FROST FANG: YOUR BITE HITS HARDER",
+                                         "THORN SHELL: YOU TAKE LESS DAMAGE", "TIDE LUNGS: YOU HEAL SLOWLY ON YOUR OWN", "SHADOW STEP: SAFE LONGER AFTER A HIT",
+                                         "RED DUST: FOES PAY MORE GOLD", "SPORE CLOUD: POTIONS ALSO GIVE MANA", "PRISM EYE: SPELLS HIT HARDER",
+                                         "HOT BLOOD: A KILL HEALS YOU", "BOG LEECH: A KILL GIVES MANA", "SUGAR RUSH: MORE XP FROM FOES" };
 void dungeon_won(UINT8 kind) BANKED {                 /* the queen is beaten and the cage is open */
     char *b = WRAM_AT(WRAM_TXT, char), *d;
-    if(kind < 6 && !TRICK(kind)){                       /* the first time this kind of queen falls she gives a trick, and it stays */
+    if(kind < 12 && !TRICK(kind)){                       /* the first time this kind of queen falls she gives a trick, and it stays */
         ex.tricks |= 1 << kind;
         d = scat(b, "A NEW TRICK! "); scat(d, trick_nm[kind]); sfx(SFX_LEVEL);
         dlg_say("BOLT", b);

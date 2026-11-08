@@ -273,7 +273,9 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
 
 /* ---------------------------------------------------------------- the town page */
 static const char *const sv_nm[10] = { "THE INN", "QUEST BOARD", "GENERAL STORE", "SHIPYARD", "ACADEMY", "FORTUNE TELLER", "CASINO", "SHRINE", "WORKSHOP", "BUG PIT" };
+extern volatile UINT8 snd_song;
 UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {   /* returns 0, or tier + 1 when the person paid for the bug pit */
+    UINT8 old_song = snd_song;
     UINT8 ids[18], n = 0, sel = 0, top = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
     th = thash(star, idx); shrine_used = 0; mpal = TXT_GOLD;
     rs = (UINT16)frames32() ^ ((UINT16)DIV_REG << 8) ^ th; if(!rs) rs = 1;
@@ -287,7 +289,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
       for(k = 0; k < 4; k++) if(sp & (1 << k)) ids[n++] = SV_ACADEMY + k; }
     if(tier >= 3) ids[n++] = SV_PIT;
     n = town2_add(ids, n, tier, th);
-    HIDE_SPRITES; sfx(SFX_OK);
+    HIDE_SPRITES; sfx(SFX_OK); music(MUS_TOWN);
     for(;;){
         night = tod_dark() >= 10;
         if(redraw){
@@ -330,7 +332,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
             redraw = 1;
         }
     }
-    sfx(SFX_BACK);
+    sfx(SFX_BACK); music(old_song);
     txt_win(1); txt_soft(); txt_win(0);
     hud_redraw(); hud_pos(HUD_Y);
     if(sprites && !out) SHOW_SPRITES;

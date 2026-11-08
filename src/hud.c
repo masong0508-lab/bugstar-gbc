@@ -33,8 +33,8 @@ static void numk(char *b, UINT16 v){                 /* 4 characters: 9999, then
 }
 
 /* (up to level 99 the same curve as ever; past 99 the levels give less, so a level 900 bug does not overflow anything) */
-UINT16 hud_hpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return 5 + 5 * l + (level > 99 ? 2 * (level - 99) : 0) + 4 * UPG(SK_GRIT); }
-UINT16 hud_mpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return 2 + 3 * l + (level > 99 ? level - 99 : 0) + 8 * UPG(UP_SHIELD); }   /* (in space the MP bar is the ship's shield) */
+UINT16 hud_hpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return tr_hp(5 + 5 * l + (level > 99 ? 2 * (level - 99) : 0) + 4 * UPG(SK_GRIT)); }
+UINT16 hud_mpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return tr_mp(2 + 3 * l + (level > 99 ? level - 99 : 0) + 8 * UPG(UP_SHIELD)); }   /* (in space the MP bar is the ship's shield) */
 
 static UINT8 on;
 void hud_pos(UINT8 y){ move_win(7, y); }
@@ -98,6 +98,7 @@ void gain_xp(UINT16 n){
     char *b = WRAM_AT(WRAM_FADE + 160, char), *d; UINT16 need;   /* (not on the stack: it overflowed into cur_slot) */
     { static const UINT8 xm[3] = {1, 2, 5}; n *= xm[opt.xpm]; }               /* OPTIONS > XP SPEED: x1 / x2 / x5 */
     if(!opt.diff) n += n;                                                     /* BABY doubles */
+    n = tr_xp(n);                                                             /* a CLEVER bug learns faster */
     sv.xp += n;
     while(sv.level < 999 && sv.xp >= (need = sv.level * 12)){
         sv.xp -= need; sv.level++; sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level);

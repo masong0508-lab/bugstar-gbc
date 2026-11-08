@@ -35,16 +35,22 @@
 
 
 /* three tracks: the bend of each 128 m of road (+ right), and the colours of the land */
-static const INT8 segs[48] = {
+static const INT8 segs[96] = {
      0,  0, 10, 28, 28, 10,   0, -14, -30, -30, -14,   0, 18, 18,   0,  -8,           /* MEADOW: easy */
      0, 12, 26, 26, 12,  0, -10, -22, -22,  -8,   0,  20,  29,  29,  12,   0,           /* DESERT: wide bends */
-    10, 29, 29, -8, -29, -29,  0,  24,  24, -12, -26, -26,   6,  29,  12, -10 };      /* SNOW PEAK: twisty */
-static const UINT16 tcol[3][6] = {                                                    /* grass, grass 2, sky, low sky, mountain, snow cap */
+    10, 29, 29, -8, -29, -29,  0,  24,  24, -12, -26, -26,   6,  29,  12, -10,         /* SNOW PEAK: twisty */
+    14, 29, 29,  6, -12, -29, -29, -20,   0,  24,  29,  29,  -6, -24, -29,   8,         /* LAVA RIM: hard, with a hairpin pair */
+    16, 16, 16,  8,   0, -16, -16, -16,  -8,   0,  22,  22,   0, -22, -22,   0,         /* CANDY COAST: long sweepers */
+    29, -29, 29, -12, -29, 29,  12, -29, -29,  20,  29, -20, -29,  12,  29,  -6 };       /* NIGHT CITY: the hardest */
+static const UINT16 tcol[6][6] = {                                                    /* grass, grass 2, sky, low sky, mountain, snow cap */
     { C15(70,175,70),  C15(45,145,55),  C15(70,130,240),  C15(150,200,255), C15(95,105,160),  C15(215,225,245) },
     { C15(225,190,110), C15(205,168,88), C15(240,150,70),  C15(255,210,140), C15(170,90,60),   C15(230,190,150) },
-    { C15(235,242,250), C15(205,218,235), C15(120,150,200), C15(190,210,235), C15(110,120,150), C15(255,255,255) } };
+    { C15(235,242,250), C15(205,218,235), C15(120,150,200), C15(190,210,235), C15(110,120,150), C15(255,255,255) },
+    { C15(95,35,25),    C15(70,25,18),    C15(255,110,30),  C15(255,180,70),  C15(50,30,35),    C15(255,140,40) },
+    { C15(150,230,190), C15(120,210,170), C15(255,150,200), C15(255,215,235), C15(190,150,225), C15(255,255,255) },
+    { C15(30,62,62),    C15(22,48,50),    C15(15,15,70),    C15(60,60,125),   C15(45,40,90),    C15(210,210,255) } };
 static const UINT8 scn_r3[NSCEN] = { 0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0 };   /* kq % 3 */
-static const UINT8 tdif[3] = { 0, 6, 12 };                                           /* the rivals get quicker */
+static const UINT8 tdif[6] = { 0, 6, 12, 14, 8, 20 };                                           /* the rivals get quicker */
 static const INT8 wob[8] = { 0, 10, 18, 10, 0, -10, -18, -10 };
 static const INT8 lane[NRIV] = { -70, 0, 70 };
 static const UINT8 vrv[NRIV] = { 232, 224, 214 };
@@ -78,7 +84,7 @@ typedef struct { UINT16 m; INT16 lane; UINT16 life; UINT8 owner, f; INT8 tg; } S
 typedef struct { UINT16 m; INT16 lane; UINT16 life; } Oil;
 static Shell  shl;
 static Oil    oil[3];
-static UINT8  hold, boost_t, drift_t, got, stun[1 + NRIV];
+static UINT8  hold, boost_t, drift_t, got, stun[1 + NRIV], shield_t, gh_on; static UINT16 ghv;
 static UINT16 aicd[1 + NRIV], rs = 0xACE1;
 /* what is kept on the cartridge (after the Extra block of this slot): best trial times, the best cup */
 KSave ks;
@@ -168,7 +174,7 @@ static char *ftime(char *d, UINT16 t){                          /* m:ss.d from 6
     d = u16s(d, s / 60); d = scat(d, ":"); if(s % 60 < 10) d = scat(d, "0");
     d = u16s(d, s % 60); d = scat(d, "."); d = u16s(d, (t % 60) / 6); return d;
 }
-static const char itnm[7][5] = { {' ',' ',' ',' ',' '}, {'B','O','O','S','T'}, {'S','H','E','L','L'}, {'O','I','L',' ',' '}, {'T','U','R','B','O'}, {'S','P','I','N','!'}, {'D','R','I','F','T'} };   /* the last field of the second row: your item, or what the kart is doing */
+static const char itnm[9][5] = { {' ',' ',' ',' ',' '}, {'B','O','O','S','T'}, {'S','H','E','L','L'}, {'O','I','L',' ',' '}, {'T','U','R','B','O'}, {'S','P','I','N','!'}, {'D','R','I','F','T'}, {'M','E','G','A','!'}, {'S','H','I','E','L'} };   /* the last field of the second row: your item, or what the kart is doing */
 /* the race clock is kept by counting (6 frames a tenth, 10 tenths a second...), so the HUD never has to divide: a division on this CPU costs 300 to 600 cycles */
 static UINT8 tmin, ts10, ts1, tten, tc6, clk_d;
 static void clk_tick(void){ if(++tc6 >= 6){ tc6 = 0; clk_d = 1; if(++tten >= 10){ tten = 0; if(++ts1 >= 10){ ts1 = 0; if(++ts10 >= 6){ ts10 = 0; if(tmin < 9) tmin++; } } } } }
@@ -194,7 +200,7 @@ static void hud(UINT8 place){
     { UINT16 sp = ((UINT16)vel[0] * 3) >> 2;                       /* the second row is patched cell by cell: only what changed */
       if(sp != hsp){ hsp = sp; n3(&hb[1][4], sp); hbd |= 2; }
       if(clk_d){ clk_d = 0; hb[1][8] = '0' + tmin; hb[1][10] = '0' + ts10; hb[1][11] = '0' + ts1; hb[1][13] = '0' + tten; hbd |= 2; }
-      fld = boost_t ? 4 : stun[0] ? 5 : hold ? hold : drift_t > 30 ? 6 : 0;
+      fld = boost_t ? 4 : stun[0] ? 5 : hold ? hold : shield_t ? 8 : drift_t > 30 ? 6 : 0;
       if(fld != hhold){ hhold = fld; for(i = 0; i < 5; i++) hb[1][15 + i] = itnm[fld][i]; hbd |= 2; } }
     { UINT8 pp = (hold || boost_t) ? TXT_RED : TXT_WHITE; if(pp != hbp){ hbp = pp; hbpd = 1; } }
 }
@@ -216,6 +222,7 @@ static UINT8 place_now(void){
 }
 
 static void hit_kart(UINT8 k, UINT8 big){
+    if(k == 0 && shield_t){ shield_t = shield_t > 90 ? shield_t - 90 : 1; sfx(SFX_BACK); return; }       /* the SHIELD takes the hit (and part of its time) */
     stun[k] = big ? 56 : 40;
     if(k == 0){ vel[0] >>= 2; sfx(SFX_HURT); } else vel[k] = 0;
 }
@@ -226,6 +233,8 @@ static void drop_oil(UINT16 m, INT16 l){
 }
 static void use_item(void){
     if(hold == 1){ boost_t = 70; sfx(SFX_LASER); }
+    else if(hold == 7){ boost_t = 150; sfx(SFX_LEVEL); }
+    else if(hold == 8){ shield_t = 420; sfx(SFX_SPARK); }
     else if(hold == 2){
         UINT8 k, tg = 255; INT16 g, best = 400;
         for(k = 1; k <= NRIV && rivals_on; k++){ g = (INT16)(tm[k] - tm[0]); if(g > 0 && g < best){ best = g; tg = k; } }
@@ -237,13 +246,14 @@ static void use_item(void){
 /* once a frame: boxes, shells and oil, for you and the rivals */
 static void items_tick(UINT8 go){
     UINT8 k, b; INT16 dz, dx; UINT16 pm = tm[0] & (LAPM - 1);
+    if(shield_t) shield_t--;
     if(boost_t){ boost_t--; rum_hum(110); }                                      /* (a steady rumble while the turbo burns, and in a long drift) */
     if(drift_t > 30) rum_hum(60);
     for(k = 0; k <= NRIV; k++) if(stun[k]) stun[k]--;
     if(!go) return;
     for(b = 0; b < 3; b++) if(!(got & (1 << b)) && !hold){                      /* the boxes */
         dz = (INT16)BXMR(b) - (INT16)pm; dx = lx[0] - BXL[b];
-        if(dz <= 3 && dz >= -12 && dx > -44 && dx < 44){ UINT8 r = krnd() & 7; got |= 1 << b; hold = r < 3 ? 1 : r < 6 ? 2 : 3; sfx(SFX_PICK); }
+        if(dz <= 3 && dz >= -12 && dx > -44 && dx < 44){ UINT8 r = krnd() & 7; got |= 1 << b; hold = r < 2 ? 1 : r < 4 ? 2 : r < 5 ? 3 : r < 7 ? 7 : 8; if(r > 4 && place_now() == 1 && rivals_on && (krnd() & 1)) hold = 3; sfx(SFX_PICK); }
     }
     for(b = 0; b < 3; b++) if(oil[b].life){                                       /* oil: whoever drives into it spins */
         oil[b].life--;
@@ -299,6 +309,7 @@ static void drive(UINT8 go){
     head += (cur * v) >> 10;
     stripe_acc += (UINT16)v;
     if(stripe_acc >= 1536){ stripe_acc -= 1536; stripe ^= 1; }
+    if(gh_on && go){ vel[NRIV] = ghv; add_pos(NRIV, ghv); lx[NRIV] = -30; }                    /* the GHOST: the third rival's car, at your best lap's pace, in a time trial */
     for(k = 1; k <= NRIV && rivals_on; k++){
         INT16 gap = (INT16)(tm[k] - tm[0]), cv = curve_at(tm[k], tf[k]), want, tl;
         if(cv < 0) cv = -cv;
@@ -382,7 +393,7 @@ static void scene(void){
     for(k = 1; k <= NRIV; k++){                                             /* the rivals ahead of you, bigger as they near */
         INT16 dz = (INT16)(tm[k] - tm[0]);
         UINT8 y, o = 3 * (k - 1) + 3;
-        if(!rivals_on || dz < 1 || dz > 90){ for(i = 0; i < 3; i++) shadow_OAM[o + i].y = 0; continue; }
+        if((!rivals_on && !(gh_on && k == NRIV)) || dz < 1 || dz > 90){ for(i = 0; i < 3; i++) shadow_OAM[o + i].y = 0; continue; }
         y = kt_y[dz]; i = y - HZ;
         { INT16 x = 80 + (((lx[k] - px) * kt_hw[i]) >> 7) + bend_at(i);
           if(stun[k]) x += (frame & 2) ? 5 : -5;
@@ -434,10 +445,11 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
     trk = t; rivals_on = !tt; rev = kart_rev & 1; nlaps = gpn ? 3 : kart_laps; if(nlaps != 1 && nlaps != 5) nlaps = 3;
     if(rev){ for(k = 0; k < 16; k++) rsg[k] = -segs[(t << 4) + ((16 - k) & 15)]; sg = rsg; } else sg = &segs[t << 4];
     bst = nlaps == 3 ? kart_rec(2, t, rev) : 0;
-    old_song = snd_song; music(MUS_KART);
+    { UINT16 bl = kart_rec(0, t, rev); gh_on = (UINT8)(tt && bl >= 1500 && bl < 6000); ghv = gh_on ? (UINT16)(524288UL / bl) : 0; shield_t = 0; }
+    old_song = snd_song; { static const UINT8 kt_tune[6] = { MUS_KART, MUS_KART3, MUS_KART2, MUS_KART3, MUS_KART4, MUS_KART2 }; music(kt_tune[t % 6]); }
     DISPLAY_OFF; HIDE_WIN;
     track_pal(t);
-    for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)(k * 5 + KX_T0); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; stun[k] = 0; aicd[k] = 120 + ((UINT16)krnd() << 1); }   /* the start grid: you at the back */
+    for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)((gh_on && k == NRIV ? 0 : k * 5) + KX_T0); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; stun[k] = 0; aicd[k] = 120 + ((UINT16)krnd() << 1); }   /* the start grid: you at the back */
     head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; tmin = ts10 = ts1 = tten = tc6 = 0; hkey = 255; lapn = KX_L0; nextlap = LAPM * (KX_L0 + 1); bump_cd = 0; frame = 0;
     kart_air_reset(); hold = 0; boost_t = 0; drift_t = 0; got = 0; shl.life = 0; for(k = 0; k < 3; k++) oil[k].life = 0;
     rs ^= (UINT16)frames32() | 1;
@@ -459,7 +471,7 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
 #ifndef KX_NOISR
     road_start();
 #endif
-    banner(tt ? "TIME TRIAL!" : "GET READY!");
+    banner(gh_on ? "BEAT THE GHOST!" : tt ? "TIME TRIAL!" : "GET READY!");
     while(!done){
         wait_vbl_done(); vflush();
         input_poll(); frame++;

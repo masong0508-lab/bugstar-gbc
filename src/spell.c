@@ -10,12 +10,14 @@
 #include "spell.h"
 #include "dungeon.h"
 #include "wild.h"
+#include "warship.h"
+#include "kart.h"
 
 /* ------------------------------------------------------------ spells: SPARK, FIREBALL, HEAL, SHIELD, PORTAL */
-#define NSP 5
-static const char *const sp_nm[NSP] = { "SPARK", "FIREBALL", "HEAL", "SHIELD", "PORTAL" };
-static const UINT8 sp_cost[NSP] = { 2, 4, 6, 5, 7 };
-static const UINT8 sp_lv[NSP]   = { 1, 3, 5, 8, 10 };
+#define NSP 10
+static const char *const sp_nm[NSP] = { "SPARK", "FIREBALL", "HEAL", "SHIELD", "PORTAL", "NOVA", "DRAIN", "QUAKE", "LIGHTNING", "STARFALL" };
+static const UINT8 sp_cost[NSP] = { 2, 4, 6, 5, 7, 8, 7, 12, 10, 20 };
+static const UINT8 sp_lv[NSP]   = { 1, 3, 5, 8, 10, 12, 15, 18, 22, 35 };
 UINT8 spell_known(UINT8 s) BANKED { return s < NSP && sv.level >= sp_lv[s]; }
 UINT8 spell_cost(UINT8 s) BANKED { return sp_cost[s % NSP]; }
 UINT8 spell_next(UINT8 s) BANKED { UINT8 i, n; for(i = 1; i <= NSP; i++){ n = (s + i) % NSP; if(spell_known(n)) return n; } return s % NSP; }
@@ -38,14 +40,27 @@ UINT8 spell_pay(UINT8 s) BANKED {
     if(sv.mp < sp_cost[s]){ sfx(SFX_HURT); dlg_say(0, "NOT ENOUGH MANA."); return 0; }
     sv.mp -= sp_cost[s]; if(EX_CASTS < 255) EX_CASTS++;
     if(s > 1 && s < 4) sfx(SFX_SPARK);
+    if(s == 5 || s == 6) sfx(SFX_SPARK); else if(s == 7) sfx(SFX_BOOM); else if(s == 8) sfx(SFX_LASER); else if(s == 9) sfx(SFX_FIRE);
     if(s == 2){ sv.hp += mx / 2; if(sv.hp > mx) sv.hp = mx; }
     return 1;
 }
 UINT8 spell_dmg(UINT8 s, UINT8 face, INT16 dx, INT16 dy) BANKED {
     INT16 ah, la;
-    if(s == 0) return (dx > -44 && dx < 44 && dy > -44 && dy < 44) ? CLAMP8(3 + sv.level / 2) : 0;
+    if(s == 0) return (dx > -44 && dx < 44 && dy > -44 && dy < 44) ? CLAMP8(tr_spell(3 + sv.level / 2)) : 0;
+    if(s >= 5){                                                  /* the later spells (version 6): areas, and a long bolt */
+        INT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy; UINT16 p;
+        if(s == 5) p = (ax < 56 && ay < 56) ? 6 + sv.level : 0;                 /* NOVA: a burst all round you */
+        else if(s == 6) p = (ax < 64 && ay < 64) ? 4 + sv.level / 2 : 0;       /* DRAIN: what it takes, it gives back */
+        else if(s == 7) p = (ax < 112 && ay < 88) ? 3 + sv.level / 2 : 0;      /* QUAKE: the whole screen */
+        else if(s == 9) p = (ax < 120 && ay < 96) ? 10 + sv.level : 0;         /* STARFALL */
+        else { ah = face == 0 ? dx : face == 1 ? -dx : face == 2 ? -dy : dy; la = face < 2 ? dy : dx; if(la < 0) la = -la; p = (ah > 0 && ah < 150 && la < 14) ? 8 + sv.level * 3 / 2 : 0; }   /* LIGHTNING */
+        if(!p) return 0;
+        p = tr_spell(p);
+        if(s == 6){ UINT16 mx = hud_hpmax(sv.level); sv.hp += p / 2; if(sv.hp > mx) sv.hp = mx; }
+        return CLAMP8(p);
+    }
     ah = face == 0 ? dx : face == 1 ? -dx : face == 2 ? -dy : dy; la = face < 2 ? dy : dx; if(la < 0) la = -la;
-    return (ah > 0 && ah < 96 && la < 20) ? CLAMP8(4 + sv.level) : 0;
+    return (ah > 0 && ah < 96 && la < 20) ? CLAMP8(tr_spell(4 + sv.level)) : 0;
 }
 /* ------------------------------------------------------------ difficulty: BABY EASY NORMAL HARD BRUTAL NIGHTMARE */
 UINT8 hell_t;
@@ -93,44 +108,85 @@ void floor_intro(UINT8 e) BANKED {
 }
 
 /* ------------------------------------------------------------ feats */
-#define NFEAT 16
+#define NFEAT 48
 static const char *const ft_nm[NFEAT] = { "SLAYER", "ANGLER", "EXPLORER", "DEEP DIVER", "BRAVE", "HERO", "FRIEND", "CITIZEN",
-    "PIT FIGHTER", "QUEEN BANE", "RICH BUG", "MAGE", "BOLT'S MIND", "JUMPER", "WORKER", "FAMOUS" };
-static const UINT16 ft_goal[NFEAT] = { 50, 10, 6, 6, 10, 20, 3, 3, 10, 3, 50, 25, 4, 20, 5, 100 };   /* (RICH BUG counts hundreds of gold: 50 = 5000) */
+    "PIT FIGHTER", "QUEEN BANE", "RICH BUG", "MAGE", "BOLT'S MIND", "JUMPER", "WORKER", "FAMOUS",
+    "MASTER", "LEGEND", "MAX LEVEL", "SLAUGHTER", "MASSACRE", "ABYSS", "BOTTOMLESS", "ACE PILOT",
+    "WAR PILOT", "HOPPER", "TRADER", "TYCOON", "STAR MAP", "COSMOS", "WORLD TOUR", "FISHER KING",
+    "BREAKER", "ACE RACER", "BOARD SHARK", "AMBUSHED", "PIT KING", "FRIENDLY", "CASTER", "SAGE",
+    "ALL CORES", "IDOL", "LEGENDARY", "GO-GETTER", "GOLD FISH", "VETERAN", "GRINDER", "COMPLETE" };
+static const UINT16 ft_goal[NFEAT] = { 50, 10, 6, 6, 10, 20, 3, 3, 10, 3, 50, 25, 4, 20, 5, 100,
+    100, 500, 999, 500, 999, 20, 40, 50,
+    300, 100, 100, 100, 40, 100, 12, 50,
+    3, 10, 5, 3, 30, 6, 200, 12,
+    8, 300, 999, 25, 3, 60, 600, 47 };   /* (RICH BUG counts hundreds of gold: 50 = 5000; TRADER 100s of gold sold; MILLIONAIRE 10000s) */
 static UINT8 pop(UINT8 *a, UINT8 n){ UINT8 i, c = 0, b; for(i = 0; i < n; i++) for(b = a[i]; b; b &= b - 1) c++; return c; }
+static UINT8 ft_done(UINT8 i){ return i < 16 ? (&EX_FEAT)[i >> 3] & (1 << (i & 7)) : ex.xs[(i - 16) >> 3] & (1 << (i & 7)); }
 static UINT16 ft_val(UINT8 i){
     switch(i){
         case 0: return EX_KILLS;     case 1: return EX_FISHN;      case 2: return pop(ex.seen, 32);  case 3: return sv.deepest;
         case 4: return sv.level;     case 5: return sv.level;      case 6: return sv.friends;        case 7: return pop(ex.city, 32);
-        case 8: return ex.pit;       case 9: return pop(&ex.tricks, 1);
+        case 8: return ex.pit;       case 9: return pop((UINT8 *)&ex.tricks, 2);
         case 10: return sv.gold > 5000 ? 50 : (UINT16)sv.gold / 100;
         case 11: return EX_CASTS;    case 12: return sv.cores;     case 13: return sv.el.jumps;      case 14: return sv.el.jobs;
-        default: return sv.el.fame;
+        case 15: return sv.el.fame;
+        case 16: case 17: case 18: return sv.level;
+        case 19: case 20: return EX_KILLS;
+        case 21: case 22: return sv.deepest;
+        case 23: case 24: return sv.el.kills;
+        case 25: return sv.el.jumps;
+        case 26: return sv.el.sold > 10000UL ? 100 : (UINT16)(sv.el.sold / 100);
+        case 27: return sv.gold > 1000000UL ? 100 : (UINT16)(sv.gold / 10000UL);
+        case 28: case 29: return pop(ex.seen, 32);
+        case 30: return pop(ex.city, 32);
+        case 31: return EX_FISHN;
+        case 32: return warship_count(1);
+        case 33: return kart_count(1);
+        case 34: return warship_count(2);
+        case 35: return warship_count(3);
+        case 36: return ex.pit;
+        case 37: return sv.friends;
+        case 38: case 39: return EX_CASTS;
+        case 40: return sv.cores;
+        case 41: case 42: return sv.el.fame;
+        case 43: return sv.el.jobs;
+        case 44: return ex.rare;
+        case 45: case 46: { UINT32 m = play_secs() / 60; return m > 999 ? 999 : (UINT16)m; }
+        default: { UINT8 n = 0, k; for(k = 0; k < 47; k++) if(ft_done(k)) n++; return n; }     /* COMPLETE: every other feat */
     }
 }
-static UINT8 ft_done(UINT8 i){ return (&EX_FEAT)[i >> 3] & (1 << (i & 7)); }
 void feats_check(void) BANKED {
     UINT8 i;
     bounty_tick();                                              /* the bounty office pays a finished job the moment anything moves */
     for(i = 0; i < NFEAT; i++){
         if(ft_done(i) || ft_val(i) < ft_goal[i]) continue;
-        (&EX_FEAT)[i >> 3] |= 1 << (i & 7);
+        if(i < 16) (&EX_FEAT)[i >> 3] |= 1 << (i & 7); else ex.xs[(i - 16) >> 3] |= 1 << (i & 7);
         { UINT16 g = 100 + 50 * (UINT16)i; char b[48], *d = scat(b, "FEAT: "); d = scat(d, ft_nm[i]); d = scat(d, "! +"); d = u16s(d, g); scat(d, " GOLD, +5 FAME");
           sv.gold += g; sv.el.fame += 5; sfx(SFX_FANFARE); dlg_say(0, b); }
     }
 }
-void feats_run(void) BANKED {
-    UINT8 i, n = 0;
-    feats_check(); HIDE_WIN;
-    txt_line(1, 0, "FEATS", 18); txt_color(1, 0, 18, 1, TXT_GOLD);
-    for(i = 0; i < NFEAT; i++){
-        char b[24], *d; UINT8 k = ft_done(i), L;
-        d = scat(b, k ? "*" : " "); d = scat(d, ft_nm[i]); L = (UINT8)(d - b);
-        while(L < 13){ *d++ = ' '; L++; } *d = 0;
-        { UINT16 v = ft_val(i); if(v > ft_goal[i]) v = ft_goal[i]; d = u16s(d, v); d = scat(d, "/"); u16s(d, ft_goal[i]); }
-        txt_line(1, 1 + i, b, 18); txt_color(1, 1 + i, 18, 1, k ? TXT_GOLD : TXT_WHITE);
-        n += k ? 1 : 0;
+static void feats_page(UINT8 p){
+    UINT8 i, n = 0, k; char b[24], *d;
+    txt_cls();
+    d = scat(b, "FEATS  PAGE "); *d++ = (char)(49 + p); d = scat(d, "/3  < >"); *d = 0; txt_line(1, 0, b, 18); txt_color(1, 0, 18, 1, TXT_GOLD);
+    for(i = 0; i < 16; i++){
+        UINT8 f = p * 16 + i; UINT8 L, dn = ft_done(f); char v[12], *e;
+        e = u16s(v, ft_val(f) > ft_goal[f] ? ft_goal[f] : ft_val(f)); e = scat(e, "/"); e = u16s(e, ft_goal[f]);
+        d = scat(b, dn ? "*" : " "); d = scat(d, ft_nm[f]); L = (UINT8)(d - b);
+        while(L + (e - v) < 18){ *d++ = ' '; L++; } *d = 0; scat(d, v);
+        txt_line(1, 1 + i, b, 18); txt_color(1, 1 + i, 18, 1, dn ? TXT_GOLD : TXT_WHITE);
     }
-    { char b[24], *d = u16s(b, n); d = scat(d, "/16 DONE   B: BACK"); txt_line(1, 17, b, 18); txt_color(1, 17, 18, 1, TXT_GREY); }
-    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_B) || HIT(J_A) || HIT(J_START)) break; }
+    for(k = 0; k < NFEAT; k++) if(ft_done(k)) n++;
+    d = u16s(b, n); d = scat(d, "/48 DONE  B:BACK"); txt_line(1, 17, b, 18); txt_color(1, 17, 18, 1, TXT_GREY);
+}
+void feats_run(void) BANKED {
+    UINT8 p = 0;
+    feats_check(); HIDE_WIN;
+    feats_page(p);
+    for(;;){
+        wait_vbl_done(); input_poll();
+        if(HITR(J_RIGHT)){ p = p == 2 ? 0 : p + 1; sfx(SFX_MOVE); feats_page(p); }
+        if(HITR(J_LEFT)){ p = p ? p - 1 : 2; sfx(SFX_MOVE); feats_page(p); }
+        if(HIT(J_B) || HIT(J_A) || HIT(J_START)) break;
+    }
 }

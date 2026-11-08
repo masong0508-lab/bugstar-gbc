@@ -13,8 +13,9 @@
 UINT8 bolt_wk;
 static UINT8 bolt_chat;                                         /* how many times you have talked to him (not saved): rotates his remarks */
 /* the GBA has 16 planet classes and 40 weird traits; the GBC has 6 kinds of world (GARDEN DESERT ICE JUNGLE OCEAN DUSK) and 16 weird types: each takes the nearest remark */
-static const UINT8 wk_cls[6]  = { 0, 4, 5, 6, 3, 9 };
-static const UINT8 wt_trait[16] = { 19, 6, 15, 38, 35, 36, 1, 10, 30, 24, 33, 26, 27, 16, 34, 8 };
+static const UINT8 wk_cls[12] = { 0, 4, 5, 6, 3, 9, 1, 6, 12, 10, 11, 9 };
+static const UINT8 wt_trait[32] = { 19, 6, 15, 38, 35, 36, 1, 10, 30, 24, 33, 26, 27, 16, 34, 8,
+                                    19, 23, 7, 13, 18, 26, 33, 10, 28, 37, 27, 13, 20, 29, 24, 36 };
 
 static void say(const char *t){ char b[110]; strncpy(b, t, 109); b[109] = 0; dlg_say("BOLT", b); }   /* (copied to RAM: the text lives in this bank) */
 
@@ -37,8 +38,8 @@ void bolt_talk(void) BANKED {
     /* a remark about where you are */
     k = 0;
     c[k++] = bolt_zone[(sv.zone % 6) * 2 + (bolt_chat & 1)];
-    c[k++] = bolt_cls[wk_cls[bolt_wk % 6] * 2 + ((bolt_chat >> 1) & 1)];
-    if(w){ c[k++] = "A WEIRD WORLD. KEEP YOUR EYES OPEN."; c[k++] = bolt_trait[wt_trait[w & 15]]; }
+    c[k++] = bolt_cls[wk_cls[bolt_wk % 12] * 2 + ((bolt_chat >> 1) & 1)];
+    if(w){ c[k++] = "A WEIRD WORLD. KEEP YOUR EYES OPEN."; c[k++] = bolt_trait[wt_trait[w & 31]]; }
     say(c[(bolt_chat + (sv.star & 7)) % k]);
     say(bolt_idle[(bolt_chat * 13 + cores * 5 + sv.zone * 3 + (sv.star & 63)) & 63]);       /* 13 is odd: it visits all 64 */
     bolt_chat++;

@@ -27,6 +27,7 @@
 #include "space.h"
 #include "fleet.h"
 #include "warp.h"
+#include "warship.h"
 #include "econ.h"
 #include "elite.h"
 #include "space3d.h"
@@ -349,6 +350,7 @@ static int space2d(void) {
             shx = aim_x << 4; shy = ((aim_y + (aim_beast ? 150 : 50)) & 4095) << 4; vx = 0; vy = -16; dir = 0;
             for(i = 0; i < NLAS; i++) las[i].life = 0;
             puff[0].life = puff[1].life = 0; inv = 0; foes_clear();
+            warship_ambush();                                         /* (now and then a warship drops out on top of you) */
             gfx();
             warp_report(&wr);
             shown = 253;

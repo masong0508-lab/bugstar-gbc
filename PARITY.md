@@ -70,3 +70,17 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Kart: results box fits ("YOU WON!"), lap banner keeps clear of your car, countdown "GO!" text shortened, text palettes restored after the fade, kart menu no longer draws into the road map. Grand prix (3 races, points, cup, prize), REVERSE, 1/3/5 laps and time trial were run to the end in the emulator.
 - Not done: a universe selector (there is no universe on the GBC), a level cap above 999 (asked to leave alone), new traits/planet kinds (kinds and traits come from bit fields of the world seed, so adding any would change existing worlds and saves).
 - tools/emu: headless runner (Walnut-CGB) and menu flicker suite; kart test hooks KX_STEER / KX_GAS / KX_WAIT for end-to-end races.
+
+## Content pass (version 6 saves; old saves are erased on first start with a message)
+- Save version 6: the save slot gained a gift and a quirk (traits), the extras block gained 64 spare bytes (feats 17..48), settings gained TEXT SPD, RUN WITH B, TIMED SAVE. Saves from older versions are wiped and the title shows "OLD SAVES ERASED". Level cap is still 999.
+- Worlds: 12 kinds now (was 6): MESA, FUNGAL, CRYSTAL, LAVA, SWAMP, CANDY added with their own planet art and palettes, dungeon tiles and palettes, space palettes, flora/creature art (life), and queens that call their own brood. The kind comes from `(seed>>8)%12`; the weird-world strength/trait byte was re-planned.
+- Weather on planets (src/weather.c, bank 44): rain, storm with lightning, snow, ash, spores, dust, shards, fog, confetti. It depends on the world kind, the world and the day. Particle sprites plus palette bends. Not in dungeons or space.
+- Traits (src/traits.c, bank 43): every bug is born with a gift and a quirk (15 traits: HARDY, BRAINY, STRONG, THRIFTY, CLEVER, HEALTHY, ARCANE, GRITTY, SHARP, SCHOLAR, GREEDY, BRAVE, FRAGILE, PATIENT, WILD). They change health, mana, bite, gold, XP, potion and spell numbers by a percent. The STATS book has a TRAITS page. The queens' tricks (6 new, one per new kind) work on kills.
+- Spells: NOVA, DRAIN, QUAKE, LIGHTNING, STARFALL added (10 in all).
+- Feats: 48 (was 16), three pages, stored in ex.xs[0..3].
+- Warship raid mission board: the WAR BOARD entry of the raid menu (and SELECT on a station's job board) posts three missions a round, each with a size, a modifier (RUSH, IRON HULL, FLURRY, ARMOURED) and a bonus pay; a finished round posts a new one. After a jump, warships sometimes drop out of the warp on top of you (an ambush, with the alert tune, bonus pay).
+- Kart: 6 tracks (was 3: desert sunset, candy and night added), 2 cups, MEGA and SHIELD items, ghost car in time trial.
+- Music: 19 new tunes (bank 42): per-planet and per-dungeon themes for the six new kinds, TOWN, STATION, ALERT, KART2..4, SHOP, CAMP.
+- Options: TEXT SPD (4 speeds), RUN WITH B (hold or toggle), TIMED SAVE (every 2 or 5 minutes on a planet).
+- Build: per-object header dependencies (tools/deps.py), so a header edit rebuilds only what includes it. Host tests cover the wipe and the traits.
+- Not done in this pass: more shop items (the save has one free upgrade byte), dungeon floor themes/monsters/bosses beyond the six kinds' art, galaxy size, town quests, a colony side game.
