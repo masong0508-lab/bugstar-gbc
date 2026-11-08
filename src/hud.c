@@ -9,16 +9,28 @@
 
 /* window map columns */
 #define HP_BAR_X 1      /* 6 tiles incl. caps */
-#define HP_NUM_X 7      /* 3 digits */
+#define HP_NUM_X 6      /* 4 characters: 0..9999, then 10K..65K */
 #define LV_X     11     /* "LV 99" */
 #define GOLD_X   1      /* up to 9 digits */
 #define MP_ICON  10
 #define MP_BAR_X 11     /* 6 tiles incl. caps */
-#define MP_NUM_X 17     /* 3 digits */
-#define BAR_W    6
+#define MP_NUM_X 16     /* 4 characters */
+#define BAR_W    5
+#define MP_BAR_W 5
 #define GOLD_MAX 999999999UL
 
 static UINT16 l_hp, l_mp, l_lv; static UINT32 l_gold;
+static UINT16 d_hp, d_mp;                            /* what the bars show: they glide to the real value (living bars) */
+static UINT8 l_pulse;
+static UINT16 ease(UINT16 d, UINT16 t){              /* an eighth of the way each frame, at least one step */
+    UINT16 s;
+    if(d < t){ s = (t - d) >> 3; if(!s) s = 1; return d + s; }
+    if(d > t){ s = (d - t) >> 3; if(!s) s = 1; return d - s; }
+    return d;
+}
+static void numk(char *b, UINT16 v){                 /* 4 characters: 9999, then 10K ... 65K (the level cap is 999: HP and MP reach 2000+) */
+    if(v < 10000) u16s(b, v); else { char *e = u16s(b, v / 1000); *e++ = 'K'; *e = 0; }
+}
 
 /* (up to level 99 the same curve as ever; past 99 the levels give less, so a level 900 bug does not overflow anything) */
 UINT16 hud_hpmax(UINT16 level){ UINT16 l = level > 99 ? 99 : level; return 5 + 5 * l + (level > 99 ? 2 * (level - 99) : 0) + 4 * UPG(SK_GRIT); }
@@ -38,30 +50,39 @@ void hud_redraw(void){
     txt_put(MP_ICON, 1, S_STAR);
     txt_color(MP_ICON, 1, 1, 1, TXT_GOLD);
     txt_win(0);
+    d_hp = sv.hp; d_mp = sv.mp; l_pulse = 255;
     l_hp = l_mp = l_lv = 0xFFFF; l_gold = 0xFFFFFFFFUL;   /* impossible values: everything redraws once */
     hud_update();
 }
 void hud_init(void){ hud_redraw(); hud_show(); }
 
 void hud_update(void){
-    char b[12]; UINT16 lvmax; UINT8 hp_changed, lv_changed;
+    char b[12]; UINT16 lvmax; UINT8 hp_changed, lv_changed, low, pulse;
     lv_changed = sv.level != l_lv;
-    hp_changed = sv.hp != l_hp || lv_changed;
+    if(lv_changed){ d_hp = sv.hp; d_mp = sv.mp; }
+    lvmax = hud_hpmax(sv.level);
+    low = (UINT32)sv.hp * 4UL < lvmax;
+    pulse = low ? (UINT8)((UINT8)frames32() >> 4) & 1 : 0;           /* low HP: the heart bar blinks red */
+    hp_changed = sv.hp != l_hp || d_hp != sv.hp || lv_changed;
     txt_win(1);
     if(hp_changed){
-        lvmax = hud_hpmax(sv.level);
-        txt_bar(HP_BAR_X, 0, BAR_W, sv.hp, lvmax);
-        u16s(b, sv.hp > 999 ? 999 : sv.hp); txt_line(HP_NUM_X, 0, b, 3);   /* (3 digits fit) */
-        txt_color(0, 0, HP_NUM_X + 3, 1, ((UINT32)sv.hp * 4UL < lvmax) ? TXT_RED : TXT_WHITE);   /* low HP: red */
-        l_hp = sv.hp;
+        d_hp = ease(d_hp, sv.hp);
+        txt_bar(HP_BAR_X, 0, BAR_W, d_hp, lvmax);
+        if(sv.hp != l_hp || lv_changed){
+            numk(b, sv.hp); txt_line(HP_NUM_X, 0, b, 4);
+            txt_color(HP_NUM_X, 0, 4, 1, low ? TXT_RED : TXT_WHITE);
+            l_hp = sv.hp;
+        }
     }
+    { UINT8 c = low ? 1 + pulse : 0;                                  /* 0 healthy, 1 low (red), 2 low (gold half of the blink) */
+      if(c != l_pulse){ txt_color(0, 0, HP_BAR_X + BAR_W, 1, c == 0 ? TXT_WHITE : c == 1 ? TXT_RED : TXT_GOLD); l_pulse = c; } }
     if(lv_changed){
         char *d = scat(b, sv.level > 99 ? "L" : "LV "); u16s(d, sv.level); txt_line(LV_X, 0, b, 5);   /* "LV 99", then "L100" */
     }
-    if(sv.mp != l_mp || lv_changed){
-        txt_bar(MP_BAR_X, 1, BAR_W, sv.mp, hud_mpmax(sv.level));
-        u16s(b, sv.mp > 999 ? 999 : sv.mp); txt_line(MP_NUM_X, 1, b, 3);
-        l_mp = sv.mp;
+    if(sv.mp != l_mp || d_mp != sv.mp || lv_changed){
+        d_mp = ease(d_mp, sv.mp);
+        txt_bar(MP_BAR_X, 1, MP_BAR_W, d_mp, hud_mpmax(sv.level));
+        if(sv.mp != l_mp || lv_changed){ numk(b, sv.mp); txt_line(MP_NUM_X, 1, b, 4); l_mp = sv.mp; }
     }
     l_lv = sv.level;
     if(sv.gold != l_gold){

@@ -3,6 +3,7 @@
    SKILLS: every level gives 1 skill point (and every 5th level 2 more); five skills, 10 ranks each, 1 point a rank.
    SHOP: gold buys potions and 7 pieces of gear (5 levels each): FANG and SHELL for the bug, LASER GUNS ENGINE TURBO HULL MAGNET for the ship.
    The levels live in sv.up[] (save.h). Everything is drawn in the window layer, like the SYSTEM menu. */
+#include <string.h>
 #include <gb/gb.h>
 #include "sound.h"
 #include "input.h"
@@ -202,10 +203,13 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
 }
 
 /* ---------------------------------------------------------------- the STATUS page (the GBA's BUG tab: you, your bars, your numbers) */
-static void st_bar(char *b, const char *lab, UINT32 v, UINT32 mx){
-    char *d = scat(b, lab); UINT8 f = mx ? (UINT8)(v >= mx ? 6 : (v * 6) / mx) : 0;
+static void st_bar(char *b, const char *lab, UINT32 v, UINT32 mx){       /* "HP ●●●●●● 12/34": the pips give way when the numbers get long (level 900: 2300/2300) */
+    char n[24], *e; UINT8 len, np, f, w = 17 - 4 - (UINT8)strlen(lab) + 3;
+    e = u32s(n, v); *e++ = '/'; u32s(e, mx); len = (UINT8)strlen(n);
+    np = w > len ? w - len : 1; if(np > 6) np = 6;
+    f = mx ? (UINT8)(v >= mx ? np : (v * np) / mx) : 0;
     if(v && !f) f = 1;                                              /* some hearts left always shows a pip */
-    d = pips(d, f, 6); d = scat(d, " "); d = u32s(d, v); d = scat(d, "/"); u32s(d, mx);
+    { char *d = scat(b, lab); d = pips(d, f, np); d = scat(d, " "); scat(d, n); }
 }
 void status_run(void) BANKED {
     char b[24], *d; UINT32 t = play_secs(); UINT8 r = fame_rank();
