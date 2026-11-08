@@ -172,10 +172,11 @@ static UINT8 shop_sure(UINT8 cur){                              /* a big buy ask
     }
     s_ask = 0; return yes;
 }
+extern volatile UINT8 snd_song;
 void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a station's shipyard */
-    UINT8 cur = 0, sprites = LCDC_REG & LCDCF_OBJON, h; const char *msg = 0;
+    UINT8 old = snd_song, cur = 0, sprites = LCDC_REG & LCDCF_OBJON, h; const char *msg = 0;
     s_mode = mode; s_n = mode ? 9 : 3; s_first = mode ? I_LASER : I_POTION; s_disc = mode ? fame_disc() : 0; h = 9 + s_n;
-    HIDE_SPRITES;
+    HIDE_SPRITES; if(!mode) music(MUS_SHOP);
     txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0);
     shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN;
     for(;;){
@@ -198,7 +199,7 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
             shop_draw(cur, msg);
         }
     }
-    sfx(SFX_BACK);
+    sfx(SFX_BACK); if(!mode) music(old);
     if(sprites) SHOW_SPRITES;
 }
 
