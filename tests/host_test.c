@@ -163,23 +163,23 @@ int main(void){
     memset(&sv, 0, sizeof sv); sv.level = 1; sv.hp = 10; sv.mp = 5; sv.gold = 0;
     hud_init();
     CHECK(stub_win == 1 && stub_wy == HUD_Y && HUD_Y == 128);
-    CHECK(wmap[0][0] == T_HEART && wmap[0][1] == T_BAR_L && wmap[0][2] == T_BAR8 && wmap[0][5] == T_BAR8 && wmap[0][6] == T_BAR_R);
-    CHECK(wrow_is(0, 7, "10") && wmap[0][9] == T_BLANK && wrow_is(0, 11, "LV 1") && wmap[0][15] == T_BLANK);
+    CHECK(wmap[0][0] == T_HEART && wmap[0][1] == T_BAR_L && wmap[0][2] == T_BAR8 && wmap[0][4] == T_BAR8 && wmap[0][5] == T_BAR_R);
+    CHECK(wrow_is(0, 6, "10") && wmap[0][8] == T_BLANK && wrow_is(0, 11, "LV 1") && wmap[0][15] == T_BLANK);
     CHECK(wmap[1][0] == T_COIN && wrow_is(1, 1, "0") && wmap[1][2] == T_BLANK && wmap[1][10] == T_STAR && wamap[1][10] == TXT_GOLD);
-    CHECK(wmap[1][11] == T_BAR_L && wmap[1][12] == T_BAR8 && wmap[1][16] == T_BAR_R && wrow_is(1, 17, "5"));
+    CHECK(wmap[1][11] == T_BAR_L && wmap[1][12] == T_BAR8 && wmap[1][15] == T_BAR_R && wrow_is(1, 16, "5"));
     CHECK(wamap[0][3] == TXT_WHITE);
     CHECK(row_is(16, 0, "BG ROW"));                              /* HUD never touches the background map */
     txt_put(0, 17, "AFTER"); CHECK(row_is(17, 0, "AFTER") && wmap[17][0] == 0);   /* target went back to BG */
     /* low HP turns the left half red, healing turns it back */
-    sv.hp = 2; hud_update(); CHECK(wamap[0][0] == TXT_RED && wamap[0][9] == TXT_RED && wamap[0][10] == 0 && wrow_is(0, 7, "2") && wmap[0][7 + 1] == T_BLANK);
+    sv.hp = 2; hud_update(); CHECK(wamap[0][0] == TXT_RED && wamap[0][9] == TXT_RED && wamap[0][10] == 0 && wrow_is(0, 6, "2") && wmap[0][6 + 1] == T_BLANK);
     sv.hp = 3; hud_update(); CHECK(wamap[0][0] == TXT_WHITE);    /* 3*4 = 12 >= 10: exactly past the 25% line */
     sv.hp = 2; hud_update(); CHECK(wamap[0][0] == TXT_RED);
-    sv.hp = 10; hud_update(); CHECK(wamap[0][0] == TXT_WHITE && wrow_is(0, 7, "10"));
-    /* level 99: max hp 500; 250 hp is half a bar = 2 full tiles of the 4 middle ones */
+    sv.hp = 10; hud_update(); CHECK(wamap[0][0] == TXT_WHITE && wrow_is(0, 6, "10"));
+    /* level 99: max hp 500; 250 hp is half a bar = 1.5 of the 3 middle tiles */
     sv.level = 99; sv.hp = 250; sv.mp = 299; hud_update();
     CHECK(wrow_is(0, 11, "LV 99") && hud_hpmax(99) == 500 && hud_mpmax(99) == 299 && hud_hpmax(1) == 10 && hud_mpmax(1) == 5);
-    CHECK(wmap[0][2] == T_BAR8 && wmap[0][3] == T_BAR8 && wmap[0][4] == T_BAR0 && wmap[0][5] == T_BAR0 && wrow_is(0, 7, "250"));
-    CHECK(wmap[1][12] == T_BAR8 && wmap[1][15] == T_BAR8 && wrow_is(1, 17, "299"));
+    CHECK(wmap[0][2] == T_BAR8 && wmap[0][3] == T_BAR0 + 4 && wmap[0][4] == T_BAR0 && wrow_is(0, 6, "250"));
+    CHECK(wmap[1][12] == T_BAR8 && wmap[1][14] == T_BAR8 && wrow_is(1, 16, "299"));
     /* gold: 9 digits max, clamps above that */
     sv.gold = 123456789UL; hud_update(); CHECK(wrow_is(1, 1, "123456789"));
     sv.gold = 4000000000UL; hud_update(); CHECK(wrow_is(1, 1, "999999999"));
