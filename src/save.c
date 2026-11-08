@@ -87,10 +87,17 @@ void save_init(void){
     settings_load();
 }
 
+/* SAVE SAFETY: every slot is written twice, the mirror first (SRAM offset BK_OFF of the same bank), then the real thing. A power cut in the middle of either write leaves the other copy whole;
+   on load the real copy wins if its checksum holds, else the mirror is used (and the real copy is mended by the next save). */
+#define BK_OFF 4096U
+static UINT8 sv_good(const Save *o){ return o->magic == SAVE_MAGIC && o->ver == SAVE_VER && o->sum == fnv(o, sizeof(Save) - 4); }
 UINT8 slot_peek(UINT8 slot, Save *out){
     if(slot >= NSLOT) return 0;
     sram_read(slot, out, sizeof(Save));
-    if(out->magic == SAVE_MAGIC && out->ver == SAVE_VER && out->sum == fnv(out, sizeof(Save) - 4)) return 1;
+    if(sv_good(out)) return 1;
+    sram_read_at(slot, BK_OFF, out, sizeof(Save));
+    if(sv_good(out)) return 1;
+    sram_read(slot, out, sizeof(Save));
     return sv_old(slot, out);                                            /* versions 1-4 are converted in save_guard.c (bank 38) */
 }
 UINT8 slot_read(UINT8 slot){
@@ -99,7 +106,10 @@ UINT8 slot_read(UINT8 slot){
     sv_sanitize(&t);
     sv = t;
     sram_read_at(slot, EX_OFF, &ex, sizeof ex);
-    if(ex.magic != EX_MAGIC || ex.sum != fnv(&ex, sizeof ex - 4)) memset(&ex, 0, sizeof ex);
+    if(ex.magic != EX_MAGIC || ex.sum != fnv(&ex, sizeof ex - 4)){
+        sram_read_at(slot, BK_OFF + EX_OFF, &ex, sizeof ex);
+        if(ex.magic != EX_MAGIC || ex.sum != fnv(&ex, sizeof ex - 4)) memset(&ex, 0, sizeof ex);
+    }
     return 1;
 }
 void slot_write(UINT8 slot){
@@ -108,15 +118,17 @@ void slot_write(UINT8 slot){
     sv.magic = SAVE_MAGIC; sv.ver = SAVE_VER;
     sv.secs = play_secs(); sv.saves = n + 1;
     sv.sum = fnv(&sv, sizeof(Save) - 4);
-    sram_write(slot, &sv, sizeof(Save));
     ex.magic = EX_MAGIC; ex.sum = fnv(&ex, sizeof ex - 4);
+    sram_write_at(slot, BK_OFF, &sv, sizeof(Save));              /* the mirror first... */
+    sram_write_at(slot, BK_OFF + EX_OFF, &ex, sizeof ex);
+    sram_write(slot, &sv, sizeof(Save));                         /* ...then the real copy */
     sram_write_at(slot, EX_OFF, &ex, sizeof ex);
     if(last_slot != slot){ last_slot = slot; settings_save(); }
 }
 void slot_erase(UINT8 slot){
     Save z;
     memset(&z, 0, sizeof z);
-    sram_write(slot, &z, sizeof z);
+    sram_write(slot, &z, sizeof z); sram_write_at(slot, BK_OFF, &z, sizeof z);
     if(last_slot == slot){ last_slot = first_good_slot() == 255 ? 0 : first_good_slot(); settings_save(); }
 }
 void new_game(UINT8 slot, UINT32 seed, const BugLook *look, const char *name){

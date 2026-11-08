@@ -91,7 +91,9 @@ int main(void){
     CHECK(!slot_peek(0,&t)); CHECK(!slot_peek(2,&t));
     sv.level=7; sv.gold=123456; slot_write(1); CHECK(slot_read(1)); CHECK(sv.level==7 && sv.gold==123456 && sv.saves==2);
     /* corruption is detected */
-    sram_buf[8192+10]^=1; CHECK(!slot_peek(1,&t)); sram_buf[8192+10]^=1; CHECK(slot_peek(1,&t));
+    sram_buf[8192+10]^=1; CHECK(slot_peek(1,&t) && t.level==7);                   /* real copy torn: the mirror answers */
+    sram_buf[8192+4096+10]^=1; CHECK(!slot_peek(1,&t));                            /* both torn: bad */
+    sram_buf[8192+10]^=1; CHECK(slot_peek(1,&t)); sram_buf[8192+4096+10]^=1; CHECK(slot_peek(1,&t));
     /* settings persist across a "reboot" and clamp bad values */
     opt.music=0; opt.diff=3; opt.xpm=2; settings_save();
     opt.music=2; opt.diff=1; opt.xpm=0; last_slot=0;
