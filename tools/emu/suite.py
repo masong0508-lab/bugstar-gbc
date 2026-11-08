@@ -15,7 +15,7 @@ def run(name, sav, script):
     r = subprocess.run([sys.executable, HERE + '/fl.py', ROM, sav, '%s_%s' % (TAG, name), script], capture_output=True, text=True)
     sys.stdout.write(r.stdout + r.stderr)
 T = 'w300 '                      # the title
-cont = T + 'hA:8 w250 '          # CONTINUE: on the planet
+cont = T + 'hA:8 w250 ' + 'hA:3 w50 ' * 14 + 'w60 '          # CONTINUE: on the planet (intro dialog pages dismissed)
 rich = dict(level=30, gold=9000, story=7, potions=3)
 s = mk('rich', **rich)
 # the title's options page

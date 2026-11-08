@@ -62,3 +62,11 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 ## Not verified in play
 - Rumble motor on a real rumble cartridge (checked only that the motor bit toggles in an emulator, and that saves stay valid with it on).
 - Real hardware, in general: every run was done in the Walnut-CGB emulator.
+
+## Menus pass (soft redraw)
+- Every text screen redraws through a shadow buffer (src/textsoft.c): only the cells that changed reach video memory, so menus no longer blank and refill. Options, load/new picker, SYSTEM, status, skills, extras, feats, guide, shop, loot, elite, fleet, galaxy, towns, stats, kart and warship menus use it.
+- Up/Down wrap, held directions repeat, B backs out, a help line sits at the bottom. SYSTEM hides the sprites while its box is open.
+- Font: G, O, 0 and 6 are now clearly different. DUSK worlds (planet, dungeon, space) have brighter colours.
+- Kart: results box fits ("YOU WON!"), lap banner keeps clear of your car, countdown "GO!" text shortened, text palettes restored after the fade, kart menu no longer draws into the road map. Grand prix (3 races, points, cup, prize), REVERSE, 1/3/5 laps and time trial were run to the end in the emulator.
+- Not done: a universe selector (there is no universe on the GBC), a level cap above 999 (asked to leave alone), new traits/planet kinds (kinds and traits come from bit fields of the world seed, so adding any would change existing worlds and saves).
+- tools/emu: headless runner (Walnut-CGB) and menu flicker suite; kart test hooks KX_STEER / KX_GAS / KX_WAIT for end-to-end races.

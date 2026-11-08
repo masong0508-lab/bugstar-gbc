@@ -20,6 +20,12 @@
 #define VMAX   256
 
 #define HZ     64                              /* first road scanline */
+#ifndef KX_GAS
+#define KX_GAS 0
+#endif
+#ifndef KX_WAIT
+#define KX_WAIT 40
+#endif
 #ifndef KX_T0
 #define KX_T0 0
 #define KX_L0 0
@@ -272,10 +278,13 @@ static void drive(UINT8 go){
     INT8 dir = 0; UINT8 k, off = (lx[0] > 150 || lx[0] < -150);
     cap = off ? (boost_t ? 140 : 70) : (boost_t ? 400 : VMAX);
     if(go && !stun[0]){
-        if(HELD(J_A)) v += boost_t ? 12 : 4; else v -= 2;
+        if(HELD(J_A) || KX_GAS) v += boost_t ? 12 : 4; else v -= 2;
         if(HELD(J_DOWN)) v -= 8;
         if(HELD(J_LEFT)) dir = -1;
         if(HELD(J_RIGHT)) dir = 1;
+#ifdef KX_STEER
+        dir = lx[0] > 20 ? -1 : lx[0] < -20 ? 1 : 0;
+#endif
         if(HIT(J_B) && hold && !air_t) use_item();
         if(dir && v > 160 && HELD(J_A)){ if(drift_t < 250) drift_t++; }              /* a long, held bend charges a little turbo */
         else { if(drift_t > 60){ boost_t = 36; sfx(SFX_LASER); } drift_t = 0; }
@@ -460,7 +469,7 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
         if(state == 0){                                                        /* 3, 2, 1, GO */
             tcount++;
             if(tcount == 1 || tcount == 60 || tcount == 120){ char c[16]; c[0] = (char)('3' - tcount / 60); c[1] = '.'; c[2] = '.'; c[3] = '.'; c[4] = 0; banner(c); bnt = 0; sfx(SFX_COUNT); }
-            if(tcount == 180){ banner(rev ? "GO! REVERSE!" : "GO GO GO!"); bnt = 50; sfx(SFX_GO); state = 1; tcount = 0; }
+            if(tcount == 180){ banner(rev ? "REV GO" : "GO!"); bnt = 50; sfx(SFX_GO); state = 1; tcount = 0; }
             drive(0); lastf = frames32();
         } else if(state == 1){
             { UINT32 nf = frames32(); UINT8 ex = (UINT8)(nf - lastf); lastf = nf; ex = ex >= 3 ? 2 : 0;       /* a loop that took three frames or more (a hiccup: a save, a long item) runs the car for the frames it missed: the speed and the clock stay true */
@@ -479,7 +488,7 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
                 { char c[17], *d = c; UINT16 lt = lap_t;
                   lap_t = 0; lapn++; got = 0;
                   if(lapn < nlaps){
-                      if(lapn == nlaps - 1) d = scat(d, "FINAL LAP! "); else { d = scat(d, "LAP "); d = u16s(d, lapn + 1); d = scat(d, " "); }
+                      if(lapn == nlaps - 1) d = scat(d, "FINAL     "); else { d = scat(d, "LAP "); d = u16s(d, lapn + 1); d = scat(d, "     "); }   /* (words left, time right: your car sits in the middle of the box) */
                       d = ftime(d, lt); *d = 0; banner(c); bnt = 110; sfx(SFX_COIN); } }
             }
             if(lapn >= nlaps){
@@ -493,7 +502,7 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
             drive(0);
             if(HIT(J_A) || HIT(J_B) || HIT(J_START)){ done = 1; }
 #ifdef KX_AUTO
-            if(++tcount > 40) done = 1;
+            if(++tcount > KX_WAIT) done = 1;
 #endif
         }
         dir = HELD(J_LEFT) ? -1 : HELD(J_RIGHT) ? 1 : 0;

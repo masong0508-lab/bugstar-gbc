@@ -75,7 +75,7 @@ void kart_results(UINT8 place, UINT8 gpn) BANKED {
     if(gpn){ d = scat(b, "RACE "); d = u16s(d, gpn); d = scat(d, " OF 3 DONE"); *d = 0; txt_line(3, 1, b, 16); }
     else txt_line(5, 1, "RACE OVER!", 10);
     txt_color(3, 1, 14, 1, TXT_GOLD);
-    if(rivals_on){ d = scat(b, "YOU CAME "); d = u16s(d, place); if(place == 1) d = scat(d, " (WIN!)"); else d = scat(d, " OF 4"); *d = 0; txt_line(3, 3, b, 15); }
+    if(rivals_on){ if(place == 1) d = scat(b, "YOU WON!"); else { d = scat(b, "YOU CAME "); d = u16s(d, place); d = scat(d, " OF 4"); } *d = 0; txt_line(3, 3, b, 15); if(place == 1) txt_color(3, 3, 15, 1, TXT_GOLD); }
     else txt_line(3, 3, "TIME TRIAL", 15);
     d = scat(b, "TIME "); d = ftime(d, tot_t); if(nrc) d = scat(d, " NEW"); *d = 0; txt_line(3, 5, b, 15); if(nrc) txt_color(3, 5, 15, 1, TXT_GOLD);
     d = scat(b, "LAP "); d = ftime(d, best_run); if(nbl) d = scat(d, " NEW"); *d = 0; txt_line(3, 7, b, 15); if(nbl) txt_color(3, 7, 15, 1, TXT_GOLD);

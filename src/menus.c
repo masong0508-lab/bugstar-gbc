@@ -28,7 +28,7 @@ static void print_wrap(UINT8 y, UINT8 rows, const char *s){
 /* ------------------------------------------------------------ options */
 enum { OP_DIFF, OP_HUNGER, OP_FAINT, OP_XP, OP_GOLD, OP_MUSIC, OP_SFX, OP_AUTO,
        OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, OP_BUD, OP_RUM, OP_RUMEV, OP_RUMHUM, NOPT };
-static const char *const op_name[NOPT] = { "DIFFICULTY", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
+static const char *const op_name[NOPT] = { "MODE", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
     "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW", "LADYBUGS", "RUMBLE", "RUMBLE EVENTS", "RUMBLE HUM" };
 static const char *const op_help[NOPT] = {
     "BABY: 1 DAMAGE, NO LOSSES, 2X XP", "OFF: NOBODY EVER STARVES",

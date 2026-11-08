@@ -67,9 +67,10 @@ static UINT8 confirm_title(void){
 }
 
 int sysmenu_run(void (*redraw)(void)){
-    UINT8 sel = 0, had = hud_is_on(), f = 0;
+    UINT8 sel = 0, had = hud_is_on(), f = 0, spr = (LCDC_REG & LCDCF_OBJON) != 0;
     int result = SYS_RESUME;
     sfx(SFX_OK);
+    HIDE_SPRITES;                                    /* sprites would be drawn over the box */
     move_win(OFFX, SM_WY); SHOW_WIN;                 /* the HUD vanishes: this box takes over the window */
     frame();
     draw_items(sel); cores();
@@ -105,7 +106,7 @@ int sysmenu_run(void (*redraw)(void)){
                   DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy;
                   if(redraw) redraw();
                   sys_gfx_lost = 0;
-                  SHOW_SPRITES; DISPLAY_ON; }
+                  DISPLAY_ON; }
                 SHOW_WIN; cores();
             } else if(sel == 5){
                 skills_run();                                        /* (it hides the sprites and brings them back) */
@@ -121,7 +122,7 @@ int sysmenu_run(void (*redraw)(void)){
                   DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy;
                   if(redraw) redraw();
                   sys_gfx_lost = 0;
-                  SHOW_SPRITES; DISPLAY_ON; }
+                  DISPLAY_ON; }
                 SHOW_WIN; cores();
                 if(r){ result = r == 1 ? SYS_FLIP : r == 2 ? SYS_ARENA : r == 3 ? SYS_HELL : SYS_MOON; break; }
             } else if(sel == 7){
@@ -139,7 +140,7 @@ int sysmenu_run(void (*redraw)(void)){
                   DISPLAY_OFF; txt_cls(); SCX_REG = sx; SCY_REG = sy;
                   if(redraw) redraw();
                   sys_gfx_lost = 0;
-                  SHOW_SPRITES; DISPLAY_ON; }
+                  DISPLAY_ON; }
                 SHOW_WIN; cores();
             } else {
                 if(confirm_title()){ if(opt.autosave) slot_write(cur_slot); result = SYS_TITLE; break; }
@@ -148,6 +149,7 @@ int sysmenu_run(void (*redraw)(void)){
         }
     }
     slide_x(SM_WX, OFFX);
+    if(spr) SHOW_SPRITES;
     if(had){ hud_redraw(); hud_pos(HUD_Y); }          /* hud_pos puts the window back at X = 7 */
     else HIDE_WIN;
     return result;
