@@ -61,7 +61,7 @@ void main(void){
     for(;;) wait_vbl_done();
 #endif
 #ifdef TEST_TOWN
-    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; sv.gold = 900; sv.potions = 3; sv.rsv2[0] = 2; sv.el.cargo[G_ORE] = 5; ex.seen[0] |= 6; cpu_fast();
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; sv.gold = 900; sv.potions = 3; sv.rsv2[0] = 2; sv.el.cargo[G_ORE] = 5; ex.seen[0] |= 6; cpu_fast(); DISPLAY_ON;
     for(;;){ town_run(0, 0, 3, 0, 0); }
 #endif
 #ifdef TEST_STATS
