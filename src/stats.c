@@ -26,9 +26,9 @@ static void best(UINT8 y, const char *lab, UINT16 t){                           
     d = u16s(d, s / 60); *d++ = ':'; if(s % 60 < 10) *d++ = '0'; d = u16s(d, s % 60); *d++ = '.'; d = u16s(d, (t % 60) / 6); *d = 0;
     ln(y, lab, v, TXT_GOLD);
 }
-static void page(UINT8 p){
+static void page(UINT8 p, UINT8 again){
     char t[16], *d; UINT8 r, i; UINT16 k;
-    txt_cls(); txt_box(0, 0, 20, 18);
+    if(!again){ txt_cls(); txt_box(0, 0, 20, 18); }               /* (turning a page only overwrites the words: no blank frame) */
     txt_line(2, 1, p == 0 ? "ADVENTURE" : p == 1 ? "THE GALAXY" : "GAMES", 13); txt_color(2, 1, 13, 1, TXT_GOLD);
     if(p == 0){
         fmt_time(t, play_secs()); ln(3, "TIME", t, TXT_WHITE);
@@ -68,15 +68,16 @@ static void page(UINT8 p){
         lnu(11, "RAIDS WON", warship_count(1), TXT_WHITE);
         d = t; d = u16s(d, ex.fish); *d = 0; ln(12, "FISH IN BAG", t, TXT_WHITE);
         lnu(13, "GOLDEN FISH", ex.rare, TXT_WHITE);
+        txt_line(2, 9, "", 17); txt_line(2, 14, "", 17);
     }
     txt_line(2, 16, "< > PAGE  B: BACK", 17); txt_color(2, 16, 17, 1, TXT_GREY);
     d = t; d = scat(d, p == 0 ? "1/3" : p == 1 ? "2/3" : "3/3"); txt_line(16, 1, t, 3); txt_color(16, 1, 3, 1, TXT_GREY);
 }
 void stats_run(void) BANKED {
-    UINT8 p = 0, d = 1;
+    UINT8 p = 0, d = 1, first = 1;
     DISPLAY_OFF; HIDE_WIN; HIDE_SPRITES; txt_pal_reset();
     for(;;){
-        if(d){ page(p); d = 0; DISPLAY_ON; }
+        if(d){ page(p, !first); d = 0; DISPLAY_ON; first = 0; }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); return; }
         if(HIT(J_RIGHT) || HIT(J_A)){ p = p < 2 ? p + 1 : 0; d = 1; sfx(SFX_MOVE); }

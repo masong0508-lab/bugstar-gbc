@@ -145,6 +145,7 @@ static void hud_line(UINT16 tleft, UINT8 lives, UINT8 guns, UINT8 core){
     txt_line(0, 0, b, 20); txt_color(0, 0, 20, 1, tleft < 900 && (tleft & 32) ? TXT_RED : TXT_WHITE);
 }
 
+static UINT8 sec_tick(UINT16 t){ while(t >= 60) t -= 60; return !t; }      /* (no division in a per-frame test) */
 static UINT8 raid(UINT8 size, UINT16 *took){                              /* 1 won, 0 lost (the ship or the clock) */
     UINT8 ng = size == 0 ? 2 : size == 1 ? 4 : 6, i, j, gleft, lives, inv = 0, cool = 0, core_open = 0, cdone = 0, ccd = 0, spd, dmg, done = 0, res = 0, state = 0, oldsong = snd_song, shown = 0;
     INT16 px = 80, py = 120;
@@ -179,6 +180,7 @@ static UINT8 raid(UINT8 size, UINT16 *took){                              /* 1 w
         /* the text (only when it changed) */
         { UINT8 sec = (UINT8)(tleft / 60);
           if(sec != hl || lives != hg || gleft != hc || (tleft < 900 && !(tleft & 31)) || !shown){ hl = sec; hg = lives; hc = gleft; hud_line(tleft, lives, gleft, core_open); shown = 1; } }
+        if(state == 0 && tleft && tleft <= 600 && sec_tick(tleft)) sfx(SFX_COUNT);     /* the last ten seconds tick */
         if(state == 0){                                                   /* the fight */
             UINT8 k = keys;
             if(k & J_LEFT)  px -= spd;
@@ -264,18 +266,20 @@ static UINT8 raid(UINT8 size, UINT16 *took){                              /* 1 w
 static const char *const sname[3] = { "SMALL", "BIG", "COLOSSAL" };
 static const UINT8 sguns[3] = { 2, 4, 6 };
 static char *mmss(char *d, UINT16 f){ UINT16 s = f / 60; d = u16s(d, s / 60); *d++ = ':'; if(s % 60 < 10) *d++ = '0'; d = u16s(d, s % 60); *d = 0; return d; }
-static void draw_menu(UINT8 sel){
+static void draw_menu(UINT8 sel, UINT8 again){
     UINT8 i; char b[21], *d;
-    txt_win(0); txt_cls(); txt_box(0, 0, 20, 18);
+    txt_win(0);
+    if(!again){ txt_cls(); txt_box(0, 0, 20, 18); }              /* (moving the cursor only overwrites the words) */
     txt_line(4, 1, "WARSHIP RAID", 12); txt_color(4, 1, 12, 1, TXT_GOLD);
     for(i = 0; i < 3; i++){
         d = b; *d++ = i == sel ? T_CURSOR : ' '; d = scat(d, sname[i]); *d = 0;
         txt_line(2, 3 + i * 2, b, 9);
-        if(i && !(ws.clr & (1 << (i - 1)))){ txt_line(12, 3 + i * 2, "LOCKED", 6); txt_color(2, 3 + i * 2, 16, 1, TXT_GREY); }
+        if(i && !(ws.clr & (1 << (i - 1)))){ txt_line(5, 4 + i * 2, "", 12); txt_line(12, 3 + i * 2, "LOCKED", 6); txt_color(2, 3 + i * 2, 16, 1, TXT_GREY); }
         else {
             d = u16s(b, sguns[i]); d = scat(d, " GUNS"); *d = 0; txt_line(11, 3 + i * 2, b, 7);
             if(ws.best[i]){ d = scat(b, "BEST "); mmss(d, ws.best[i]); txt_line(5, 4 + i * 2, b, 12); txt_color(5, 4 + i * 2, 12, 1, TXT_GREY); }
-            else if(ws.clr & (1 << i)){ txt_line(5, 4 + i * 2, "BEATEN", 8); txt_color(5, 4 + i * 2, 8, 1, TXT_GREY); }
+            else if(ws.clr & (1 << i)){ txt_line(5, 4 + i * 2, "BEATEN", 12); txt_color(5, 4 + i * 2, 12, 1, TXT_GREY); }
+            else txt_line(5, 4 + i * 2, "", 12);
             txt_color(2, 3 + i * 2, 16, 1, i == sel ? TXT_GOLD : TXT_WHITE);
         }
     }
@@ -322,10 +326,10 @@ void warship_run(void) BANKED {
     UINT16 took;
     DISPLAY_OFF; HIDE_WIN; HIDE_SPRITES; ws_load(); txt_pal_reset();
     for(;;){
-        if(d){ draw_menu(sel); DISPLAY_ON; d = 0; }
+        if(d){ draw_menu(sel, d == 2); DISPLAY_ON; d = 0; }
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP) && sel){ sel--; d = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN) && sel < 2){ sel++; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_UP) && sel){ sel--; d = 2; sfx(SFX_MOVE); }
+        if(HIT(J_DOWN) && sel < 2){ sel++; d = 2; sfx(SFX_MOVE); }
         if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); break; }
         if(HIT(J_A)){
             if(sel && !(ws.clr & (1 << (sel - 1)))){ sfx(SFX_HURT); continue; }

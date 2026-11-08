@@ -441,8 +441,9 @@ void arena_run(void) BANKED {
 #define MOON_OPEN (sv.level >= 10)
 #define KART_OPEN (sv.level >= 5)
 #define EX_N 12
+static UINT8 ex_again;                                           /* 1: the boxes are already drawn, only the words change (no blank frame while it repaints) */
 static void ex_card(UINT8 y, UINT8 on, const char *nm, const char *st, UINT8 c1, const char *info){
-    txt_box(1, y, 18, 4);
+    if(!ex_again) txt_box(1, y, 18, 4);
     txt_line(3, y + 1, on ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, on ? TXT_GOLD : TXT_WHITE);
     txt_line(14, y + 1, st, 4); txt_color(14, y + 1, 4, 1, c1);
     txt_line(4, y + 2, info, 14); txt_color(4, y + 2, 14, 1, TXT_GREY);
@@ -468,10 +469,10 @@ static void ex_one(UINT8 i, UINT8 y, UINT8 on){
             else ex_card(y, on, "KART WORLD", "LOCK", TXT_RED, "NEED LEVEL 5"); break;
     }
 }
-static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
+static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg, UINT8 again){
     UINT8 top = sel > 2 ? sel - 2 : 0, k;
-    txt_cls();
-    txt_box(0, 0, 20, 18);
+    ex_again = again;
+    if(!again){ txt_cls(); txt_box(0, 0, 20, 18); }              /* (a redraw only overwrites words: no blank frame, no flicker) */
     txt_line(7, 1, "EXTRAS", 6); txt_color(7, 1, 6, 1, TXT_GOLD);
     for(k = 0; k < 3; k++) ex_one(top + k, 3 + k * 4, top + k == sel);
     txt_line(18, 3, top ? "^" : " ", 1); txt_line(18, 13, top + 3 < EX_N ? "v" : " ", 1);
@@ -483,7 +484,7 @@ UINT8 extras_run(UINT8 in_space) BANKED {
     const char *msg = "";
     unlocks_update();
     for(;;){
-        if(d){ ex_draw(sel, in_space, msg); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
+        if(d){ ex_draw(sel, in_space, msg, on); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
         wait_vbl_done(); input_poll();
         f++; if(on){ UINT8 tp = sel > 2 ? sel - 2 : 0; UI_BLINK(3, 4 + (sel - tp) * 4, f); if(!(f & 31)) txt_color(7, 1, 6, 1, (f & 32) ? TXT_WHITE : TXT_GOLD); }
         if(HIT(J_B) || HIT(J_START)) return 0;
