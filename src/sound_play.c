@@ -42,6 +42,8 @@ static void play_sfx(UINT8 n){
     case SFX_BACK:    s1((1 << 4) | (1 << 3) | 3, (0x9 << 12) | (1 << 8) | (2 << 6), 0x8000 | 1800, 12); break;
     case SFX_LEVEL:   s1((5 << 4) | 2, (0xD << 12) | (4 << 8) | (2 << 6), 0x8000 | 1600, 50); break;
     case SFX_TYPE:    s1(0, (0x4 << 12) | (1 << 8) | (1 << 6), 0x8000 | 1990, 3); break;
+    case SFX_COUNT:   s1(0, (0xB << 12) | (1 << 8) | (2 << 6), 0x8000 | 1750, 16); break;                 /* the 3, 2, 1 beeps */
+    case SFX_GO:      s1(0, (0xE << 12) | (3 << 8) | (2 << 6), 0x8000 | 1923, 34); break;                  /* ...and the higher GO */
     }
 }
 

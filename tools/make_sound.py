@@ -114,6 +114,8 @@ NEW_TRACKS = {  # name: (seed, root, scale, progA, progB, rhythm style, bass, te
     "D_JUNGLE": (23, 50, "dorian", [0, 0, 3, 6], [5, 6, 3, 0], "calm", "pulse", 10, 9, "k..kk..hs..kk.hh", True),
     "D_OCEAN":  (24, 54, "dorian", [0, 5, 3, 4], [2, 5, 3, 0], "sparse", "fifth", 14, 8, "k.......s.......", True),
     "D_DUSK":   (25, 53, "locrian", [0, 1, 4, 3], [5, 3, 1, 0], "sparse", "walk", 12, 8, "k.h.....s.h....h", True),
+    "KART":     (31, 60, "mixo", [0, 3, 4, 0], [5, 3, 4, 0], "lively", "pulse", 6, 11, "k.hks.hkk.hks.hh", False),
+    "WAR":      (32, 57, "minor", [0, 5, 3, 4], [2, 5, 4, 0], "lively", "pulse", 7, 11, "k.kks.hkk.kks.sh", False),
 }
 
 

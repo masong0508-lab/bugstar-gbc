@@ -2,7 +2,8 @@
    the worlds (space.c). See PLAN.md */
 #include <gb/gb.h>
 #include <gb/cgb.h>
-#include <stdio.h>
+#include <gbdk/console.h>
+#include <gbdk/font.h>
 #include <string.h>
 #include "sound.h"
 #include "input.h"
@@ -40,7 +41,7 @@ static void play(void){                                       /* land, fly, land
 }
 
 void main(void){
-    if(_cpu != CGB_TYPE) { printf("NEEDS GAME BOY COLOR"); return; }
+    if(_cpu != CGB_TYPE){ static const char msg[] = "NEEDS GAME BOY COLOR"; UINT8 i; font_init(); font_set(font_load(font_ibm)); for(i = 0; msg[i]; i++){ gotoxy(i, 8); setchar(msg[i]); } for(;;) wait_vbl_done(); }   /* (no printf: stdio would take over the STAT interrupt that the title wave and the road use) */
     cpu_fast();                       /* double speed: 8 MHz */
     save_init();
     sound_init(); dlg_set_blip(sfx_type);

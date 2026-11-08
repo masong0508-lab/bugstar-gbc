@@ -8,9 +8,13 @@
 #include "text.h"
 #include "menus.h"
 #include "spell.h"
+#include "bug.h"
 #include "kart.h"
+#define KART_ART_NO_TABLES
+#include "kart_art.h"          /* the tiles, road map and sprites (the per-frame road tables are in kart.c, bank 24) */
 
-/* KART WORLD's menus (bank 25): GRAND PRIX, TIME TRIAL, QUICK RACE, the track list and the cup. The race itself is in kart.c (bank 24). */
+/* KART WORLD's menus and records (bank 25): GRAND PRIX, TIME TRIAL, QUICK RACE, the track list, FORWARD / REVERSE, 1 / 3 / 5 laps, the cup, the best times.
+   The race itself is in kart.c (bank 24). */
 static const char tname[3][10] = { "MEADOW", "DESERT", "SNOW PEAK" };
 static char *ftime(char *d, UINT16 t){                          /* m:ss.d from 60ths of a second */
     UINT16 s = t / 60;
@@ -25,22 +29,60 @@ static void ks_load(void){
     DISABLE_RAM;
     if(ks.seed != sv.seed || ks.chk != ks_sum()){ memset(&ks, 0, sizeof ks); ks.seed = sv.seed; }
 }
+
+/* ---- the records: every track, each way round. Own block in the slot's SRAM bank (offset 3072), own magic and checksum, so older saves just start empty. [way * 3 + track] */
+typedef struct { UINT32 magic, seed; UINT16 bl[6], rt[6], tt[6]; UINT16 races, wins; UINT32 sum; } KS2;
+#define KS2_OFF   3072U
+#define KS2_MAGIC 0x32534B42UL                                         /* "BKS2" */
+static KS2 k2;
+static void k2_save(void){
+    const UINT8 *p = (const UINT8 *)&k2; UINT16 i;
+    k2.magic = KS2_MAGIC; k2.seed = sv.seed; k2.sum = fnv(&k2, sizeof k2 - 4);
+    ENABLE_RAM; SWITCH_RAM(cur_slot);
+    for(i = 0; i < sizeof k2; i++) *(volatile UINT8 *)(0xA000U + KS2_OFF + i) = p[i];
+    DISABLE_RAM;
+}
+static void k2_load(void){
+    UINT8 *p = (UINT8 *)&k2; UINT16 i;
+    ENABLE_RAM; SWITCH_RAM(cur_slot);
+    for(i = 0; i < sizeof k2; i++) p[i] = *(volatile UINT8 *)(0xA000U + KS2_OFF + i);
+    DISABLE_RAM;
+    if(k2.magic != KS2_MAGIC || k2.seed != sv.seed || k2.sum != fnv(&k2, sizeof k2 - 4)){      /* none yet (or an older save): start from the old forward trial times */
+        memset(&k2, 0, sizeof k2); for(i = 0; i < 3; i++) k2.tt[i] = ks.tt[i];
+    }
+}
+UINT16 kart_rec(UINT8 kind, UINT8 t, UINT8 rev) BANKED {
+    UINT8 ri = (rev ? 3 : 0) + (t % 3);
+    return kind == 0 ? k2.bl[ri] : kind == 1 ? k2.rt[ri] : k2.tt[ri];
+}
+void kart_rec_reset(void) BANKED { memset(&k2, 0, sizeof k2); k2_save(); }
+
 static const UINT16 prize[4] = { 200, 100, 50, 20 };
-void kart_results(UINT8 place, UINT8 saved, UINT8 gpn) BANKED {
-    char b[21], *d;
+static const char *const waynm[2] = { "FORWARD", "REVERSE" };
+void kart_results(UINT8 place, UINT8 gpn) BANKED {
+    char b[21], *d; UINT8 ri = (kart_rev ? 3 : 0) + kart_trk, nl = kart_nlaps, nbl = 0, nrc = 0; UINT16 pz = 0;
+    if(best_run && (!k2.bl[ri] || best_run < k2.bl[ri])){ k2.bl[ri] = best_run; nbl = 1; }
+    if(best_run && (!EX_KART || best_run < EX_KART)) EX_KART = best_run;
+    if(nl == 3){                                                    /* the total times count only over the standard three laps */
+        if(rivals_on){ if(!k2.rt[ri] || tot_t < k2.rt[ri]){ k2.rt[ri] = tot_t; nrc = 1; } }
+        else if(!k2.tt[ri] || tot_t < k2.tt[ri]){ k2.tt[ri] = tot_t; nrc = 1; if(!kart_rev){ ks.tt[kart_trk] = tot_t; kart_ks_save(); } }
+    }
+    k2.races++; if(rivals_on && place == 1) k2.wins++;
+    if(rivals_on){ pz = (UINT16)((UINT32)prize[place - 1] * nl / 3); if(kart_rev) pz += pz >> 1; if(!pz) pz = 5; sv.gold += pz; }
+    k2_save(); if(opt.autosave) slot_write(cur_slot);
     txt_win(1); txt_cls(); txt_box(0, 0, 20, 15);
     if(gpn){ d = scat(b, "RACE "); d = u16s(d, gpn); d = scat(d, " OF 3 DONE"); *d = 0; txt_line(3, 1, b, 16); }
     else txt_line(5, 1, "RACE OVER!", 10);
     txt_color(3, 1, 14, 1, TXT_GOLD);
     if(rivals_on){ d = scat(b, "YOU CAME "); d = u16s(d, place); if(place == 1) d = scat(d, " (WIN!)"); else d = scat(d, " OF 4"); *d = 0; txt_line(3, 3, b, 15); }
     else txt_line(3, 3, "TIME TRIAL", 15);
-    d = scat(b, "TIME "); d = ftime(d, tot_t); *d = 0; txt_line(3, 5, b, 15);
-    d = scat(b, "BEST LAP "); d = ftime(d, best_run); *d = 0; txt_line(3, 7, b, 15);
-    if(saved) txt_line(3, 9, "NEW RECORD!", 15), txt_color(3, 9, 15, 1, TXT_GOLD);
-    if(rivals_on){ d = scat(b, "PRIZE +"); d = u16s(d, prize[place - 1]); d = scat(d, " G"); *d = 0; txt_line(3, 11, b, 15); txt_color(3, 11, 15, 1, TXT_GOLD); }
+    d = scat(b, "TIME "); d = ftime(d, tot_t); if(nrc) d = scat(d, " NEW"); *d = 0; txt_line(3, 5, b, 15); if(nrc) txt_color(3, 5, 15, 1, TXT_GOLD);
+    d = scat(b, "LAP "); d = ftime(d, best_run); if(nbl) d = scat(d, " NEW"); *d = 0; txt_line(3, 7, b, 15); if(nbl) txt_color(3, 7, 15, 1, TXT_GOLD);
+    d = u16s(b, nl); d = scat(d, nl == 1 ? " LAP, " : " LAPS, "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(3, 9, b, 15); txt_color(3, 9, 15, 1, TXT_GREY);
+    if(rivals_on){ d = scat(b, "PRIZE +"); d = u16s(d, pz); d = scat(d, " G"); *d = 0; txt_line(3, 11, b, 15); txt_color(3, 11, 15, 1, TXT_GOLD); }
+    else if(nl != 3) txt_line(3, 11, "3 LAPS FOR RECORDS", 15), txt_color(3, 11, 15, 1, TXT_GREY);
     txt_line(3, 13, "A: OK", 15); txt_color(3, 13, 15, 1, TXT_GREY);
     txt_win(0); move_win(7, 8); SHOW_WIN;
-    if(rivals_on) sv.gold += prize[place - 1];
     sfx(place == 1 ? SFX_FANFARE : SFX_COIN);
 }
 
@@ -52,48 +94,67 @@ static void menu_box(const char *title, UINT8 h){
 static void menu_show(void){ txt_win(0); move_win(7, 16); SHOW_WIN; }
 
 static const char *const cupnm[4] = { "NONE YET", "BRONZE", "SILVER", "GOLD" };
+static void way_line(void){ char b[17], *d = scat(b, "WAY: "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(4, 6, b, 14); }
 static void mode_info(UINT8 sel){
-    char b[21], *d = b;
+    char b[19], *d = b;
     if(sel == 0){ d = scat(d, "CUP: "); d = scat(d, cupnm[ks.cup]); }
     else if(sel == 1) d = scat(d, "BEAT YOUR TIMES");
     else if(sel == 2) d = scat(d, "ONE RACE, PAYS GOLD");
-    else d = scat(d, "BACK TO EXTRAS");
-    *d = 0; txt_line(2, 9, b, 16);
+    else if(sel == 3) d = scat(d, "LEFT/RIGHT TURNS IT");
+    else { d = scat(d, "WON "); d = u16s(d, k2.wins); d = scat(d, " OF "); d = u16s(d, k2.races); }
+    *d = 0; txt_line(2, 9, b, 17);
 }
 static UINT8 pick_mode(void){                                                 /* 0 grand prix, 1 time trial, 2 quick race, 3 exit */
     UINT8 sel = 0, i, f = 0;
     DISPLAY_OFF; txt_win(1); menu_box("KART WORLD", 15);
-    txt_line(4, 3, "GRAND PRIX", 14); txt_line(4, 4, "TIME TRIAL", 14); txt_line(4, 5, "QUICK RACE", 14); txt_line(4, 6, "EXIT", 14);
-    txt_color(4, 9 + 0, 14, 1, TXT_GREY);
+    txt_line(4, 3, "GRAND PRIX", 14); txt_line(4, 4, "TIME TRIAL", 14); txt_line(4, 5, "QUICK RACE", 14); way_line(); txt_line(4, 7, "EXIT", 14);
+    txt_color(2, 9, 17, 1, TXT_GREY);
     txt_line(1, 11, "A GAS  DOWN BRAKE", 18); txt_line(1, 12, "B ITEM  START QUIT", 18); txt_line(1, 13, "LONG TURN = TURBO", 18);
     txt_color(1, 11, 18, 3, TXT_GREY);
     mode_info(0); txt_put(2, 3, ">");
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
-        f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 4, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
-        if(HIT(J_DOWN) && sel < 3){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
+        f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 5, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
+        if(HIT(J_DOWN) && sel < 4){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
         if(HIT(J_UP) && sel > 0){ txt_put(2, 3 + sel, " "); sel--; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
-        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i; }
+        if(sel == 3 && (HIT(J_LEFT) || HIT(J_RIGHT) || HIT(J_A))){ kart_rev ^= 1; way_line(); sfx(SFX_OK); continue; }
+        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i == 4 ? 3 : i; }
         if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; return 3; }
     }
 }
+static void rec_line(UINT8 y, const char *nm, UINT16 t){
+    char b[19], *d = scat(b, nm); while(d - b < 11) *d++ = ' ';
+    if(t) d = ftime(d, t); else d = scat(d, "-:--.-");
+    *d = 0; txt_line(2, y, b, 17);
+}
+static void track_info(UINT8 sel, UINT8 tt){                                  /* the records of the track the arrow is on */
+    if(sel > 2){ txt_line(2, 9, "", 17); txt_line(2, 10, "", 17); txt_line(2, 11, "", 17); txt_line(2, 12, "", 17); return; }
+    txt_line(2, 9, kart_rev ? "BEST: REVERSE" : "BEST: FORWARD", 17);
+    rec_line(10, "LAP", kart_rec(0, sel, kart_rev));
+    rec_line(11, "RACE", kart_rec(1, sel, kart_rev));
+    rec_line(12, "TRIAL", kart_rec(2, sel, kart_rev));
+    txt_color(2, 9, 17, 1, TXT_GREY); txt_color(2, 10, 17, 3, TXT_GOLD);
+    (void)tt;
+}
+static void laps_line(void){ char b[17], *d = scat(b, "LAPS: "); d = u16s(d, kart_laps); *d = 0; txt_line(4, 6, b, 14); }
 static UINT8 pick_track(UINT8 tt){                                            /* 0..2, or 3 to go back */
-    UINT8 sel = 0, i; char b[21], *d;
+    UINT8 sel = 0, i;
     DISPLAY_OFF; txt_win(1); menu_box("PICK A TRACK", 15);
-    for(i = 0; i < 3; i++){
-        d = scat(b, tname[i]); *d = 0; txt_line(4, 3 + i, b, 14);
-        if(tt){ d = scat(b, tname[i]); while(d - b < 10) *d++ = ' '; if(ks.tt[i]) d = ftime(d, ks.tt[i]); else d = scat(d, "-:--.-"); *d = 0; txt_line(2, 9 + i, b, 17); }
-    }
-    txt_line(4, 6, "BACK", 14);
-    if(tt){ txt_line(2, 8, "BEST TIMES", 12); txt_color(2, 8, 12, 1, TXT_GREY); txt_color(2, 9, 17, 3, TXT_GOLD); }
-    txt_put(2, 3, ">");
+    for(i = 0; i < 3; i++) txt_line(4, 3 + i, tname[i], 14);
+    laps_line(); txt_line(4, 7, "BACK", 14);
+    txt_line(1, 14, kart_laps == 3 ? "" : "RECORDS: 3 LAPS ONLY", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_put(2, 3, ">"); track_info(0, tt);
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_DOWN) && sel < 3){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); sfx(SFX_MOVE); }
-        if(HIT(J_UP) && sel > 0){ txt_put(2, 3 + sel, " "); sel--; txt_put(2, 3 + sel, ">"); sfx(SFX_MOVE); }
-        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i; }
+        if(HIT(J_DOWN) && sel < 4){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
+        if(HIT(J_UP) && sel > 0){ txt_put(2, 3 + sel, " "); sel--; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
+        if(sel == 3 && (HIT(J_LEFT) || HIT(J_RIGHT) || HIT(J_A))){
+            if(HIT(J_LEFT)) kart_laps = kart_laps == 1 ? 5 : kart_laps == 3 ? 1 : 3; else kart_laps = kart_laps == 1 ? 3 : kart_laps == 3 ? 5 : 1;
+            laps_line(); txt_line(1, 14, kart_laps == 3 ? "" : "RECORDS: 3 LAPS ONLY", 18); sfx(SFX_OK); continue;
+        }
+        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i == 4 ? 3 : i; }
         if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; return 3; }
     }
 }
@@ -136,13 +197,30 @@ static void grand_prix(void){
     trophy(pts);
 }
 
+void kart_gfx(void) BANKED {                                                   /* the tiles, the road map and the sprites into video memory (the LCD is off) */
+    VBK_REG = 0; txt_cls();
+    VBK_REG = 1; set_bkg_data(0, KT_N, kt_bg);
+    set_bkg_tiles(0, 2, 32, 16, kt_attr);
+    VBK_REG = 0; set_bkg_tiles(0, 2, 32, 16, kt_map);
+    SPRITES_8x16;
+    set_sprite_data(128, KU_N * 2, kt_spr);
+    set_sprite_palette(0, 8, kt_spal);
+    set_sprite_palette_entry(5, 2, sv.look.col[BC_SHELL]);
+}
+
 void kart_run(void) BANKED {
     UINT8 was = LCDC_REG & LCDCF_OBJ16, m, t;
     DISPLAY_OFF; HIDE_WIN;
     kart_setup();
-    ks_load();
+    ks_load(); k2_load();
     SHOW_BKG; DISPLAY_ON;
 #ifdef KX_MODE
+#ifdef KX_REV
+    kart_rev = 1;
+#endif
+#ifdef KX_LAPS
+    kart_laps = KX_LAPS;
+#endif
     if(KX_MODE == 2) grand_prix(); else kart_race(KX_TRK, KX_MODE, 0);
 #else
     for(;;){
@@ -158,12 +236,14 @@ void kart_run(void) BANKED {
     SCX_REG = 0; SCY_REG = 0;
 }
 
-UINT8 kart_post(UINT8 t) BANKED {                                       /* the town's race post: the same setup and teardown as kart_run, one race */
-    UINT8 was = LCDC_REG & LCDCF_OBJ16, r;
+UINT8 kart_post(UINT8 t) BANKED {                                       /* the town's race post: the same setup and teardown as kart_run, one race (three laps, forward) */
+    UINT8 was = LCDC_REG & LCDCF_OBJ16, r, l0 = kart_laps, w0 = kart_rev;
     DISPLAY_OFF; HIDE_WIN;
-    kart_setup(); ks_load();
+    kart_setup(); ks_load(); k2_load();
     SHOW_BKG; DISPLAY_ON;
+    kart_laps = 3; kart_rev = 0;
     r = kart_race(t % 3, 0, 0);
+    kart_laps = l0; kart_rev = w0;
     DISPLAY_OFF; kart_pal0(); SHOW_BKG; DISPLAY_ON;
     HIDE_SPRITES; HIDE_WIN; if(!was) SPRITES_8x8;
     txt_win(0); VBK_REG = 0; txt_cls();
@@ -175,6 +255,7 @@ UINT8 kart_post(UINT8 t) BANKED {                                       /* the t
 #define AIRN 44
 static const UINT16 PADM[3] = { 450, 1100, 1700 };                     /* where the jump pads are in a lap */
 static const INT8   PADL[3] = { 70, -70, 0 };
+#define PADMR(i) (kart_rev ? (UINT16)(2048U - PADM[i]) : PADM[i])        /* (and the pads are where they are when the road is driven from the other end) */
 UINT8 air_t, air_trick;
 static UINT8 pad_done;                                                  /* a bit per pad you have already taken this pass */
 void kart_air_reset(void) BANKED { air_t = air_trick = pad_done = 0; }
@@ -186,7 +267,7 @@ UINT8 kart_air(UINT16 pm, INT16 lx, INT16 v, UINT8 b) BANKED {
         return r;
     }
     for(i = 0; i < 3; i++){
-        INT16 d = (INT16)pm - (INT16)PADM[i], dl = lx - PADL[i];
+        INT16 d = (INT16)pm - (INT16)PADMR(i), dl = lx - PADL[i];
         if(d > 14 || d < -14){ pad_done &= ~(1 << i); continue; }
         if(pad_done & (1 << i)) continue;
         if(dl > -48 && dl < 48 && v > 120){ pad_done |= 1 << i; air_t = 1; air_trick = 0; sfx(SFX_LEVEL); }
@@ -195,6 +276,6 @@ UINT8 kart_air(UINT16 pm, INT16 lx, INT16 v, UINT8 b) BANKED {
 }
 INT16 kart_pad(UINT16 pm, INT16 *lat) BANKED {
     UINT8 i, nb = 0; INT16 bd = 999, dz;
-    for(i = 0; i < 3; i++){ dz = (INT16)PADM[i] - (INT16)pm; if(dz < 0) dz += 2048; if(dz < bd){ bd = dz; nb = i; } }
+    for(i = 0; i < 3; i++){ dz = (INT16)PADMR(i) - (INT16)pm; if(dz < 0) dz += 2048; if(dz < bd){ bd = dz; nb = i; } }
     *lat = PADL[nb]; return bd;
 }

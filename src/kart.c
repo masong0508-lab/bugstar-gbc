@@ -11,12 +11,13 @@
 #include "spell.h"
 #include "raster.h"
 #include "kart.h"
-#include "kart_art.h"          /* the road, sky, sprites: made by tools/make_kart.py */
+#include "font.h"
+#define KART_ART_NO_GFX         /* (the tiles and sprites are loaded from bank 25: kart_gfx) */
+#include "kart_art.h"          /* the road tables: made by tools/make_kart.py */
 
 /* KART WORLD: a 3D race. 3 laps, 3 rivals. Units: a lap is 2048 "metres"; positions keep 8 more bits (so 1 metre = 256). */
 #define LAPM   2048U
 #define VMAX   256
-#define NLAPS  3
 
 #define HZ     64                              /* first road scanline */
 #ifndef KX_T0
@@ -36,21 +37,30 @@ static const UINT16 tcol[3][6] = {                                              
     { C15(70,175,70),  C15(45,145,55),  C15(70,130,240),  C15(150,200,255), C15(95,105,160),  C15(215,225,245) },
     { C15(225,190,110), C15(205,168,88), C15(240,150,70),  C15(255,210,140), C15(170,90,60),   C15(230,190,150) },
     { C15(235,242,250), C15(205,218,235), C15(120,150,200), C15(190,210,235), C15(110,120,150), C15(255,255,255) } };
+static const UINT8 scn_r3[NSCEN] = { 0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0,1,2,0 };   /* kq % 3 */
 static const UINT8 tdif[3] = { 0, 6, 12 };                                           /* the rivals get quicker */
 static const INT8 wob[8] = { 0, 10, 18, 10, 0, -10, -18, -10 };
 static const INT8 lane[NRIV] = { -70, 0, 70 };
 static const UINT8 vrv[NRIV] = { 232, 224, 214 };
 static const UINT16 BXM[3] = { 300, 900, 1500 };                                      /* item boxes: where in the lap, and which side */
 static const INT8  BXL[3] = { -80, 80, 0 };
+#define BXMR(b) (rev ? (UINT16)(LAPM - BXM[b]) : BXM[b])        /* (driven backwards the boxes are where the road has them from the other end) */
 
 static const INT8 *sg;
+static INT8 rsg[16];                            /* the road driven the other way round: the bends reversed and mirrored */
 static UINT16 kp[12];                           /* this track's palettes */
-UINT8  rivals_on; static UINT8 trk;
+UINT8  rivals_on; UINT8 kart_trk; UINT8 kart_laps = 3, kart_rev = 0;
+#define trk kart_trk
+extern volatile UINT8 snd_song;
+UINT8 kart_nlaps; static UINT8 rev, old_song;
+#define nlaps kart_nlaps
+static UINT16 bst;     /* bst: the record shown while you race alone */
 
 static UINT16 tm[1 + NRIV];                     /* distance driven, whole metres; 0 is you */
 static UINT8  tf[1 + NRIV];                     /* ...and the 1/256 of a metre that goes with it */
 static INT16  vel[1 + NRIV], lx[1 + NRIV];     /* speed (1/256 m a frame) and the sideways spot (128 = the road's edge) */
-static INT8   bend[80];
+static const INT8 *brow;                         /* the bend of every pair of road lines for the curve you are on: read straight from the ROM table */
+#define bend_at(i) (brow[(i) >> 1])
 static UINT8  tab[144];
 static UINT8  stripe, sky_x;
 UINT16 tot_t, best_run; static UINT16 stripe_acc, lap_t, frame;
@@ -88,9 +98,12 @@ static INT16 curve_at(UINT16 m, UINT8 fr){
     return a + (INT16)((((INT16)b - a) * (INT16)f) >> 8);
 }
 
-static void set_stripes(void){
-    set_bkg_palette(4, 1, &kp[stripe ? 4 : 0]);
-    set_bkg_palette(5, 1, &kp[stripe ? 0 : 4]);
+static void set_stripes(void){                                              /* (right after VBlank starts: straight into the palette, no waiting for the LCD, which the road interrupt would never let us have) */
+    const UINT16 *a = &kp[stripe ? 4 : 0], *b = &kp[stripe ? 0 : 4];
+    UINT8 i;
+    BCPS_REG = 0x80 | 32;
+    for(i = 0; i < 4; i++){ BCPD_REG = (UINT8)a[i]; BCPD_REG = (UINT8)(a[i] >> 8); }
+    for(i = 0; i < 4; i++){ BCPD_REG = (UINT8)b[i]; BCPD_REG = (UINT8)(b[i] >> 8); }
 }
 static void track_pal(UINT8 t){
     UINT8 i;
@@ -101,15 +114,14 @@ static void track_pal(UINT8 t){
 }
 
 static void put_obj(UINT8 slot, UINT8 unit, UINT8 cols, UINT8 rows, UINT8 pal, INT16 cx, INT16 by){      /* (adds only, and straight into the sprite table: a multiply or a call costs more than a sprite) */
-    UINT8 c, r, s = slot, u = unit;
+    OAM_item_t *o = &shadow_OAM[slot]; UINT8 tile = (UINT8)(128 + (unit << 1)), c, r;
     INT16 x = cx - (INT16)(cols << 2), y0 = by - (INT16)(rows << 4), y;
     for(c = 0; c < cols; c++, x += 8){
+        if(x < -7 || x > 159){ for(r = 0; r < rows; r++, o++, tile += 2) o->y = 0; continue; }
         y = y0;
-        for(r = 0; r < rows; r++, y += 16, s++, u++){
-            if(x < -7 || x > 159 || y < 16 || y > 143){ shadow_OAM[s].y = 0; continue; }
-            shadow_OAM[s].tile = (UINT8)(128 + (u << 1));
-            shadow_OAM[s].prop = pal;
-            shadow_OAM[s].x = (UINT8)(x + 8); shadow_OAM[s].y = (UINT8)(y + 16);
+        for(r = 0; r < rows; r++, y += 16, o++, tile += 2){
+            if(y < 16 || y > 143){ o->y = 0; continue; }
+            o->tile = tile; o->prop = pal; o->x = (UINT8)(x + 8); o->y = (UINT8)(y + 16);
         }
     }
 }
@@ -119,37 +131,66 @@ static void show3(UINT8 o, INT16 dz, INT16 lat, UINT8 u0, UINT8 u1, UINT8 u2, UI
     UINT8 y, i; INT16 x;
     if(dz < 2 || dz > 90){ shadow_OAM[o].y = 0; shadow_OAM[o + 1].y = 0; shadow_OAM[o + 2].y = 0; return; }
     y = kt_y[dz]; i = y - HZ;
-    x = 80 + (((lat - px) * kt_hw[i]) >> 7) + bend[i];
+    x = 80 + (((lat - px) * kt_hw[i]) >> 7) + bend_at(i);
     if(dz < 18) put_obj(o, u2, 3, 1, pal, x, y);
     else if(dz < 44){ put_obj(o, u1, 2, 1, pal, x, y); shadow_OAM[o + 2].y = 0; }
     else { put_obj(o, u0, 1, 1, pal, x, y); shadow_OAM[o + 1].y = 0; shadow_OAM[o + 2].y = 0; }
 }
 
-static void banner(const char *s){
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 3); txt_line(2, 1, s, 16); txt_color(2, 1, 16, 1, TXT_GOLD); txt_win(0);
-    move_win(7, 144 - 24); SHOW_WIN;
+/* the HUD (two BG rows) and the banner (a box in the window) are made in RAM during the frame and copied into video memory in VBlank (vflush),
+   because a write in the middle of the picture is lost or garbled (the road interrupt fires on every line) */
+static UINT8 hb[2][20], hbd, hbp, hbpd, bb[16], bbd, bnt, winreq, winnow;
+static void fill(UINT8 *d, const char *s, UINT8 w){ UINT8 i = 0; while(i < w && s[i]){ d[i] = (UINT8)s[i] & 0x7F; i++; } while(i < w) d[i++] = T_BLANK; }
+static void banner(const char *s){ fill(bb, s, 16); bbd = 1; winreq = 1; bnt = 90; }
+static void hud_row(UINT8 r, const char *s){
+    UINT8 t[20], i;
+    fill(t, s, 20);
+    for(i = 0; i < 20; i++) if(t[i] != hb[r][i]){ memcpy(hb[r], t, 20); hbd |= 1 << r; return; }
+}
+static void vflush(void){                                                       /* call right after wait_vbl_done */
+    UINT8 i; volatile UINT8 *p;
+    if(hbd){
+        for(i = 0; i < 20; i++){ if(hbd & 1) ((volatile UINT8 *)0x9800)[i] = hb[0][i]; if(hbd & 2) ((volatile UINT8 *)0x9820)[i] = hb[1][i]; }
+        hbd = 0;
+    }
+    if(hbpd){ p = (volatile UINT8 *)0x9820; VBK_REG = 1; for(i = 0; i < 20; i++) p[i] = hbp; VBK_REG = 0; hbpd = 0; }
+    if(bbd){ p = (volatile UINT8 *)(0x9C00 + 34); for(i = 0; i < 16; i++) p[i] = bb[i]; bbd = 0; }
+    if(winreq != winnow){ winnow = winreq; if(winnow) SHOW_WIN; else HIDE_WIN; }
 }
 static char *ftime(char *d, UINT16 t){                          /* m:ss.d from 60ths of a second */
     UINT16 s = t / 60;
     d = u16s(d, s / 60); d = scat(d, ":"); if(s % 60 < 10) d = scat(d, "0");
     d = u16s(d, s % 60); d = scat(d, "."); d = u16s(d, (t % 60) / 6); return d;
 }
-static const char *const itnm[4] = { "", "BOOST", "SHELL", "OIL" };
-
+static const char itnm[7][5] = { {' ',' ',' ',' ',' '}, {'B','O','O','S','T'}, {'S','H','E','L','L'}, {'O','I','L',' ',' '}, {'T','U','R','B','O'}, {'S','P','I','N','!'}, {'D','R','I','F','T'} };   /* the last field of the second row: your item, or what the kart is doing */
+/* the race clock is kept by counting (6 frames a tenth, 10 tenths a second...), so the HUD never has to divide: a division on this CPU costs 300 to 600 cycles */
+static UINT8 tmin, ts10, ts1, tten, tc6, clk_d;
+static void clk_tick(void){ if(++tc6 >= 6){ tc6 = 0; clk_d = 1; if(++tten >= 10){ tten = 0; if(++ts1 >= 10){ ts1 = 0; if(++ts10 >= 6){ ts10 = 0; if(tmin < 9) tmin++; } } } } }
+static UINT8 hkey = 255, hhold; static UINT16 hsp;
+static void n3(UINT8 *d, UINT16 v){                              /* 0..999 as three characters, leading spaces, by subtracting */
+    UINT8 h = 0, t = 0;
+    while(v >= 100){ v -= 100; h++; }
+    while(v >= 10){ v -= 10; t++; }
+    d[0] = h ? '0' + h : ' '; d[1] = (h || t) ? '0' + t : ' '; d[2] = '0' + (UINT8)v;
+}
 static void hud(UINT8 place){
-    char b[40], *d;
-    d = scat(b, "LAP "); d = u16s(d, lapn < NLAPS ? lapn + 1 : NLAPS);
-    if(rivals_on){ d = scat(d, "/3 PLACE "); d = u16s(d, place); d = scat(d, "/4"); }
-    else { d = scat(d, "/3 BEST "); if(ks.tt[trk]) d = ftime(d, ks.tt[trk]); else d = scat(d, "-:--.-"); }
-    d = scat(d, "  ");
-    if(boost_t) d = scat(d, "TURBO!"); else if(stun[0]) d = scat(d, "SPIN!"); else if(drift_t > 30) d = scat(d, "DRIFT");
-    *d = 0;
-    txt_line(0, 0, b, 20); txt_color(0, 0, 20, 1, TXT_GOLD);
-    d = scat(b, "SPD "); d = u16s(d, (UINT16)vel[0] * 3 / 4); d = scat(d, " "); d = ftime(d, tot_t); d = scat(d, " "); d = scat(d, itnm[hold]); *d = 0;
-    txt_line(0, 1, b, 20); txt_color(0, 1, 20, 1, hold ? TXT_RED : TXT_WHITE);
-#ifdef KX_DBG
-    d = u16s(b, tm[0]); d = scat(d, " "); d = u16s(d, lapn); d = scat(d, " "); d = u16s(d, nextlap); *d = 0; txt_line(0, 17, b, 20);
-#endif
+    UINT8 i, key, fld;
+    key = (UINT8)(lapn | (place << 3));                                                                   /* the top row changes only now and then */
+    if(key != hkey){
+        char b[32], *d;
+        hkey = key;
+        d = scat(b, "LAP "); d = u16s(d, lapn < nlaps ? lapn + 1 : nlaps);
+        if(rivals_on){ d = scat(d, "/"); d = u16s(d, nlaps); d = scat(d, " PLACE "); d = u16s(d, place); d = scat(d, "/4"); }
+        else { UINT16 bt = bst; d = scat(d, "/"); d = u16s(d, nlaps); d = scat(d, " BEST "); if(bt) d = ftime(d, bt); else d = scat(d, "-:--.-"); }
+        *d = 0;
+        hud_row(0, b);
+    }
+    { UINT16 sp = ((UINT16)vel[0] * 3) >> 2;                       /* the second row is patched cell by cell: only what changed */
+      if(sp != hsp){ hsp = sp; n3(&hb[1][4], sp); hbd |= 2; }
+      if(clk_d){ clk_d = 0; hb[1][8] = '0' + tmin; hb[1][10] = '0' + ts10; hb[1][11] = '0' + ts1; hb[1][13] = '0' + tten; hbd |= 2; }
+      fld = boost_t ? 4 : stun[0] ? 5 : hold ? hold : drift_t > 30 ? 6 : 0;
+      if(fld != hhold){ hhold = fld; for(i = 0; i < 5; i++) hb[1][15 + i] = itnm[fld][i]; hbd |= 2; } }
+    { UINT8 pp = (hold || boost_t) ? TXT_RED : TXT_WHITE; if(pp != hbp){ hbp = pp; hbpd = 1; } }
 }
 
 static UINT8 rank_of(UINT8 j, const UINT16 *s){                   /* where racer j finishes: ties go to the rivals (lower number first) */
@@ -195,7 +236,7 @@ static void items_tick(UINT8 go){
     for(k = 0; k <= NRIV; k++) if(stun[k]) stun[k]--;
     if(!go) return;
     for(b = 0; b < 3; b++) if(!(got & (1 << b)) && !hold){                      /* the boxes */
-        dz = (INT16)BXM[b] - (INT16)pm; dx = lx[0] - BXL[b];
+        dz = (INT16)BXMR(b) - (INT16)pm; dx = lx[0] - BXL[b];
         if(dz <= 3 && dz >= -12 && dx > -44 && dx < 44){ UINT8 r = krnd() & 7; got |= 1 << b; hold = r < 3 ? 1 : r < 6 ? 2 : 3; sfx(SFX_PICK); }
     }
     for(b = 0; b < 3; b++) if(oil[b].life){                                       /* oil: whoever drives into it spins */
@@ -271,33 +312,77 @@ static void drive(UINT8 go){
 }
 
 /* the picture: the sideways slide of every road line, then the sprites. (No multiplies in the per-line loops: they only add.) */
+static UINT8 tf_n;
+static const INT8 *tf_row; static UINT8 *tf_tp; static INT16 tf_sh, tf_sd;                     /* (arguments of tab_fill, which is hand-written assembly: the C version cost a tenth of a frame) */
+static void tab_fill(void) __naked {                                   /* tab[HZ + 2k], tab[HZ + 2k + 1] = (sh >> 8) - row[k], with sh += sd each k, for 40 pairs */
+__asm
+    push bc
+    ld   hl, #_tf_row
+    ld   a, (hl+)
+    ld   e, a
+    ld   a, (hl+)
+    ld   d, a                    ; de = row
+    ld   a, (hl+)
+    ld   c, a
+    ld   a, (hl+)
+    ld   b, a                    ; bc = tp
+    ld   a, (hl+)
+    push af
+    ld   a, (hl+)
+    ld   h, a                    ; h = sh high ...
+    pop  af
+    ld   l, a                    ; hl = sh
+    ld   a, #40
+    ld   (_tf_n), a
+00001$:
+    ld   a, (de)                 ; bv
+    inc  de
+    cpl
+    inc  a                       ; -bv
+    add  a, h                    ; (sh >> 8) - bv
+    ld   (bc), a
+    inc  bc
+    ld   (bc), a
+    inc  bc
+    push de
+    ld   de, #_tf_sd
+    ld   a, (de)
+    add  a, l
+    ld   l, a
+    inc  de
+    ld   a, (de)
+    adc  a, h
+    ld   h, a
+    pop  de
+    ld   a, (_tf_n)
+    dec  a
+    ld   (_tf_n), a
+    jr   NZ, 00001$
+    pop  bc
+    ret
+__endasm;
+}
 static void scene(void){
     UINT8 i, k, n = 21; INT16 cur = curve_at(tm[0] + 24, tf[0]), px = lx[0];
     UINT16 pm = tm[0] & (LAPM - 1);
     INT16 sh = px * 6, sh_d = (INT16)(((INT32)px * 466L) >> 7);              /* the sideways shift of the road (8.8): px * hw / 128, two lines at a time */
-    { const INT8 *row; UINT8 *tp = &tab[HZ]; INT8 *bp = bend; UINT8 kk;
-      if(cur < -30) cur = -30; if(cur > 29) cur = 29;
-      row = &kt_bv[(UINT8)(cur + 30) * 40U];
-      for(kk = 0; kk < 40; kk++){
-        INT8 bv = row[kk];
-        UINT8 t = (UINT8)((UINT8)((UINT16)sh >> 8) - (UINT8)bv);
-        *bp++ = bv; *bp++ = bv; *tp++ = t; *tp++ = t;
-        sh += sh_d;
-      } }
+    if(cur < -30) cur = -30; if(cur > 29) cur = 29;
+    brow = &kt_bv[(UINT8)(cur + 30) * 40U];
+    tf_row = brow; tf_tp = &tab[HZ]; tf_sh = sh; tf_sd = sh_d; tab_fill();
     memset(tab, 0, 16); memset(&tab[16], sky_x = (UINT8)(head >> 4), HZ - 16);
     for(k = 1; k <= NRIV; k++){                                             /* the rivals ahead of you, bigger as they near */
         INT16 dz = (INT16)(tm[k] - tm[0]);
         UINT8 y, o = 3 * (k - 1) + 3;
         if(!rivals_on || dz < 1 || dz > 90){ for(i = 0; i < 3; i++) shadow_OAM[o + i].y = 0; continue; }
         y = kt_y[dz]; i = y - HZ;
-        { INT16 x = 80 + (((lx[k] - px) * kt_hw[i]) >> 7) + bend[i];
+        { INT16 x = 80 + (((lx[k] - px) * kt_hw[i]) >> 7) + bend_at(i);
           if(stun[k]) x += (frame & 2) ? 5 : -5;
           if(dz < 18) put_obj(o, KU_AI2, 3, 1, 1 + k, x, y);
           else if(dz < 44){ put_obj(o, KU_AI1, 2, 1, 1 + k, x, y); shadow_OAM[o + 2].y = 0; }
           else { put_obj(o, KU_AI0, 1, 1, 1 + k, x, y); shadow_OAM[o + 1].y = 0; shadow_OAM[o + 2].y = 0; } }
     }
     { UINT8 b, nb = 0; INT16 dz, bd = 999;                                    /* the nearest item box ahead */
-      for(b = 0; b < 3; b++) if(!(got & (1 << b))){ dz = (INT16)BXM[b] - (INT16)pm; if(dz < 0) dz += (INT16)LAPM; if(dz < bd){ bd = dz; nb = b; } }
+      for(b = 0; b < 3; b++) if(!(got & (1 << b))){ dz = (INT16)BXMR(b) - (INT16)pm; if(dz < 0) dz += (INT16)LAPM; if(dz < bd){ bd = dz; nb = b; } }
       show3(12, bd, BXL[nb], KU_BOX0, KU_BOX1, KU_BOX2, 6, px);
       bd = 999;                                                              /* the nearest oil slick */
       for(b = 0; b < 3; b++) if(oil[b].life){ dz = (INT16)(oil[b].m - tm[0]); if(dz > 0 && dz < bd){ bd = dz; nb = b; } }
@@ -309,12 +394,12 @@ static void scene(void){
       for(q = 0; q < 4 && n < 37; q++){                                   /* trees and rocks along the road: only the next few are near enough to see */
         UINT8 kq = n0 + q, y, rk2, r3; INT16 lat;
         if(kq >= NSCEN) kq -= NSCEN;
-        dz = (INT16)(kq * 40U) - (INT16)pm; if(dz < 0) dz += (INT16)LAPM;
+        dz = (INT16)(((UINT16)kq << 5) + ((UINT16)kq << 3)) - (INT16)pm; if(dz < 0) dz += (INT16)LAPM;       /* (kq * 40, without a multiply call) */
         if(dz < 2 || dz > 90) continue;
-        r3 = kq % 3; rk2 = (r3 == 0);
-        lat = (kq & 1) ? 150 + ((kq * 5) & 31) : -150 - ((kq * 5) & 31);
+        r3 = scn_r3[kq]; rk2 = (r3 == 0);
+        lat = (kq & 1) ? 150 + (((kq << 2) + kq) & 31) : -150 - (((kq << 2) + kq) & 31);
         y = kt_y[dz]; i = y - HZ;
-        { INT16 x = 80 + (((lat - px) * kt_hw[i]) >> 7) + bend[i];
+        { INT16 x = 80 + (((lat - px) * kt_hw[i]) >> 7) + bend_at(i);
           if(dz < 20){ put_obj(n, rk2 ? KU_ROCK2 : KU_TREE2, 2, 2, rk2, x, y); n += 4; }
           else if(dz < 48){ put_obj(n, rk2 ? KU_ROCK1 : KU_TREE1, 2, 1, rk2, x, y); n += 2; }
           else { put_obj(n, rk2 ? KU_ROCK0 : KU_TREE0, 1, 1, rk2, x, y); n += 1; } }
@@ -334,14 +419,17 @@ static void flip(void){
 
 /* one race. mode: 0 a race, 1 a time trial (alone). gpn: 1..3 inside a grand prix. Returns your place (1..4), or 0 when you quit (START). */
 UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
-    UINT8 k, done = 0, state = 0, place = 1, saved = 0;
+    UINT8 k, done = 0, state = 0, place = 1;
     UINT16 sc[1 + NRIV];
-    INT8 dir = 0; UINT16 tcount = 0;
-    trk = t; rivals_on = !tt; sg = &segs[t << 4];
+    INT8 dir = 0; UINT16 tcount = 0; UINT32 lastf = 0;
+    trk = t; rivals_on = !tt; rev = kart_rev & 1; nlaps = gpn ? 3 : kart_laps; if(nlaps != 1 && nlaps != 5) nlaps = 3;
+    if(rev){ for(k = 0; k < 16; k++) rsg[k] = -segs[(t << 4) + ((16 - k) & 15)]; sg = rsg; } else sg = &segs[t << 4];
+    bst = nlaps == 3 ? kart_rec(2, t, rev) : 0;
+    old_song = snd_song; music(MUS_KART);
     DISPLAY_OFF; HIDE_WIN;
     track_pal(t);
     for(k = 0; k <= NRIV; k++){ tm[k] = (UINT16)(k * 5 + KX_T0); tf[k] = 0; vel[k] = 0; lx[k] = k ? lane[k - 1] : 0; stun[k] = 0; aicd[k] = 120 + ((UINT16)krnd() << 1); }   /* the start grid: you at the back */
-    head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; lapn = KX_L0; nextlap = LAPM * (KX_L0 + 1); bump_cd = 0; frame = 0;
+    head = 0; stripe = 0; stripe_acc = 0; tot_t = lap_t = best_run = 0; tmin = ts10 = ts1 = tten = tc6 = 0; hkey = 255; lapn = KX_L0; nextlap = LAPM * (KX_L0 + 1); bump_cd = 0; frame = 0;
     kart_air_reset(); hold = 0; boost_t = 0; drift_t = 0; got = 0; shl.life = 0; for(k = 0; k < 3; k++) oil[k].life = 0;
     rs ^= (UINT16)frames32() | 1;
 #ifdef KX_ITEM
@@ -351,42 +439,55 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
     oil[0].m = tm[0] + 60; oil[0].lane = 0; oil[0].life = 900;
 #endif
     memset(tab, 0, sizeof tab); flip(); set_stripes();
-    scene(); flip(); me_draw(0);
+    txt_win(0);                                                                   /* the HUD rows (BG rows 0 and 1) and the banner box (window rows 0..2) are drawn once; only their text changes */
+    VBK_REG = 0; fill_bkg_rect(0, 0, 32, 2, T_BLANK); VBK_REG = 1; fill_bkg_rect(0, 0, 32, 1, TXT_GOLD); fill_bkg_rect(0, 1, 32, 1, TXT_WHITE); VBK_REG = 0;
+    hbp = TXT_WHITE; hbpd = 0;
+    txt_win(1); txt_cls(); txt_box(0, 0, 20, 3); txt_color(2, 1, 16, 1, TXT_GOLD); txt_win(0); move_win(7, 144 - 24);
+    memset(hb, 0xFF, sizeof hb); hbd = 0; bbd = 0; winreq = winnow = 0; bnt = 0;
+    memset(hb[1], T_BLANK, 20); hb[1][0] = 'S'; hb[1][1] = 'P'; hb[1][2] = 'D'; hb[1][9] = ':'; hb[1][12] = '.'; hsp = 9999; hhold = 255; clk_d = 1;
+    scene(); flip(); me_draw(0); hud(place); vflush();
     SHOW_BKG; SHOW_SPRITES; DISPLAY_ON;
 #ifndef KX_NOISR
     road_start();
 #endif
     banner(tt ? "TIME TRIAL!" : "GET READY!");
     while(!done){
-        wait_vbl_done();
+        wait_vbl_done(); vflush();
         input_poll(); frame++;
         flip(); set_stripes();
+        if(bnt && !--bnt) winreq = 0;
         if(HIT(J_START)){ place = 0; break; }
         if(state == 0){                                                        /* 3, 2, 1, GO */
             tcount++;
-            if(tcount == 1 || tcount == 60 || tcount == 120){ char c[16]; c[0] = (char)('3' - tcount / 60); c[1] = '.'; c[2] = '.'; c[3] = '.'; c[4] = 0; banner(c); sfx(SFX_MOVE); }
-            if(tcount == 180){ banner("GO GO GO!"); sfx(SFX_OK); state = 1; tcount = 0; }
-            drive(0);
+            if(tcount == 1 || tcount == 60 || tcount == 120){ char c[16]; c[0] = (char)('3' - tcount / 60); c[1] = '.'; c[2] = '.'; c[3] = '.'; c[4] = 0; banner(c); bnt = 0; sfx(SFX_COUNT); }
+            if(tcount == 180){ banner(rev ? "GO! REVERSE!" : "GO GO GO!"); bnt = 50; sfx(SFX_GO); state = 1; tcount = 0; }
+            drive(0); lastf = frames32();
         } else if(state == 1){
-            tcount++; if(tcount == 45) HIDE_WIN;
-            tot_t++; lap_t++;
+            { UINT32 nf = frames32(); UINT8 ex = (UINT8)(nf - lastf); lastf = nf; ex = ex >= 3 ? 2 : 0;       /* a loop that took three frames or more (a hiccup: a save, a long item) runs the car for the frames it missed: the speed and the clock stay true */
+#ifndef KX_NOCATCH
+              while(ex--){ tot_t++; lap_t++; clk_tick(); drive(1); }
+#endif
+            }
+            tcount++;
+            tot_t++; lap_t++; clk_tick();
             drive(1);
 #ifdef KX_JUMP
             if(tot_t == 40) air_t = 1;
 #endif
-            if(tm[0] >= nextlap && lapn < NLAPS){ nextlap += LAPM;                  /* across the line */
+            if(tm[0] >= nextlap && lapn < nlaps){ nextlap += LAPM;                  /* across the line */
                 if(!best_run || lap_t < best_run) best_run = lap_t;
-                lap_t = 0; lapn++; got = 0;
-                if(lapn < NLAPS){ char c[16]; c[0] = 'L'; c[1] = 'A'; c[2] = 'P'; c[3] = ' '; c[4] = (char)('1' + lapn); c[5] = '/'; c[6] = '3'; c[7] = 0; banner(c); tcount = 0; sfx(SFX_COIN); }
+                { char c[17], *d = c; UINT16 lt = lap_t;
+                  lap_t = 0; lapn++; got = 0;
+                  if(lapn < nlaps){
+                      if(lapn == nlaps - 1) d = scat(d, "FINAL LAP! "); else { d = scat(d, "LAP "); d = u16s(d, lapn + 1); d = scat(d, " "); }
+                      d = ftime(d, lt); *d = 0; banner(c); bnt = 110; sfx(SFX_COIN); } }
             }
-            if(lapn >= NLAPS){
-                for(k = 1; k <= NRIV; k++) sc[k] = tm[k]; sc[0] = LAPM * NLAPS;
+            if(lapn >= nlaps){
+                for(k = 1; k <= NRIV; k++) sc[k] = tm[k]; sc[0] = LAPM * nlaps;
                 for(k = 0; k <= NRIV; k++) kart_rk[k] = rivals_on ? rank_of(k, sc) : 1;
                 place = kart_rk[0]; state = 2; tcount = 0;
-                if(best_run && (!EX_KART || best_run < EX_KART)){ EX_KART = best_run; saved = 1; }
-                if(tt && (!ks.tt[trk] || tot_t < ks.tt[trk])){ ks.tt[trk] = tot_t; saved = 1; kart_ks_save(); }
-                if(opt.autosave) slot_write(cur_slot);
-                hide_from(0); kart_results(place, saved, gpn);
+                hide_from(0); winreq = 0; vflush();
+                kart_results(place, gpn); winnow = winreq = 1;
             }
         } else if(state == 2){
             drive(0);
@@ -396,29 +497,21 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
 #endif
         }
         dir = HELD(J_LEFT) ? -1 : HELD(J_RIGHT) ? 1 : 0;
-#ifdef TEST_KFPS
-        if(state < 2){ scene(); me_draw(dir); if(!(frame & 7)) hud(place_now()); }
-        { static UINT32 f0; if(frame == 400) f0 = frames32(); if(frame == 520){ char pb[21], *pp; pp = u16s(pb, (UINT16)(frames32() - f0)); *pp = 0; HIDE_WIN; txt_line(0, 17, pb, 20); } }
-#else
-        if(state < 2){ scene(); me_draw(dir); if(!(frame & 7)) hud(place_now()); }
+        if(state < 2){ scene(); me_draw(dir); hud(place_now()); }
+#ifdef TEST_KFPS                                   /* how many frames (60ths of a second) 120 loops of the race take: 120 is a full 60 frames a second */
+        { static UINT32 f0; static char pb[21]; if(frame == 400) f0 = frames32(); if(frame == 520){ char *pp = u16s(pb, (UINT16)(frames32() - f0)); *pp = 0; } if(frame >= 520) hud_row(0, pb); }
 #endif
     }
     road_stop();
     hide_from(0); HIDE_WIN; SCX_REG = 0; SCY_REG = 0;
+    music(old_song == MUS_NONE ? MUS_SPACE : old_song);
     return place;
 }
 
 
 void kart_setup(void) BANKED {                                                 /* the road, sky and sprites into video memory (the LCD is off) */
-    VBK_REG = 0; txt_cls();
-    VBK_REG = 1; set_bkg_data(0, KT_N, kt_bg);
-    set_bkg_tiles(0, 2, 32, 16, kt_attr);
-    VBK_REG = 0; set_bkg_tiles(0, 2, 32, 16, kt_map);
+    kart_gfx();
     set_bkg_palette(4, 3, kt_pal);
-    SPRITES_8x16;
-    set_sprite_data(128, KU_N * 2, kt_spr);
-    set_sprite_palette(0, 8, kt_spal);
-    set_sprite_palette_entry(5, 2, sv.look.col[BC_SHELL]);
     hide_from(0);
     SCX_REG = 0; SCY_REG = 0;
     track_pal(0);

@@ -1,19 +1,22 @@
 #ifndef KART_H
 #define KART_H
 #include <gb/gb.h>
-/* KART WORLD (bank 24): a 3D kart race in EXTRAS. 3 laps, 3 rivals. The road is a picture in perspective whose lines slide sideways
+/* KART WORLD (bank 24): a 3D kart race in EXTRAS. 1, 3 or 5 laps, 3 rivals, FORWARD or REVERSE. The road is a picture in perspective whose lines slide sideways
    (an HBlank interrupt, src/raster.c) to make the bends; karts and trees are sprites that grow as they come near.
-   Pays gold for the place you finish in; the best lap is kept in ex.rsv (EX_KART in spell.h). The LCD is off on entry and exit. */
+   Pays gold for the place you finish in; the best lap is kept in ex.rsv (EX_KART in spell.h) and every track's best times in the KS2 block (kart2.c). The LCD is off on entry and exit.
+   Everything the race writes into video memory (the HUD rows, the banner) goes in during VBlank only, so the road never tears or flickers. */
 #define NRIV 3
 typedef struct { UINT32 seed; UINT16 tt[3]; UINT8 cup, chk; } KSave;     /* kept after the Extra block of the slot (SRAM offset 400): best trial times, the best cup */
 #define KS_OFF 400U
 extern KSave ks;
 extern UINT8 kart_rk[1 + NRIV];                       /* how each racer finished the last race (1 is first; 0 is you) */
+extern UINT8 kart_laps, kart_rev;                     /* the menu's settings: 1, 3 or 5 laps; 0 FORWARD, 1 REVERSE (the same road driven the other way round) */
+extern UINT8 kart_trk, kart_nlaps;                    /* the track and the number of laps of the race that is (or was just) run */
 void kart_run(void) BANKED;                           /* (bank 25) the menus: GRAND PRIX, TIME TRIAL, QUICK RACE */
 UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED; /* (bank 24) one race: track 0..2, tt 1 = alone, gpn 1..3 inside a grand prix. Returns your place, 0 if you quit */
 extern UINT16 tot_t, best_run;                        /* this race's time and best lap, in 60ths of a second */
 extern UINT8 rivals_on;
-void kart_results(UINT8 place, UINT8 saved, UINT8 gpn) BANKED;   /* (bank 25) the box after a race; pays the prize */
+void kart_results(UINT8 place, UINT8 gpn) BANKED;     /* (bank 25) records, the prize and the box after a race */
 extern UINT8 air_t, air_trick;                        /* the stunt jump: frames in the air (0 = on the ground), and whether you did a trick */
 UINT8 kart_air(UINT16 pm, INT16 lx, INT16 v, UINT8 b) BANKED;   /* (bank 25) once a frame: starts a jump off a pad, flies, tricks with B; returns 1 on a landing after a trick (boost!) */
 INT16 kart_pad(UINT16 pm, INT16 *lat) BANKED;         /* (bank 25) the next jump pad ahead: its distance (999 = none) and lane */
@@ -21,6 +24,10 @@ void kart_air_reset(void) BANKED;
 #define air_h() (air_t ? (UINT8)(((UINT16)air_t * (UINT8)(44 - air_t)) >> 3) : 0)   /* how high you are, in pixels (AIRN is 44) */
 UINT8 kart_post(UINT8 t) BANKED;                      /* (bank 25) one quick race on track t from a town's race post; returns your place (0: quit) */
 void kart_setup(void) BANKED;
+void kart_gfx(void) BANKED;                           /* (bank 25) the tiles, road map and sprites into video memory */
 void kart_pal0(void) BANKED;
 void kart_ks_save(void) BANKED;
+void kart_rec_reset(void) BANKED;                     /* (bank 25) forget every kart record (the EXTRAS reset) */
+UINT16 kart_rec(UINT8 kind, UINT8 t, UINT8 rev) BANKED;   /* (bank 25) a record: kind 0 best lap, 1 best race, 2 best time trial (60ths of a second, 0 = none) */
+#define KART_SECS(n) ((n) * 60)
 #endif
