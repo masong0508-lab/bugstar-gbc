@@ -83,4 +83,6 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Music: 19 new tunes (bank 42): per-planet and per-dungeon themes for the six new kinds, TOWN, STATION, ALERT, KART2..4, SHOP, CAMP.
 - Options: TEXT SPD (4 speeds), RUN WITH B (hold or toggle), TIMED SAVE (every 2 or 5 minutes on a planet).
 - Build: per-object header dependencies (tools/deps.py), so a header edit rebuilds only what includes it. Host tests cover the wipe and the traits.
+- Dungeon floor events: 5 new (PEDDLER potion, SPIRIT mana, CAMPFIRE heal, LUCKY COINS, OLD SCROLL xp), picked per floor with the old ones.
+- BUG HIVE (EXTRAS, bank 45): a small colony game: farm, mill, quarry, house, wall, tower; resources grow with play time, raiders come every 8th tick (20 s) and grow stronger, SELECT sells the stores for gold. Own SRAM block at offset 3300.
 - Not done in this pass: more shop items (the save has one free upgrade byte), dungeon floor themes/monsters/bosses beyond the six kinds' art, galaxy size, town quests, a colony side game.

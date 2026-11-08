@@ -21,6 +21,7 @@ void status_run(void){ }
 void guide_run(void){ }
 UINT8 extras_run(UINT8 in_space){ return 0; }                                          /* (and the skills page) */   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
+UINT8 dg_depth;
 UINT16 warship_count(UINT8 w){ (void)w; return 0; }
 UINT16 kart_count(UINT8 w){ (void)w; return 0; }
 unsigned char sram_buf[4*8192];

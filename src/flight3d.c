@@ -34,6 +34,7 @@
 #include "space3d_art.h"
 #include "kart.h"
 #include "warship.h"
+#include "hive.h"
 #include "stats.h"
 
 #include "space3d.h"
@@ -441,7 +442,7 @@ void arena_run(void) BANKED {
 #define HELL_OPEN (sv.level >= 8)
 #define MOON_OPEN (sv.level >= 10)
 #define KART_OPEN (sv.level >= 5)
-#define EX_N 12
+#define EX_N 13
 static UINT8 ex_again;                                           /* 1: the boxes are already drawn, only the words change (no blank frame while it repaints) */
 static void ex_card(UINT8 y, UINT8 on, const char *nm, const char *st, UINT8 c1, const char *info){
     txt_box(1, y, 18, 4);                                  /* (every redraw describes the whole page: txt_soft writes only the differences) */
@@ -465,6 +466,7 @@ static void ex_one(UINT8 i, UINT8 y, UINT8 on){
     case 8: if(xtra_dbg_open(0)) ex_card(y, on, "DEBUG", "OPEN", TXT_GOLD, "CHEATS"); else ex_card(y, on, "DEBUG", "LOCK", TXT_RED, "SELECT+A OPENS"); break;
     case 9: ex_card(y, on, "BESTIARY", "OPEN", TXT_GOLD, "WORLDS AND FOES"); break;
     case 11: ex_card(y, on, "STATS", "OPEN", TXT_GOLD, "YOUR NUMBERS"); break;
+    case 12: hive_info(b); ex_card(y, on, "BUG HIVE", "OPEN", TXT_GOLD, b); break;
     case 10: if(WAR_OPEN){ warship_info(b); ex_card(y, on, "WARSHIPS", "OPEN", TXT_GOLD, b); } else ex_card(y, on, "WARSHIPS", "LOCK", TXT_RED, "NEED LEVEL 6"); break;
     default: if(KART_OPEN){ if(EX_KART){ d = scat(b, "BEST LAP "); d = u16s(d, EX_KART / 60); d = scat(d, "."); d = u16s(d, (EX_KART % 60) * 10 / 60); *d = 0; } else scat(b, "3D KART RACE"); ex_card(y, on, "KART WORLD", "OPEN", TXT_GOLD, b); }
             else ex_card(y, on, "KART WORLD", "LOCK", TXT_RED, "NEED LEVEL 5"); break;
@@ -501,6 +503,8 @@ UINT8 extras_run(UINT8 in_space) BANKED {
                 else if(!in_space){ msg = "FLY TO PLAY IT"; sfx(SFX_HURT); }
                 else if(sv.hp * 2 < hud_hpmax(sv.level)){ msg = "REPAIR FIRST"; sfx(SFX_HURT); }
                 else return 2;
+            } else if(sel == 12){
+                fade_out(); DISPLAY_OFF; hive_run(); DISPLAY_OFF; txt_win(0); txt_pal_reset(); on = 0;
             } else if(sel == 11){
                 fade_out(); DISPLAY_OFF; stats_run(); DISPLAY_OFF; txt_win(0); txt_pal_reset(); on = 0;
             } else if(sel == 10){

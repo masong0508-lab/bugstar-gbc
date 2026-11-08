@@ -11,6 +11,7 @@
 #include "save.h"
 #include "warship.h"
 #include "stats.h"
+#include "hive.h"
 #include "menus.h"
 #include "text.h"
 #include "hud.h"
@@ -50,6 +51,11 @@ void main(void){
     DISPLAY_ON;
 #ifdef TEST_MAKE
     DISPLAY_OFF; txt_init(); DISPLAY_ON; { BugLook l; char nm[9]; bug_default(&l); strcpy(nm, "PIP"); bugmake_run(&l, nm, 1); }
+    for(;;) wait_vbl_done();
+#endif
+#ifdef TEST_HIVE
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; cpu_fast();
+    hive_run();
     for(;;) wait_vbl_done();
 #endif
 #ifdef TEST_STATS

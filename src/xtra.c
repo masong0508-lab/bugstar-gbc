@@ -12,6 +12,7 @@
 #include "spell.h"
 #include "kart.h"
 #include "warship.h"
+#include "hive.h"
 #include "xtra.h"
 #include "wild.h"
 
@@ -194,7 +195,7 @@ void xtra_debug(void) BANKED {
             else if(sel == 1){ if(sv.level < 999) sv.level++; sv.hp = hud_hpmax(sv.level); }
             else if(sel == 2) sv.hp = hud_hpmax(sv.level);
             else if(sel == 3) xs.relics = 0x0FFF;
-            else if(sel == 4){ memset(ks.tt, 0, sizeof ks.tt); ks.cup = 0; EX_KART = 0; kart_ks_save(); kart_rec_reset(); warship_reset(); }
+            else if(sel == 4){ memset(ks.tt, 0, sizeof ks.tt); ks.cup = 0; EX_KART = 0; kart_ks_save(); kart_rec_reset(); warship_reset(); hive_reset(); }
             else break;
         }
     }

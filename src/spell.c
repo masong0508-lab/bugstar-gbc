@@ -93,17 +93,26 @@ void hell_end(UINT8 r, UINT8 depth, UINT8 moon) BANKED {
 }
 
 /* ------------------------------------------------------------ floor events */
-static const char *const ev_tx[8] = { "", "TREASURE VAULT! CHESTS IN EVERY ROOM.", "GOLD RUSH! FOES PAY TRIPLE.", "AMBUSH! EXTRA MONSTERS HERE.",
-    "BLESSED SHRINE! YOU FEEL HEALED.", "CURSED FLOOR! TOUGH FOES, DOUBLE GOLD.", "QUIET FLOOR. FEW MONSTERS.", "A LABYRINTH! FIND THE STAIRS." };
+extern UINT8 dg_depth;
+#define depth dg_depth
+static const char *const ev_tx[13] = { "", "TREASURE VAULT! CHESTS IN EVERY ROOM.", "GOLD RUSH! FOES PAY TRIPLE.", "AMBUSH! EXTRA MONSTERS HERE.",
+    "BLESSED SHRINE! YOU FEEL HEALED.", "CURSED FLOOR! TOUGH FOES, DOUBLE GOLD.", "QUIET FLOOR. FEW MONSTERS.", "A LABYRINTH! FIND THE STAIRS.",
+    "A PEDDLER LEFT A POTION HERE.", "A SPIRIT FILLS YOUR MANA.", "OLD CAMPFIRE. YOU REST A BIT.", "LUCKY COINS ON THE FLOOR!", "AN OLD SCROLL TEACHES YOU." };
 UINT8 ev_roll(UINT8 depth) BANKED {
     UINT32 h = world_seed(sv.star) ^ ((UINT32)depth * 2654435761UL) ^ ((UINT32)sv.zone << 20);
     h ^= h >> 15; h *= 2246822519UL; h ^= h >> 13;
     if((h & 3) == 0) return 0;                       /* 1 floor in 4 has none */
-    return 1 + (UINT8)((h >> 8) % 6);
+    { UINT8 k = (UINT8)((h >> 8) % 11); return k < 6 ? 1 + k : 2 + k; }          /* 1..6, then 8..12 (7 is the labyrinth) */
 }
-void ev_name(UINT8 e, char *out) BANKED { scat(out, ev_tx[e > 7 ? 0 : e]); }
+void ev_name(UINT8 e, char *out) BANKED { scat(out, ev_tx[e > 12 ? 0 : e]); }
 void floor_intro(UINT8 e) BANKED {
-    if(e){ char b[40]; b[0] = 0; ev_name(e, b); if(e == 4){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); } dlg_say(0, b); }
+    if(e){ char b[40]; b[0] = 0; ev_name(e, b); if(e == 4){ sv.hp = hud_hpmax(sv.level); sv.mp = hud_mpmax(sv.level); }
+      else if(e == 8){ if(sv.potions < 9) sv.potions++; }
+      else if(e == 9) sv.mp = hud_mpmax(sv.level);
+      else if(e == 10){ UINT16 m = hud_hpmax(sv.level); sv.hp += m / 3; if(sv.hp > m) sv.hp = m; }
+      else if(e == 11){ sv.gold += LUCKY(20 + 10 * (UINT16)depth); }
+      else if(e == 12){ gain_xp(10 + 6 * (UINT16)depth); }
+      dlg_say(0, b); }
     if(!(EX_SPELL & 0x80)){ EX_SPELL |= 0x80; dlg_say(0, "SELECT CASTS YOUR SPELL. A+SELECT SWITCHES SPELL. B+SELECT DRINKS A POTION."); }
 }
 
