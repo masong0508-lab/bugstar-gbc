@@ -14,6 +14,13 @@
 void txt_win(UINT8 on);                               /* 1: every txt_* call below draws into the window layer, 0: background */
 void txt_init(void);                                  /* LCD must be off: loads font + text palettes, clears screen */
 void txt_cls(void);                                   /* blank the whole BG map and reset every tile to palette 0 */
+/* FLICKER-FREE REDRAW. txt_soft() is txt_cls() for a screen that is already showing: nothing is blanked. Every txt_* call that follows (on the
+   same BG/window target, inside the 20x18 screen) goes to a shadow copy that starts blank, and txt_soft_end() (also called by the next
+   input_poll) compares the shadow with video memory and writes only the cells that differ. So a page that draws the same box and title again
+   costs no write at all, and there is never a blank frame in between. With the LCD off it is a plain txt_cls(). */
+extern UINT8 txt_soft_on;
+void txt_soft(void) BANKED;
+void txt_soft_end(void) BANKED;
 void txt_put(UINT8 x, UINT8 y, const char *s);        /* write s as tiles at x,y (up to 32 chars) */
 void txt_line(UINT8 x, UINT8 y, const char *s, UINT8 w); /* like txt_put but space-padded/cut to exactly w tiles */
 void txt_box(UINT8 x, UINT8 y, UINT8 w, UINT8 h);     /* framed box, interior cleared (w,h in tiles, both >= 2) */

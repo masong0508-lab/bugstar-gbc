@@ -30,10 +30,10 @@ UINT8 town2_add(UINT8 *ids, UINT8 n, UINT8 tier, UINT16 th) BANKED {
 static void line(UINT8 y, const char *s, UINT8 pal){ txt_win(1); txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); txt_win(0); }
 static void page(const char *title){
     char b[16], *d;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 18);
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 18);
     txt_line(1, 1, title, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
     d = u32s(scat(b, "GOLD "), sv.gold > 999999UL ? 999999UL : sv.gold); *d = 0; txt_line(1, 2, b, 18); txt_color(1, 2, 18, 1, TXT_GOLD);
-    txt_win(0); move_win(7, 0); SHOW_WIN;
+    txt_win(0); txt_soft_end(); move_win(7, 0); SHOW_WIN;
 }
 static UINT16 rs = 1;
 static UINT8 rnd(void){ rs ^= rs << 7; rs ^= rs >> 9; rs ^= rs << 8; return (UINT8)rs; }
@@ -70,8 +70,8 @@ static void library(UINT8 tier){
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
-            if(HIT(J_LEFT) && v){ v--; sfx(SFX_MOVE); m = ""; break; }
-            if(HIT(J_RIGHT) && lib && v + 1 < lib){ v++; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_LEFT) && v){ v--; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_RIGHT) && lib && v + 1 < lib){ v++; sfx(SFX_MOVE); m = ""; break; }
             if(HIT(J_A) && lib < 8){
                 if(sv.gold < cost){ m = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
                 else { sv.gold -= cost; lib++; v = lib - 1; a_set(0x80, lib); sfx(SFX_OK); m = "";
@@ -100,10 +100,10 @@ static void tailor(UINT8 tier){
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
-            if(HIT(J_LEFT)){ p = p ? p - 1 : 2; sfx(SFX_MOVE); m = ""; break; }
-            if(HIT(J_RIGHT)){ p = p < 2 ? p + 1 : 0; sfx(SFX_MOVE); m = ""; break; }
-            if(HIT(J_UP)){ q = q ? q - 1 : 7; sfx(SFX_MOVE); m = ""; break; }
-            if(HIT(J_DOWN)){ q = q < 7 ? q + 1 : 0; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_LEFT)){ p = p ? p - 1 : 2; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_RIGHT)){ p = p < 2 ? p + 1 : 0; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_UP)){ q = q ? q - 1 : 7; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_DOWN)){ q = q < 7 ? q + 1 : 0; sfx(SFX_MOVE); m = ""; break; }
             if(HIT(J_A)){
                 if(sv.gold < cost){ m = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
                 else { sv.gold -= cost; sv.look.col[part_c[p]] = dye[q]; bugspr_load(&sv.look); HIDE_SPRITES; m = "A NEW LOOK! LOVELY."; sfx(SFX_FANFARE); }
@@ -133,9 +133,9 @@ static void bank(void){
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
-            if(HIT(J_UP) || HIT(J_DOWN)){ act ^= 1; sfx(SFX_MOVE); m = ""; break; }
-            if(HIT(J_LEFT)){ ai = ai ? ai - 1 : 3; sfx(SFX_MOVE); m = ""; break; }
-            if(HIT(J_RIGHT)){ ai = ai < 3 ? ai + 1 : 0; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_UP) || HITR(J_DOWN)){ act ^= 1; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_LEFT)){ ai = ai ? ai - 1 : 3; sfx(SFX_MOVE); m = ""; break; }
+            if(HITR(J_RIGHT)){ ai = ai < 3 ? ai + 1 : 0; sfx(SFX_MOVE); m = ""; break; }
             if(HIT(J_A)){
                 UINT16 n = amt[ai];
                 if(act == 0){

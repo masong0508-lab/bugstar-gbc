@@ -31,6 +31,12 @@ static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     }
 }
 
+static void frame(void){                               /* the box, the title and the help line: drawn as a redraw, so only changes reach the screen */
+    txt_win(1); txt_soft(); txt_box(0, 0, SM_W, SM_H);
+    txt_line(1, 1, "SYSTEM", SM_W - 2); txt_color(1, 1, SM_W - 2, 1, TXT_GOLD);
+    txt_line(1, SM_H - 2, "B: BACK", SM_W - 2); txt_color(1, SM_H - 2, SM_W - 2, 1, TXT_GREY);
+    txt_soft_end(); txt_win(0);
+}
 static void draw_items(UINT8 sel){
     UINT8 i; char b[12];
     txt_win(1);
@@ -65,17 +71,14 @@ int sysmenu_run(void (*redraw)(void)){
     int result = SYS_RESUME;
     sfx(SFX_OK);
     move_win(OFFX, SM_WY); SHOW_WIN;                 /* the HUD vanishes: this box takes over the window */
-    txt_win(1);
-    txt_cls(); txt_box(0, 0, SM_W, SM_H);
-    txt_line(1, 1, "SYSTEM", SM_W - 2); txt_color(1, 1, SM_W - 2, 1, TXT_GOLD);
-    txt_win(0);
+    frame();
     draw_items(sel); cores();
     slide_x(OFFX, SM_WX);
     for(;;){
         wait_vbl_done(); input_poll();
         sys_tick(sel, ++f);
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NITEM - 1; cores(); draw_items(sel); sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)) { sel = (sel + 1) % NITEM;         cores(); draw_items(sel); sfx(SFX_MOVE); }
+        if(HITR(J_UP))   { sel = sel ? sel - 1 : NITEM - 1; cores(); draw_items(sel); sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)) { sel = (sel + 1) % NITEM;         cores(); draw_items(sel); sfx(SFX_MOVE); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             if(sel == 0) break;
@@ -106,9 +109,7 @@ int sysmenu_run(void (*redraw)(void)){
                 SHOW_WIN; cores();
             } else if(sel == 5){
                 skills_run();                                        /* (it hides the sprites and brings them back) */
-                txt_win(1); txt_cls(); txt_box(0, 0, SM_W, SM_H);
-                txt_line(1, 1, "SYSTEM", SM_W - 2); txt_color(1, 1, SM_W - 2, 1, TXT_GOLD);
-                txt_win(0);
+                frame();
                 move_win(SM_WX, SM_WY); draw_items(sel); cores();
             } else if(sel == 6){
                 UINT8 r;

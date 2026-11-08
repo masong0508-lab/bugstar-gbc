@@ -38,7 +38,7 @@ static void xs_save(void){
     if(opt.autosave) slot_write(cur_slot);
 }
 static void screen(const char *title){
-    txt_win(0); txt_cls(); txt_box(0, 0, 20, 18);
+    txt_win(0); txt_soft(); txt_box(0, 0, 20, 18);
     txt_line(2, 1, title, 16); txt_color(2, 1, 16, 1, TXT_GOLD);
     txt_pal_reset(); SHOW_BKG; DISPLAY_ON;
 }
@@ -85,8 +85,8 @@ void xtra_relic_screen(void) BANKED {
         txt_line(2, 15, "UP/DOWN  B: BACK", 16); txt_color(2, 15, 16, 1, TXT_GREY);
         for(;;){ wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START) || HIT(J_A)) return;
-            if(HIT(J_DOWN) && top + 5 < NREL){ top += 5; if(top + 5 > NREL) top = NREL - 5; sfx(SFX_MOVE); break; }
-            if(HIT(J_UP) && top){ top = top > 5 ? top - 5 : 0; sfx(SFX_MOVE); break; } }
+            if(HITR(J_DOWN) && top + 5 < NREL){ top += 5; if(top + 5 > NREL) top = NREL - 5; sfx(SFX_MOVE); break; }
+            if(HITR(J_UP) && top){ top = top > 5 ? top - 5 : 0; sfx(SFX_MOVE); break; } }
     }
 }
 
@@ -97,7 +97,7 @@ void xtra_mine(void) BANKED {
     static const UINT8 val[5] = { 0, 4, 10, 20, 40 };
     xs_load();
     screen("MINING");
-    txt_line(2, 3, "PRESS A WHEN THE PICK", 18); txt_line(2, 4, "IS OVER THE ORE: [ ]", 18); txt_color(2, 3, 18, 2, TXT_GREY);
+    txt_line(2, 3, "PRESS A WHEN THE", 18); txt_line(2, 4, "PICK IS OVER ORE", 18); txt_color(2, 3, 18, 2, TXT_GREY);
     txt_line(2, 14, "8 SWINGS. A: START", 18); txt_color(2, 14, 18, 1, TXT_GREY);
     wait_a();
     for(sw = 0; sw < 8; sw++){
@@ -148,14 +148,14 @@ void xtra_lounge(void) BANKED {
     for(;;){
         if(d){
             screen("STATION LOUNGE");
-            txt_line(2, 3, "THE BARTENDER NODS.", 18); txt_color(2, 3, 18, 1, TXT_GREY);
+            txt_line(2, 3, "THE BARMAN NODS.", 18); txt_color(2, 3, 18, 1, TXT_GREY);
             for(row = 0; row < 3; row++){ txt_line(2, 5 + row, row == sel ? S_CURSOR : " ", 1); txt_line(4, 5 + row, row == 0 ? "LISTEN TO A RUMOUR" : row == 1 ? "BUY A DRINK 10G" : "LEAVE", 16); txt_color(2, 5 + row, 18, 1, row == sel ? TXT_GOLD : TXT_WHITE); }
             gold_line(); d = 0;
         }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) break;
-        if(HIT(J_UP)){ sel = sel ? sel - 1 : 2; d = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 2; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_A)){
             if(sel == 2) break;
             if(sel == 0){ d = 1; screen("A RUMOUR"); tip_show(tip); tip = (tip + 1) % 12; xs.lounge = tip; sfx(SFX_OK); txt_line(2, 14, "A: OK", 8); wait_a(); }
@@ -186,8 +186,8 @@ void xtra_debug(void) BANKED {
         }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) break;
-        if(HIT(J_UP)){ sel = sel ? sel - 1 : 5; d = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)){ sel = sel < 5 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 5; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 5 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_A)){
             d = 1; sfx(SFX_OK);
             if(sel == 0) sv.gold += 1000;

@@ -45,9 +45,9 @@ static void lv(UINT8 x, UINT8 y, UINT8 w, const char *lab, const char *val, UINT
 }
 static void gold_row(void){ char v[12]; u32s(v, sv.gold > 999999999UL ? 999999999UL : sv.gold); lv(1, 2, 18, "GOLD", v, TXT_GOLD); }
 static void page(const char *title){                              /* a whole page: a frame, the title, the gold */
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 18);
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 18);
     txt_line(1, 1, title, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    gold_row(); txt_win(0); move_win(7, 0); SHOW_WIN;
+    gold_row(); txt_win(0); txt_soft_end(); move_win(7, 0); SHOW_WIN;
 }
 static void line(UINT8 y, const char *s, UINT8 pal){ txt_win(1); txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); txt_win(0); }
 
@@ -131,10 +131,10 @@ static void casino(void){
         line(15, "L/R: CUP U/D: BET", TXT_GREY); line(16, "A: PLAY B: LEAVE", TXT_GREY);
         for(;;){
             wait_vbl_done(); input_poll();
-            if(HIT(J_LEFT)  && cup) { cup--; shown = 0; break; }
-            if(HIT(J_RIGHT) && cup < 2) { cup++; shown = 0; break; }
-            if(HIT(J_UP))   { bet = (bet + 1) & 3; sfx(SFX_MOVE); break; }
-            if(HIT(J_DOWN)) { bet = (bet + 3) & 3; sfx(SFX_MOVE); break; }
+            if(HITR(J_LEFT)  && cup) { cup--; shown = 0; break; }
+            if(HITR(J_RIGHT) && cup < 2) { cup++; shown = 0; break; }
+            if(HITR(J_UP))   { bet = (bet + 1) & 3; sfx(SFX_MOVE); break; }
+            if(HITR(J_DOWN)) { bet = (bet + 3) & 3; sfx(SFX_MOVE); break; }
             if(HIT(J_B) || HIT(J_START)) return;
             if(HIT(J_A)){
                 if(sv.gold < bets[bet]){ m = "NOT ENOUGH GOLD"; mpal = TXT_RED; sfx(SFX_BACK); break; }
@@ -157,8 +157,8 @@ static void workshop(void){
         line(14, m ? m : "", mpal); line(16, "A: DO IT  B: BACK", TXT_GREY);
         for(;;){
             wait_vbl_done(); input_poll();
-            if(HIT(J_UP))   { sel = sel ? sel - 1 : 3; sfx(SFX_MOVE); m = 0; break; }
-            if(HIT(J_DOWN)) { sel = (sel + 1) & 3; sfx(SFX_MOVE); m = 0; break; }
+            if(HITR(J_UP))   { sel = sel ? sel - 1 : 3; sfx(SFX_MOVE); m = 0; break; }
+            if(HITR(J_DOWN)) { sel = (sel + 1) & 3; sfx(SFX_MOVE); m = 0; break; }
             if(HIT(J_B) || HIT(J_START)) return;
             if(HIT(J_A)){
                 mpal = TXT_RED; m = "YOU CANNOT YET"; sfx(SFX_BACK);
@@ -308,8 +308,8 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
         txt_line(1, 16, "A: GO IN  B: LEAVE", 18); txt_color(1, 16, 18, 1, TXT_GREY);
         txt_win(0);
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : n - 1; sfx(SFX_MOVE); msg = 0; }
-        if(HIT(J_DOWN)) { sel = sel + 1 < n ? sel + 1 : 0; sfx(SFX_MOVE); msg = 0; }
+        if(HITR(J_UP))   { sel = sel ? sel - 1 : n - 1; sfx(SFX_MOVE); msg = 0; }
+        if(HITR(J_DOWN)) { sel = sel + 1 < n ? sel + 1 : 0; sfx(SFX_MOVE); msg = 0; }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             UINT8 id = ids[sel]; mpal = TXT_GOLD;
@@ -331,7 +331,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
         }
     }
     sfx(SFX_BACK);
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     hud_redraw(); hud_pos(HUD_Y);
     if(sprites && !out) SHOW_SPRITES;
     return out;

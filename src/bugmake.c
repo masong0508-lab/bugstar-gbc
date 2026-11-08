@@ -228,8 +228,8 @@ static void mixer(UINT16 *c, UINT8 cid){
         *c = v[0] | (v[1] << 5) | (v[2] << 10); recolor_now();
         { palette_color_t p[4]; p[0] = 0; p[1] = *c; p[2] = p[3] = 0; set_sprite_palette(0, 1, p); set_sprite_tile(OAM_SW, T_SW); set_sprite_prop(OAM_SW, 0); move_sprite(OAM_SW, 17 * 8 + 8, Y_OPT * 8 + 16); }
         frame();
-        if(HIT(J_UP) && ch) ch--;
-        if(HIT(J_DOWN) && ch < 2) ch++;
+        if(HITR(J_UP) && ch) ch--;
+        if(HITR(J_DOWN) && ch < 2) ch++;
         if(HELD(J_LEFT) || HELD(J_RIGHT)){
             rep++;
             if(rep == 1 || (rep > 12 && !(rep & 1))){ if(HELD(J_RIGHT)){ if(v[ch] < 31) v[ch]++; } else if(v[ch]) v[ch]--; }
@@ -305,8 +305,8 @@ UINT8 bugmake_run(BugLook *look, char *name, UINT8 first) BANKED {
         if(rebuild) rebuild_now(); else if(recolor) recolor_now();
         frame();
         if(((++hint_t) & 127) == 0) draw_hint();
-        if(HIT(J_UP)){ sel = sel ? sel - 1 : n - 1; dirty = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)){ sel = (sel + 1) % n; dirty = 1; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : n - 1; dirty = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = (sel + 1) % n; dirty = 1; sfx(SFX_MOVE); }
         if(HIT(J_SELECT)){ sel_down = 1; chord = 0; }
         if(sel_down && HIT(J_A)){
             chord = 1; id = tab_rows[tab][sel];

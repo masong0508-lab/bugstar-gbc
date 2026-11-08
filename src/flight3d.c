@@ -366,7 +366,7 @@ static UINT8 ar_intro(void){
     txt_line(2, 8, "B", 16); txt_line(8, 8, "BOMB ALL", 10);
     txt_line(2, 9, "START", 16); txt_line(8, 9, "CASH OUT", 10);
     txt_color(2, 6, 5, 4, TXT_GOLD); txt_color(8, 6, 10, 4, TXT_WHITE);
-    txt_line(2, 11, "EVERY 4TH WAVE HAS", 16); txt_line(2, 12, "A BOSS. BIG PAY!", 16); txt_color(2, 11, 16, 2, TXT_GREY);
+    txt_line(2, 11, "EVERY 4TH WAVE", 16); txt_line(2, 12, "IS A BOSS. PAYS!", 16); txt_color(2, 11, 16, 2, TXT_GREY);
     d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0;
     txt_line(2, 14, b, 16); txt_color(2, 14, 16, 1, TXT_GOLD);
     txt_line(2, 16, "A: GO   B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
@@ -443,7 +443,7 @@ void arena_run(void) BANKED {
 #define EX_N 12
 static UINT8 ex_again;                                           /* 1: the boxes are already drawn, only the words change (no blank frame while it repaints) */
 static void ex_card(UINT8 y, UINT8 on, const char *nm, const char *st, UINT8 c1, const char *info){
-    if(!ex_again) txt_box(1, y, 18, 4);
+    txt_box(1, y, 18, 4);                                  /* (every redraw describes the whole page: txt_soft writes only the differences) */
     txt_line(3, y + 1, on ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, on ? TXT_GOLD : TXT_WHITE);
     txt_line(14, y + 1, st, 4); txt_color(14, y + 1, 4, 1, c1);
     txt_line(4, y + 2, info, 14); txt_color(4, y + 2, 14, 1, TXT_GREY);
@@ -472,7 +472,7 @@ static void ex_one(UINT8 i, UINT8 y, UINT8 on){
 static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg, UINT8 again){
     UINT8 top = sel > 2 ? sel - 2 : 0, k;
     ex_again = again;
-    if(!again){ txt_cls(); txt_box(0, 0, 20, 18); }              /* (a redraw only overwrites words: no blank frame, no flicker) */
+    txt_soft(); txt_box(0, 0, 20, 18);                           /* (a redraw is a diff: only the changed cells are written) */
     txt_line(7, 1, "EXTRAS", 6); txt_color(7, 1, 6, 1, TXT_GOLD);
     for(k = 0; k < 3; k++) ex_one(top + k, 3 + k * 4, top + k == sel);
     txt_line(18, 3, top ? "^" : " ", 1); txt_line(18, 13, top + 3 < EX_N ? "v" : " ", 1);
@@ -488,8 +488,8 @@ UINT8 extras_run(UINT8 in_space) BANKED {
         wait_vbl_done(); input_poll();
         f++; if(on){ UINT8 tp = sel > 2 ? sel - 2 : 0; UI_BLINK(3, 4 + (sel - tp) * 4, f); if(!(f & 31)) txt_color(7, 1, 6, 1, (f & 32) ? TXT_WHITE : TXT_GOLD); }
         if(HIT(J_B) || HIT(J_START)) return 0;
-        if(HIT(J_UP)){ sel = sel ? sel - 1 : EX_N - 1; msg = ""; d = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)){ sel = sel < EX_N - 1 ? sel + 1 : 0; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : EX_N - 1; msg = ""; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < EX_N - 1 ? sel + 1 : 0; msg = ""; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_A)){
             d = 1; msg = "";
             if(sel == 0){

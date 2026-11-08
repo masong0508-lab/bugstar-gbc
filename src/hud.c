@@ -44,7 +44,7 @@ UINT8 hud_is_on(void){ return on; }
 
 void hud_redraw(void){
     txt_win(1);
-    txt_cls();                                       /* clears the window map and its attributes */
+    txt_soft();                                      /* as txt_cls(), but only the cells that change are written (the box that was here leaves no blank frame) */
     txt_put(0, 0, S_HEART);
     txt_put(0, 1, S_COIN);
     txt_put(MP_ICON, 1, S_STAR);
@@ -53,6 +53,7 @@ void hud_redraw(void){
     d_hp = sv.hp; d_mp = sv.mp; l_pulse = 255;
     l_hp = l_mp = l_lv = 0xFFFF; l_gold = 0xFFFFFFFFUL;   /* impossible values: everything redraws once */
     hud_update();
+    txt_soft_end();
 }
 void hud_init(void){ hud_redraw(); hud_show(); }
 

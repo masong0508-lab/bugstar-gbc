@@ -13,3 +13,4 @@ build_*/
 test*.gbc
 test*.map
 t[mps]*.gbc
+tools/__pycache__/

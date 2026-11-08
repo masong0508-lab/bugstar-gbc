@@ -61,12 +61,12 @@ void skills_run(void) BANKED {
     UINT8 sel = 0, ask = 0, sprites = LCDC_REG & LCDCF_OBJON; char m[20];
     const char *msg = 0;
     HIDE_SPRITES;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 18); txt_win(0);
-    sk_draw(sel, 0); move_win(7, 0); SHOW_WIN;
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 18); txt_win(0);
+    sk_draw(sel, 0); txt_soft_end(); move_win(7, 0); SHOW_WIN;
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NPERK - 1; msg = 0; ask = 0; sfx(SFX_MOVE); sk_draw(sel, msg); }
-        if(HIT(J_DOWN)) { sel = sel < NPERK - 1 ? sel + 1 : 0; msg = 0; ask = 0; sfx(SFX_MOVE); sk_draw(sel, msg); }
+        if(HITR(J_UP))   { sel = sel ? sel - 1 : NPERK - 1; msg = 0; ask = 0; sfx(SFX_MOVE); sk_draw(sel, msg); }
+        if(HITR(J_DOWN)) { sel = sel < NPERK - 1 ? sel + 1 : 0; msg = 0; ask = 0; sfx(SFX_MOVE); sk_draw(sel, msg); }
         if(HIT(J_B)){ if(ask){ ask = 0; msg = 0; sk_draw(sel, msg); sfx(SFX_BACK); } else break; }
         if(HIT(J_SELECT)){
             UINT8 spent = 0, i; for(i = 0; i < NPERK; i++) spent += sv.up[i];
@@ -87,7 +87,7 @@ void skills_run(void) BANKED {
         }
     }
     sfx(SFX_BACK);
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     if(sprites) SHOW_SPRITES;                                      /* (the caller puts its own window back) */
 }
 
@@ -176,15 +176,15 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
     UINT8 cur = 0, sprites = LCDC_REG & LCDCF_OBJON, h; const char *msg = 0;
     s_mode = mode; s_n = mode ? 9 : 3; s_first = mode ? I_LASER : I_POTION; s_disc = mode ? fame_disc() : 0; h = 9 + s_n;
     HIDE_SPRITES;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, h); txt_win(0);
-    shop_draw(cur, msg); move_win(7, 144 - h * 8); SHOW_WIN;
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0);
+    shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN;
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { cur = cur ? cur - 1 : s_n - 1; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
-        if(HIT(J_DOWN)) { cur = cur < s_n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
+        if(HITR(J_UP))   { cur = cur ? cur - 1 : s_n - 1; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
+        if(HITR(J_DOWN)) { cur = cur < s_n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); shop_draw(cur, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
-        if(HIT(J_SELECT)){ loot_run(mode ? 2 : 1); txt_win(1); txt_cls(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); move_win(7, 144 - h * 8); SHOW_WIN; }
-        if(HIT(J_RIGHT)){ loot_run(3); txt_win(1); txt_cls(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); move_win(7, 144 - h * 8); SHOW_WIN; }
+        if(HIT(J_SELECT)){ loot_run(mode ? 2 : 1); txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN; }
+        if(HITR(J_RIGHT)){ loot_run(3); txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN; }
         if(HIT(J_A)){
             UINT8 it = s_first + cur, lv = it ? sv.up[it_up[it]] : sv.potions, mx = it ? SHOP_MAXLV : 9;
             if(lv >= mx){ msg = it ? "ALREADY THE BEST!" : "POCKETS FULL!"; sfx(SFX_BACK); }
@@ -264,7 +264,7 @@ static void sm_draw(UINT8 tab, UINT8 sel, const char *msg){
     txt_line(1, 5, msg ? msg : tip ? tip : "", 18); txt_color(1, 5, 18, 1, msg ? TXT_GOLD : TXT_GREY);
     txt_win(0);
 }
-static void sm_frame(UINT8 tab, UINT8 sel, const char *msg){ txt_win(1); txt_cls(); txt_box(0, 0, 20, SM_H); txt_win(0); sm_draw(tab, sel, msg); move_win(7, 144 - SM_H * 8); HIDE_SPRITES; SHOW_WIN; }   /* (no critters drawn over the box) */
+static void sm_frame(UINT8 tab, UINT8 sel, const char *msg){ txt_win(1); txt_soft(); txt_box(0, 0, 20, SM_H); txt_win(0); sm_draw(tab, sel, msg); txt_soft_end(); move_win(7, 144 - SM_H * 8); HIDE_SPRITES; SHOW_WIN; }   /* (no critters drawn over the box) */
 
 /* start = tab * 4 + row (the planet re-opens the menu on the CARE tab after a full-screen page).
    Returns 0 closed, 1 fly into space, 2 the caller shows the FEATS page, 3 the caller runs MINING (both need the planet to repaint afterwards). */
@@ -277,10 +277,10 @@ UINT8 ship_menu(UINT8 start) BANKED {
         rows = tab_n[tab];
         if(HIT(J_START)){ sfx(SFX_OK); out = 1; break; }              /* START takes off from any tab, like the GBA */
         if(HIT(J_B)) break;
-        if(HIT(J_LEFT))  { tab = tab ? tab - 1 : 3; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
-        if(HIT(J_RIGHT)) { tab = tab < 3 ? tab + 1 : 0; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
-        if(HIT(J_UP) && rows > 1)   { sel = sel ? sel - 1 : rows - 1; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
-        if(HIT(J_DOWN) && rows > 1) { sel = sel < rows - 1 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HITR(J_LEFT))  { tab = tab ? tab - 1 : 3; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HITR(J_RIGHT)) { tab = tab < 3 ? tab + 1 : 0; sel = 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HITR(J_UP) && rows > 1)   { sel = sel ? sel - 1 : rows - 1; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
+        if(HITR(J_DOWN) && rows > 1) { sel = sel < rows - 1 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); sm_draw(tab, sel, msg); }
         if(HIT(J_A)){
             sfx(SFX_OK);
             if(tab == TAB_GO){ if(sel == 1){ bolt_talk(); sm_frame(tab, sel, 0); continue; } if(sel == 0) out = 1; break; }
@@ -296,7 +296,7 @@ UINT8 ship_menu(UINT8 start) BANKED {
             else { slot_write(cur_slot); msg = "SAVED!"; sfx(SFX_COIN); sm_draw(tab, sel, msg); }
         }
     }
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     if(sprites) SHOW_SPRITES;
     hud_redraw(); hud_pos(HUD_Y);
     return out;

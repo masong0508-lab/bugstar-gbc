@@ -95,7 +95,7 @@ static void bk_page(UINT8 pg, const UINT8 *kl){
         txt_line(2, 3, "WEIRD WORLDS", 12); txt_color(2, 3, 12, 1, TXT_WHITE);
         weird_screen(5);
     }
-    txt_line(2, 16, "L/R PAGE  B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
+    txt_line(2, 16, "< > PAGE B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
     txt_pal_reset(); SHOW_BKG; DISPLAY_ON;
 }
 void bst_screen(void) BANKED {
@@ -106,7 +106,7 @@ void bst_screen(void) BANKED {
     for(;;){
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) return;
-        if(HIT(J_RIGHT)){ pg = pg < 6 ? pg + 1 : 0; sfx(SFX_MOVE); bk_page(pg, kl); }
-        if(HIT(J_LEFT)){ pg = pg ? pg - 1 : 6; sfx(SFX_MOVE); bk_page(pg, kl); }
+        if(HITR(J_RIGHT)){ pg = pg < 6 ? pg + 1 : 0; sfx(SFX_MOVE); bk_page(pg, kl); }
+        if(HITR(J_LEFT)){ pg = pg ? pg - 1 : 6; sfx(SFX_MOVE); bk_page(pg, kl); }
     }
 }

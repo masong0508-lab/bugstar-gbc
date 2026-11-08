@@ -85,7 +85,7 @@ UINT8 fish_run(UINT8 world) BANKED {
     UINT16 wait; UINT8 phase = 0, t = 0, caught = 0, k; char b[24], *d;
     rs ^= (UINT16)frames32() ^ ((UINT16)DIV_REG << 8); if(!rs) rs = 1;
     wait = 40 + (UINT16)rnd() % 150;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 6); txt_win(0); move_win(7, 144 - 48); SHOW_WIN;
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 6); txt_win(0); move_win(7, 144 - 48); SHOW_WIN;
     fline(1, "FISHING", TXT_GOLD); fline(3, "THE LINE IS IN...", TXT_WHITE); fline(4, "A: PULL   B: STOP", TXT_GREY);
     for(;;){
         wait_vbl_done(); input_poll();
@@ -106,7 +106,7 @@ UINT8 fish_run(UINT8 world) BANKED {
             if(!--t){ fline(3, "IT GOT AWAY...", TXT_RED); sfx(SFX_BACK); for(k = 0; k < 50; k++) wait_vbl_done(); break; }
         }
     }
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     hud_redraw(); hud_pos(HUD_Y);
     return caught;
 }

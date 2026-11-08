@@ -189,7 +189,7 @@ static UINT16 income(void){
     return (UINT16)(dt * n);
 }
 static UINT16 wing_price(void){ return fh.wm == 0 ? 150 : fh.wm == 1 ? 300 : 600; }
-static void frame_clear(void){ txt_win(1); txt_cls(); txt_box(0, 0, 20, 18); txt_win(0); move_win(7, 0); SHOW_WIN; }
+static void frame_clear(void){ txt_win(1); txt_soft(); txt_box(0, 0, 20, 18); txt_win(0); move_win(7, 0); SHOW_WIN; }
 static void put(UINT8 y, const char *s, UINT8 pal){ txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); }
 static void key_wait(void){ for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B) || HIT(J_START)) return; } }
 
@@ -235,10 +235,10 @@ static void builder(void){
     for(;;){
         UINT8 ch = 0;
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP)){ sel = sel ? sel - 1 : 3; sfx(SFX_MOVE); ch = 2; }
-        if(HIT(J_DOWN)){ sel = sel < 3 ? sel + 1 : 0; sfx(SFX_MOVE); ch = 2; }
-        if(HIT(J_LEFT) || HIT(J_RIGHT)){
-            INT8 dd = HIT(J_RIGHT) ? 1 : -1;
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 3; sfx(SFX_MOVE); ch = 2; }
+        if(HITR(J_DOWN)){ sel = sel < 3 ? sel + 1 : 0; sfx(SFX_MOVE); ch = 2; }
+        if(HITR(J_LEFT) || HITR(J_RIGHT)){
+            INT8 dd = HITR(J_RIGHT) ? 1 : -1;
             if(sel == 0) fh.body = (UINT8)((fh.body + 4 + dd) & 3);
             else if(sel == 1) fh.wing = (UINT8)((fh.wing + 4 + dd) & 3);
             else if(sel == 2) fh.gun = (UINT8)((fh.gun + 3 + dd) % 3);
@@ -383,8 +383,8 @@ static void hq_run(UINT8 star){
         for(;;){
             UINT8 ch = 0;
             wait_vbl_done(); input_poll();
-            if(HIT(J_UP)){ sel = sel ? sel - 1 : 4; sfx(SFX_MOVE); ch = 1; }
-            if(HIT(J_DOWN)){ sel = sel < 4 ? sel + 1 : 0; sfx(SFX_MOVE); ch = 1; }
+            if(HITR(J_UP)){ sel = sel ? sel - 1 : 4; sfx(SFX_MOVE); ch = 1; }
+            if(HITR(J_DOWN)){ sel = sel < 4 ? sel + 1 : 0; sfx(SFX_MOVE); ch = 1; }
             if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); return; }
             if(HIT(J_A)){
                 sfx(SFX_OK);

@@ -28,7 +28,7 @@ static void best(UINT8 y, const char *lab, UINT16 t){                           
 }
 static void page(UINT8 p, UINT8 again){
     char t[16], *d; UINT8 r, i; UINT16 k;
-    if(!again){ txt_cls(); txt_box(0, 0, 20, 18); }               /* (turning a page only overwrites the words: no blank frame) */
+    txt_soft(); txt_box(0, 0, 20, 18);                           /* (a redraw is a diff: only the changed cells are written) */
     txt_line(2, 1, p == 0 ? "ADVENTURE" : p == 1 ? "THE GALAXY" : "GAMES", 13); txt_color(2, 1, 13, 1, TXT_GOLD);
     if(p == 0){
         fmt_time(t, play_secs()); ln(3, "TIME", t, TXT_WHITE);
@@ -80,7 +80,7 @@ void stats_run(void) BANKED {
         if(d){ page(p, !first); d = 0; DISPLAY_ON; first = 0; }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); return; }
-        if(HIT(J_RIGHT) || HIT(J_A)){ p = p < 2 ? p + 1 : 0; d = 1; sfx(SFX_MOVE); }
-        if(HIT(J_LEFT)){ p = p ? p - 1 : 2; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_RIGHT) || HIT(J_A)){ p = p < 2 ? p + 1 : 0; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_LEFT)){ p = p ? p - 1 : 2; d = 1; sfx(SFX_MOVE); }
     }
 }

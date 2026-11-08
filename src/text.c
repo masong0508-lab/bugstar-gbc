@@ -11,9 +11,13 @@ static const palette_color_t txt_pal[16] = {
     RGB(0,0,3), RGB(0,0,3),   RGB(13,15,22), RGB(19,21,28)    /* 3 grey: a cool blue-grey, no shadow, so it sits quietly on the panels */
 };
 
-static UINT8 to_win;                       /* 1: draw into the window layer instead of the background */
+UINT8 txt_to_win;                          /* 1: draw into the window layer instead of the background */
+UINT8 txt_soft_on, txt_soft_win;           /* a soft redraw is in progress, and on which layer (textsoft.c) */
+#define to_win txt_to_win
 void txt_win(UINT8 on){ to_win = on; }
+UINT8 txt_soft_put(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t, UINT8 attr) BANKED;
 static void put_tiles(UINT8 x, UINT8 y, UINT8 w, UINT8 h, const UINT8 *t){
+    if(txt_soft_on && txt_soft_win == to_win && txt_soft_put(x, y, w, h, t, 0)) return;
     if(to_win) set_win_tiles(x, y, w, h, t); else set_bkg_tiles(x, y, w, h, t);
 }
 static void txt_fill(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){
@@ -23,6 +27,7 @@ static void txt_fill(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 t){
 void txt_pal_reset(void){ set_bkg_palette(0, 4, txt_pal); }
 
 void txt_cls(void){
+    txt_soft_on = 0;
     VBK_REG = VBK_BANK_1; txt_fill(0, 0, 32, 32, 0);     /* attributes: palette 0, bank 0 */
     VBK_REG = VBK_BANK_0; txt_fill(0, 0, 32, 32, T_BLANK);
 }
@@ -76,6 +81,7 @@ void txt_bar(UINT8 x, UINT8 y, UINT8 w, UINT16 val, UINT16 max){
 }
 
 void txt_color(UINT8 x, UINT8 y, UINT8 w, UINT8 h, UINT8 pal){
+    if(txt_soft_on && txt_soft_win == to_win){ UINT8 a = pal & 7; if(txt_soft_put(x, y, w, h, &a, 1)) return; }
     VBK_REG = VBK_BANK_1; txt_fill(x, y, w, h, pal & 7);
     VBK_REG = VBK_BANK_0;
 }

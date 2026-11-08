@@ -171,14 +171,14 @@ void loot_run(UINT8 mode) BANKED {
     UINT8 n, cur = 0, top = 0, sprites = LCDC_REG & LCDCF_OBJON, it; char m[28]; const char *msg = 0;
     ensure(); u_k = 0;
     HIDE_SPRITES;
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 18); txt_win(0);
-    n = build(mode); draw(mode, n, cur, top, msg); move_win(7, 0); SHOW_WIN;
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 18); txt_win(0);
+    n = build(mode); draw(mode, n, cur, top, msg); txt_soft_end(); move_win(7, 0); SHOW_WIN;
     for(;;){
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) break;
-        if(n && HIT(J_UP))   { cur = cur ? cur - 1 : n - 1; msg = 0; sfx(SFX_MOVE); }
-        else if(n && HIT(J_DOWN)) { cur = cur < n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); }
-        else if(mode && u_k && HIT(J_LEFT)){                  /* buy the last sale back at the price it fetched */
+        if(n && HITR(J_UP))   { cur = cur ? cur - 1 : n - 1; msg = 0; sfx(SFX_MOVE); }
+        else if(n && HITR(J_DOWN)) { cur = cur < n - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); }
+        else if(mode && u_k && HITR(J_LEFT)){                  /* buy the last sale back at the price it fetched */
             m[0] = 0; msg = m;
             if(sv.gold < u_g){ scat(m, "NOT ENOUGH GOLD"); sfx(SFX_BACK); }
             else {
@@ -208,6 +208,6 @@ void loot_run(UINT8 mode) BANKED {
         draw(mode, n, cur, top, msg);
     }
     sfx(SFX_BACK);
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     if(sprites) SHOW_SPRITES;
 }

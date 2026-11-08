@@ -83,16 +83,17 @@ void ui_tick(UINT8 x, UINT8 y, UINT8 f, UINT8 hx, UINT8 hw, UINT8 hy, UINT8 win)
 }
 void sys_tick(UINT8 sel, UINT8 f) BANKED { ui_tick(1, 3 + sel, f, 1, SM_W - 2, 1, 1); }   /* the SYSTEM box: pulsing arrow, twinkling header */
 void options_screen(void) BANKED {
-    UINT8 sel = 0, top = 0, dirty = 1, i, first = 1, f = 0;
+    UINT8 sel = 0, top = 0, dirty = 1, i, f = 0;
     for(;;){
         if(dirty){
             dirty = 0;
-            if(first){ first = 0; txt_box(0, 1, 20, 12); txt_box(0, 13, 20, 4);
-                put_line(7, 0, "OPTIONS", 7); txt_color(7, 0, 7, 1, TXT_GOLD);
-                put_line(2, 17, "< > CHANGE B:BACK", 17); txt_color(2, 17, 18, 1, TXT_GREY); }
+            txt_soft();                                                  /* the whole page is described again; only what changed reaches video memory */
+            txt_box(0, 1, 20, 12); txt_box(0, 13, 20, 4);
+            put_line(7, 0, "OPTIONS", 7); txt_color(7, 0, 7, 1, (f & 32) ? TXT_WHITE : TXT_GOLD);
+            put_line(2, 17, "< > CHANGE B:BACK", 17); txt_color(2, 17, 18, 1, TXT_GREY);
             for(i = 0; i < OP_ROWS; i++){
                 UINT8 o = top + i; char b[20]; UINT8 nl, vl; const char *v;
-                if(o >= NOPT){ put_line(1, 2 + i, "", 18); continue; }
+                if(o >= NOPT) break;
                 v = op_val(o); nl = (UINT8)strlen(op_name[o]); vl = (UINT8)strlen(v);
                 memset(b, ' ', 18); b[18] = 0;
                 b[0] = (o == sel) ? T_CURSOR : ' ';
@@ -102,25 +103,25 @@ void options_screen(void) BANKED {
                 txt_color(18 - vl, 2 + i, vl, 1, TXT_GOLD);
             }
             put_line(18, 2, top > 0 ? S_ARROW_UP : " ", 1); put_line(18, 11, top + OP_ROWS < NOPT ? S_ARROW_DN : " ", 1);
-            put_line(1, 14, "", 18); put_line(1, 15, "", 18);
             print_wrap(14, 2, op_help[sel]); txt_color(1, 14, 18, 2, TXT_GREY);
         }
         wait_vbl_done(); input_poll();
-        f++; UI_BLINK(1, 2 + sel - top, f); if(!(f & 31)) txt_color(7, 0, 7, 1, (f & 32) ? TXT_WHITE : TXT_GOLD);
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NOPT - 1; dirty = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)) { sel = (sel + 1) % NOPT; dirty = 1; sfx(SFX_MOVE); }
+        f++; if(!(f & 31)){ txt_color(7, 0, 7, 1, (f & 32) ? TXT_WHITE : TXT_GOLD); }
+        if(!(f & 15)) put_line(1, 2 + sel - top, (f & 16) ? S_CURSOR : ">", 1);                         /* the arrow pulses */
+        if(HITR(J_UP))   { sel = sel ? sel - 1 : NOPT - 1; dirty = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)) { sel = (sel + 1) % NOPT; dirty = 1; sfx(SFX_MOVE); }
         if(sel < top) top = sel;
         if(sel >= top + OP_ROWS) top = sel - OP_ROWS + 1;
-        if(HIT(J_LEFT) || HIT(J_RIGHT)){
+        if(HITR(J_LEFT) || HITR(J_RIGHT)){
             UINT8 n = op_max(sel);
-            if(sel >= OP_RUM){ UINT8 v = rum_get(sel); rum_set(sel, HIT(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n); rumble(RP_TEST); }   /* (a test buzz when you change it) */
+            if(sel >= OP_RUM){ UINT8 v = rum_get(sel); rum_set(sel, HITR(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n); rumble(RP_TEST); }   /* (a test buzz when you change it) */
             else if(sel == OP_ARROW) opt.arrow ^= 1;                                          /* (bit 0 only: the ladybug cap sits above it) */
-            else if(sel == OP_BUD){ UINT8 v = BUD_CODE(); v = HIT(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n; opt.arrow = (opt.arrow & 1) | (v << 1); }
-            else { UINT8 *p = op_ptr(sel); *p = HIT(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; }
+            else if(sel == OP_BUD){ UINT8 v = BUD_CODE(); v = HITR(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n; opt.arrow = (opt.arrow & 1) | (v << 1); }
+            else { UINT8 *p = op_ptr(sel); *p = HITR(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; }
             sfx(SFX_MOVE);
             dirty = 1;
         }
-        if(HIT(J_B)){ settings_save(); sfx(SFX_BACK); return; }
+        if(HIT(J_B) || HIT(J_START)){ settings_save(); sfx(SFX_BACK); return; }
     }
 }
 
@@ -139,6 +140,7 @@ int slot_picker(UINT8 mode) BANKED {
     for(;;){
         if(dirty){
             dirty = 0;
+            txt_soft();
             put_line(5, 0, mode ? "NEW GAME" : "LOAD GAME", 10); txt_color(5, 0, 10, 1, TXT_GOLD);
             put_line(1, 1, "PICK A SAVE SLOT", 18);
             for(i = 0; i < NSLOT; i++){                          /* a framed card per slot; the chosen one is gold */
@@ -146,7 +148,7 @@ int slot_picker(UINT8 mode) BANKED {
                 good[i] = slot_peek(i, &t);
                 txt_box(0, y, 20, 4);
                 d = b; *d++ = (i == sel) ? T_CURSOR : ' '; *d++ = '1' + i; *d++ = ' ';
-                if(good[i]){ d = scat(d, t.name); d = scat(d, "  LV "); u16s(d, t.level); }
+                if(good[i]){ d = scat(d, t.name); d = scat(d, " LV "); u16s(d, t.level); }
                 else scat(d, "EMPTY");
                 put_line(1, y + 1, b, 18);
                 d = b; *d++ = ' '; *d++ = ' ';
@@ -154,12 +156,12 @@ int slot_picker(UINT8 mode) BANKED {
                 put_line(1, y + 2, b, 18);
                 txt_color(1, y + 1, 18, 2, i == sel ? TXT_GOLD : TXT_WHITE);
             }
-            put_line(1, 15, "A:OK  B:BACK", 18);
+            put_line(1, 15, "A:OK  B:BACK", 18); txt_color(1, 15, 18, 2, TXT_GREY);
             put_line(1, 16, good[sel] ? "START: ERASE" : "", 18);
         }
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : NSLOT - 1; dirty = 1; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN)) { sel = (sel + 1) % NSLOT; dirty = 1; sfx(SFX_MOVE); }
+        if(HITR(J_UP))   { sel = sel ? sel - 1 : NSLOT - 1; dirty = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)) { sel = (sel + 1) % NSLOT; dirty = 1; sfx(SFX_MOVE); }
         if(HIT(J_B)){ sfx(SFX_BACK); return -1; }
         if(HIT(J_START) && good[sel]){
             char b[20], *d = b; d = scat(d, "ERASE SLOT "); *d++ = '1' + sel; *d++ = '?'; *d = 0;

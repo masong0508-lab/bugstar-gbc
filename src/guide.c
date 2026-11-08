@@ -15,7 +15,7 @@ static const INT8 bob[4] = { 0, -1, -2, -1 };
 
 static void page_draw(UINT8 p){
     UINT8 i, k; char b[24]; palette_color_t pb[16];
-    txt_cls();
+    txt_soft();                                           /* (a page turn only writes the cells that differ) */
     { char *d = scat(b, "HOW TO PLAY  "); d = u16s(d, p + 1); d = scat(d, "/"); u16s(d, GUIDE_N); }
     txt_line(0, 0, b, 20); txt_color(0, 0, 20, 1, TXT_GREY);
     txt_line(0, 1, gd_title[p], 20); txt_color(0, 1, 20, 1, TXT_GOLD);
@@ -50,9 +50,9 @@ void guide_run(void) BANKED {
             move_sprite(2 * k, 24 + k * 36 + 8, y + 16); move_sprite(2 * k + 1, 24 + k * 36 + 16, y + 16);
         }
         if(crawl){ if(!(t & 1)) cx++; move_sprite(8, cx + 8, 128 + 16 + ((t >> 3) & 1)); move_sprite(9, cx + 16, 128 + 16 + ((t >> 3) & 1)); if(cx > 170) cx = 0; }
-        if((HIT(J_RIGHT) || HIT(J_A)) && p < GUIDE_N - 1){ p++; sfx(SFX_MOVE); page_draw(p); }
-        else if(HIT(J_A)) break;
-        if(HIT(J_LEFT) && p > 0){ p--; sfx(SFX_MOVE); page_draw(p); }
+        if(HIT(J_A) && p == GUIDE_N - 1) break;
+        if(HITR(J_RIGHT) || HIT(J_A)){ p = p < GUIDE_N - 1 ? p + 1 : 0; sfx(SFX_MOVE); page_draw(p); }
+        else if(HITR(J_LEFT)){ p = p ? p - 1 : GUIDE_N - 1; sfx(SFX_MOVE); page_draw(p); }
         if(HIT(J_B) || HIT(J_START)) break;
     }
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);

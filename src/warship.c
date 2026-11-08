@@ -269,7 +269,7 @@ static char *mmss(char *d, UINT16 f){ UINT16 s = f / 60; d = u16s(d, s / 60); *d
 static void draw_menu(UINT8 sel, UINT8 again){
     UINT8 i; char b[21], *d;
     txt_win(0);
-    if(!again){ txt_cls(); txt_box(0, 0, 20, 18); }              /* (moving the cursor only overwrites the words) */
+    txt_soft(); txt_box(0, 0, 20, 18);                           /* (a redraw is a diff: only the changed cells are written) */
     txt_line(4, 1, "WARSHIP RAID", 12); txt_color(4, 1, 12, 1, TXT_GOLD);
     for(i = 0; i < 3; i++){
         d = b; *d++ = i == sel ? T_CURSOR : ' '; d = scat(d, sname[i]); *d = 0;
@@ -328,8 +328,8 @@ void warship_run(void) BANKED {
     for(;;){
         if(d){ draw_menu(sel, d == 2); DISPLAY_ON; d = 0; }
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP) && sel){ sel--; d = 2; sfx(SFX_MOVE); }
-        if(HIT(J_DOWN) && sel < 2){ sel++; d = 2; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 2; d = 2; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; d = 2; sfx(SFX_MOVE); }
         if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); break; }
         if(HIT(J_A)){
             if(sel && !(ws.clr & (1 << (sel - 1)))){ sfx(SFX_HURT); continue; }

@@ -42,7 +42,7 @@ static UINT8 held_hit(UINT8 k){                                     /* a press, 
     if(HELD(k)){ if(++rep > 18 && !(rep & 3)) return 1; }
     return 0;
 }
-static void frame_clear(void){ txt_win(1); txt_cls(); txt_box(0, 0, 20, 18); txt_win(0); move_win(7, 0); SHOW_WIN; }
+static void frame_clear(void){ txt_win(1); txt_soft(); txt_box(0, 0, 20, 18); txt_win(0); move_win(7, 0); SHOW_WIN; }
 static UINT16 disc_price(UINT16 p){ UINT16 q = (UINT16)((UINT32)p * (100 - fame_disc()) / 100); return q ? q : 1; }
 
 /* ---------------------------------------------------------------- the market */
@@ -74,8 +74,8 @@ static void market(void){
     for(;;){
         UINT8 k = KIND(here);
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { cur = cur ? cur - 1 : G_N - 1; msg = 0; sfx(SFX_MOVE); mk_draw(cur, msg); }
-        if(HIT(J_DOWN)) { cur = cur < G_N - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); mk_draw(cur, msg); }
+        if(HITR(J_UP))   { cur = cur ? cur - 1 : G_N - 1; msg = 0; sfx(SFX_MOVE); mk_draw(cur, msg); }
+        if(HITR(J_DOWN)) { cur = cur < G_N - 1 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); mk_draw(cur, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(held_hit(J_RIGHT)){
             n = econ_buy(here, k, cur, 1);
@@ -137,8 +137,8 @@ static void service(void){
     frame_clear(); sv_draw(cur, msg);
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { cur = cur ? cur - 1 : 2; msg = 0; sfx(SFX_MOVE); sv_draw(cur, msg); }
-        if(HIT(J_DOWN)) { cur = cur < 2 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); sv_draw(cur, msg); }
+        if(HITR(J_UP))   { cur = cur ? cur - 1 : 2; msg = 0; sfx(SFX_MOVE); sv_draw(cur, msg); }
+        if(HITR(J_DOWN)) { cur = cur < 2 ? cur + 1 : 0; msg = 0; sfx(SFX_MOVE); sv_draw(cur, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_A)){
             UINT8 f = 0; UINT16 r = 0;
@@ -250,7 +250,7 @@ static void dock_draw(UINT8 sel, const char *msg){
     txt_line(1, 17, b, 19); txt_color(1, 17, 19, 1, msg ? TXT_RED : sv.el.jk != J_NONE ? TXT_GOLD : TXT_GREY);
     txt_win(0);
 }
-static void dock_frame(void){ txt_win(1); txt_cls(); txt_win(0); move_win(7, 0); SHOW_WIN; }
+static void dock_frame(void){ txt_win(1); txt_soft(); txt_win(0); move_win(7, 0); SHOW_WIN; }
 
 UINT8 elite_dock(UINT8 star) BANKED {
     UINT8 sel = 0, sprites = LCDC_REG & LCDCF_OBJON, go = 0; char b[32], *d; const char *msg = 0;
@@ -263,8 +263,8 @@ UINT8 elite_dock(UINT8 star) BANKED {
     dock_frame(); dock_draw(sel, msg);
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_UP))   { sel = sel ? sel - 1 : 7; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
-        if(HIT(J_DOWN)) { sel = sel < 7 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
+        if(HITR(J_UP))   { sel = sel ? sel - 1 : 7; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
+        if(HITR(J_DOWN)) { sel = sel < 7 ? sel + 1 : 0; msg = 0; sfx(SFX_MOVE); dock_draw(sel, msg); }
         if(HIT(J_B) || HIT(J_START)) break;
         if(HIT(J_SELECT)){ loot_run(2); dock_frame(); msg = 0; dock_draw(sel, msg); }
         if(HIT(J_A)){
@@ -282,7 +282,7 @@ UINT8 elite_dock(UINT8 star) BANKED {
     }
     sfx(SFX_BACK);
     if(opt.autosave) slot_write(cur_slot);
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     if(sprites && !go) SHOW_SPRITES;
     return go;
 }

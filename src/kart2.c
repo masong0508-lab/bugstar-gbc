@@ -71,7 +71,7 @@ void kart_results(UINT8 place, UINT8 gpn) BANKED {
     k2.races++; if(rivals_on && place == 1) k2.wins++;
     if(rivals_on){ pz = (UINT16)((UINT32)prize[place - 1] * nl / 3); if(kart_rev) pz += pz >> 1; if(!pz) pz = 5; sv.gold += pz; }
     k2_save(); if(opt.autosave) slot_write(cur_slot);
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 15);
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 15);
     if(gpn){ d = scat(b, "RACE "); d = u16s(d, gpn); d = scat(d, " OF 3 DONE"); *d = 0; txt_line(3, 1, b, 16); }
     else txt_line(5, 1, "RACE OVER!", 10);
     txt_color(3, 1, 14, 1, TXT_GOLD);
@@ -81,9 +81,9 @@ void kart_results(UINT8 place, UINT8 gpn) BANKED {
     d = scat(b, "LAP "); d = ftime(d, best_run); if(nbl) d = scat(d, " NEW"); *d = 0; txt_line(3, 7, b, 15); if(nbl) txt_color(3, 7, 15, 1, TXT_GOLD);
     d = u16s(b, nl); d = scat(d, nl == 1 ? " LAP, " : " LAPS, "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(3, 9, b, 15); txt_color(3, 9, 15, 1, TXT_GREY);
     if(rivals_on){ d = scat(b, "PRIZE +"); d = u16s(d, pz); d = scat(d, " G"); *d = 0; txt_line(3, 11, b, 15); txt_color(3, 11, 15, 1, TXT_GOLD); }
-    else if(nl != 3) txt_line(3, 11, "3 LAPS FOR RECORDS", 15), txt_color(3, 11, 15, 1, TXT_GREY);
+    else if(nl != 3) txt_line(3, 11, "RECORDS: 3 LAPS", 15), txt_color(3, 11, 15, 1, TXT_GREY);
     txt_line(3, 13, "A: OK", 15); txt_color(3, 13, 15, 1, TXT_GREY);
-    txt_win(0); move_win(7, 8); SHOW_WIN;
+    txt_win(0); txt_soft_end(); move_win(7, 8); SHOW_WIN;
     sfx(place == 1 ? SFX_FANFARE : SFX_COIN);
 }
 
@@ -92,7 +92,7 @@ void kart_results(UINT8 place, UINT8 gpn) BANKED {
 static void menu_box(const char *title, UINT8 h){
     txt_win(1); txt_cls(); txt_box(0, 0, 20, h); txt_line(2, 1, title, 16); txt_color(2, 1, 16, 1, TXT_GOLD);
 }
-static void menu_show(void){ txt_win(0); move_win(7, 16); SHOW_WIN; }
+static void menu_show(void){ move_win(7, 16); SHOW_WIN; }                 /* (the menu keeps drawing into the WINDOW layer: txt_win(1) stays on until it leaves. It used to switch to the background here, so the cursor and the colour blink were written into the road picture: tile 10 and palette 0 in the sky, a black box) */
 
 static const char *const cupnm[4] = { "NONE YET", "BRONZE", "SILVER", "GOLD" };
 static void way_line(void){ char b[17], *d = scat(b, "WAY: "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(4, 6, b, 14); }
@@ -117,11 +117,11 @@ static UINT8 pick_mode(void){                                                 /*
     for(;;){
         wait_vbl_done(); input_poll();
         f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 5, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
-        if(HIT(J_DOWN) && sel < 4){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
-        if(HIT(J_UP) && sel > 0){ txt_put(2, 3 + sel, " "); sel--; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
-        if(sel == 3 && (HIT(J_LEFT) || HIT(J_RIGHT) || HIT(J_A))){ kart_rev ^= 1; way_line(); sfx(SFX_OK); continue; }
-        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i == 4 ? 3 : i; }
-        if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; return 3; }
+        if(HITR(J_DOWN)){ txt_put(2, 3 + sel, " "); sel = sel < 4 ? sel + 1 : 0; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ txt_put(2, 3 + sel, " "); sel = sel ? sel - 1 : 4; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
+        if(sel == 3 && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){ kart_rev ^= 1; way_line(); sfx(SFX_OK); continue; }
+        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; txt_win(0); return i == 4 ? 3 : i; }
+        if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; txt_win(0); return 3; }
     }
 }
 static void rec_line(UINT8 y, const char *nm, UINT16 t){
@@ -144,19 +144,19 @@ static UINT8 pick_track(UINT8 tt){                                            /*
     DISPLAY_OFF; txt_win(1); menu_box("PICK A TRACK", 15);
     for(i = 0; i < 3; i++) txt_line(4, 3 + i, tname[i], 14);
     laps_line(); txt_line(4, 7, "BACK", 14);
-    txt_line(1, 14, kart_laps == 3 ? "" : "RECORDS: 3 LAPS ONLY", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_line(1, 13, kart_laps == 3 ? "A: GO   B: BACK" : "RECORDS: 3 LAPS ONLY", 18); txt_color(1, 13, 18, 1, TXT_GREY);
     txt_put(2, 3, ">"); track_info(0, tt);
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
-        if(HIT(J_DOWN) && sel < 4){ txt_put(2, 3 + sel, " "); sel++; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
-        if(HIT(J_UP) && sel > 0){ txt_put(2, 3 + sel, " "); sel--; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
-        if(sel == 3 && (HIT(J_LEFT) || HIT(J_RIGHT) || HIT(J_A))){
-            if(HIT(J_LEFT)) kart_laps = kart_laps == 1 ? 5 : kart_laps == 3 ? 1 : 3; else kart_laps = kart_laps == 1 ? 3 : kart_laps == 3 ? 5 : 1;
-            laps_line(); txt_line(1, 14, kart_laps == 3 ? "" : "RECORDS: 3 LAPS ONLY", 18); sfx(SFX_OK); continue;
+        if(HITR(J_DOWN)){ txt_put(2, 3 + sel, " "); sel = sel < 4 ? sel + 1 : 0; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ txt_put(2, 3 + sel, " "); sel = sel ? sel - 1 : 4; txt_put(2, 3 + sel, ">"); track_info(sel, tt); sfx(SFX_MOVE); }
+        if(sel == 3 && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){
+            if(HITR(J_LEFT)) kart_laps = kart_laps == 1 ? 5 : kart_laps == 3 ? 1 : 3; else kart_laps = kart_laps == 1 ? 3 : kart_laps == 3 ? 5 : 1;
+            laps_line(); txt_line(1, 13, kart_laps == 3 ? "A: GO   B: BACK" : "RECORDS: 3 LAPS ONLY", 18); sfx(SFX_OK); continue;
         }
-        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; return i == 4 ? 3 : i; }
-        if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; return 3; }
+        if(HIT(J_A)){ sfx(SFX_OK); i = sel; HIDE_WIN; txt_win(0); return i == 4 ? 3 : i; }
+        if(HIT(J_B) || HIT(J_START)){ HIDE_WIN; txt_win(0); return 3; }
     }
 }
 
@@ -168,7 +168,7 @@ static void trophy(const UINT8 *pts){                                         /*
     for(i = 0; i < 3; i++) for(j = 0; j < 3 - i; j++){ if(pts[ord[j]] < pts[ord[j + 1]] || (pts[ord[j]] == pts[ord[j + 1]] && ord[j + 1] == 0)){ t = ord[j]; ord[j] = ord[j + 1]; ord[j + 1] = t; } }
     for(i = 0; i < 4 && ord[i] != 0; i++) ;
     tr = i == 0 ? 3 : i == 1 ? 2 : i == 2 ? 1 : 0;                              /* gold, silver, bronze */
-    txt_win(1); txt_cls(); txt_box(0, 0, 20, 16);
+    txt_win(1); txt_soft(); txt_box(0, 0, 20, 16);
     txt_line(3, 1, "GRAND PRIX OVER!", 16); txt_color(3, 1, 16, 1, TXT_GOLD);
     for(i = 0; i < 4; i++){
         d = u16s(b, i + 1); d = scat(d, "  "); d = scat(d, rname[ord[i]]); while(d - b < 11) *d++ = ' '; d = u16s(d, pts[ord[i]]); d = scat(d, " PTS"); *d = 0;
@@ -179,7 +179,7 @@ static void trophy(const UINT8 *pts){                                         /*
     if(tr > ks.cup){ ks.cup = tr; kart_ks_save(); txt_line(2, 12, "NEW BEST CUP!", 16); txt_color(2, 12, 16, 1, TXT_GOLD); }
     txt_line(2, 14, "A: OK", 16); txt_color(2, 14, 16, 1, TXT_GREY);
     sv.gold += cupg[tr]; if(opt.autosave) slot_write(cur_slot);
-    txt_win(0); move_win(7, 8); SHOW_WIN;
+    txt_win(0); txt_soft_end(); move_win(7, 8); SHOW_WIN;
     sfx(tr == 3 ? SFX_FANFARE : SFX_COIN);
 #ifdef KX_AUTO
     { UINT8 w; for(w = 0; w < 200; w++) wait_vbl_done(); }
@@ -207,6 +207,7 @@ void kart_gfx(void) BANKED {                                                   /
     set_sprite_data(128, KU_N * 2, kt_spr);
     set_sprite_palette(0, 8, kt_spal);
     set_sprite_palette_entry(5, 2, sv.look.col[BC_SHELL]);
+    txt_pal_reset();                                                          /* the text colours (BG palettes 0..3): a fade-out before the race leaves them black, and the HUD and the banners were invisible */
 }
 
 void kart_run(void) BANKED {

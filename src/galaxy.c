@@ -50,19 +50,18 @@ static void info(UINT8 cur, UINT8 from, UINT8 beast_sel, const char *msg){
 
 UINT16 galaxy_run(UINT8 from, UINT8 beast) BANKED {
     UINT8 cur = from, s, blink = 0, t = 0, bsel = 0, cost; UINT16 out = GAL_NONE; const char *msg = 0;
-    txt_win(1); txt_cls(); txt_win(0); move_win(7, 0); SHOW_WIN;
-    txt_win(1);
+    txt_win(1); txt_soft();
     for(s = 0;; s++){ draw_cell(s, from, 0, 0); if(s == 255) break; }
     info(cur, from, bsel, msg);
-    txt_win(0);
+    txt_soft_end(); txt_win(0); move_win(7, 0); SHOW_WIN;
     for(;;){
         UINT8 old = cur, moved = 0;
         wait_vbl_done(); input_poll();
         if(++t & 16) { if(!blink){ blink = 1; moved = 1; } } else if(blink){ blink = 0; moved = 1; }
-        if(HIT(J_LEFT))  { cur = (cur & 0xF0) | ((cur - 1) & 15); moved = 1; }
-        if(HIT(J_RIGHT)) { cur = (cur & 0xF0) | ((cur + 1) & 15); moved = 1; }
-        if(HIT(J_UP))    { cur = (UINT8)(cur - 16); moved = 1; }
-        if(HIT(J_DOWN))  { cur = (UINT8)(cur + 16); moved = 1; }
+        if(HITR(J_LEFT))  { cur = (cur & 0xF0) | ((cur - 1) & 15); moved = 1; }
+        if(HITR(J_RIGHT)) { cur = (cur & 0xF0) | ((cur + 1) & 15); moved = 1; }
+        if(HITR(J_UP))    { cur = (UINT8)(cur - 16); moved = 1; }
+        if(HITR(J_DOWN))  { cur = (UINT8)(cur + 16); moved = 1; }
         if(cur != old){ bsel = 0; msg = 0; sfx(SFX_MOVE); }
         if(HIT(J_SELECT)){                                          /* jump the cursor: the job's destination, the beast, you */
             msg = 0;
@@ -86,6 +85,6 @@ UINT16 galaxy_run(UINT8 from, UINT8 beast) BANKED {
         }
     }
     sfx(SFX_OK);
-    txt_win(1); txt_cls(); txt_win(0);
+    txt_win(1); txt_soft(); txt_win(0);
     return out;
 }
