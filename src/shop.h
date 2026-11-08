@@ -6,6 +6,8 @@
 UINT8 ship_menu(UINT8 start) BANKED;   /* start = tab * 4 + row; 0 closed, 1 fly, 2 FEATS page, 3 MINING (the caller runs those and re-opens on the CARE tab) */
 void  skills_run(void) BANKED;
 UINT8 skills_free(void) BANKED;
+UINT8 shop_mana_drink(void) BANKED;   /* SELECT at full hearts in a dungeon: drinks a mana potion if there is one (1 if it did) */
+UINT8 shop_clover(void) BANKED;       /* fainting: 1 if a lucky clover was used up to keep the gold */
 void  shop_run(UINT8 mode) BANKED;   /* 0: the planet shop (potions, bug gear); 1: a station's shipyard (ship parts, fame discount) */
 void status_run(void) BANKED;                     /* the STATUS page: bars, gold, rank, gear, time (the pause menu's first page, like the GBA's BUG tab) */
 #endif

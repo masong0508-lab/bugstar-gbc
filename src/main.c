@@ -27,6 +27,8 @@
 #include "space3d.h"
 #include "space.h"
 #include "ending.h"
+#include "town.h"
+#include "econ.h"
 
 static UINT32 make_seed(void){
     UINT32 s = ((UINT32)title_frames << 16) ^ (frames32() << 3) ^ ((UINT32)DIV_REG << 20) ^ DIV_REG;
@@ -57,6 +59,10 @@ void main(void){
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; cpu_fast();
     hive_run();
     for(;;) wait_vbl_done();
+#endif
+#ifdef TEST_TOWN
+    DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; sv.gold = 900; sv.potions = 3; sv.rsv2[0] = 2; sv.el.cargo[G_ORE] = 5; ex.seen[0] |= 6; cpu_fast();
+    for(;;){ town_run(0, 0, 3, 0, 0); }
 #endif
 #ifdef TEST_STATS
     DISPLAY_OFF; txt_init(); cur_slot = 0; new_game(0, 0x2468ACE1UL, 0, 0); sv.level = 12; cpu_fast();

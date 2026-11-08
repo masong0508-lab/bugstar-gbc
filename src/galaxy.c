@@ -17,6 +17,10 @@ static char *pad(char *d, char *start, UINT8 n){ while((UINT8)(d - start) < n) *
 #define MY 2
 #define BEAST_CELL 0x77                                  /* the Technobeast sleeps at the corner of cells 7,7 .. 8,8 */
 
+/* star classes (bits 5..7 of the world's seed): the chart colours a star you have not visited by its class and says the class on the jump line */
+static const char *const cls_n[8] = { "RED DWF", "SUN", "BLU GNT", "WHT DWF", "ORANGE", "BINARY", "PULSAR", "NEBULA" };
+static const UINT8 cls_p[8] = { TXT_RED, TXT_GOLD, TXT_WHITE, TXT_WHITE, TXT_GOLD, TXT_GOLD, TXT_WHITE, TXT_GREY };
+static UINT8 sclass(UINT8 s){ return (UINT8)((world_seed(s) >> 5) & 7); }
 static UINT8 glyph_of(UINT8 s, UINT8 from){
     if(s == from) return '@';
     if(sv.el.jk == J_SEND && s == sv.el.jd) return 'X';
@@ -28,7 +32,7 @@ static UINT8 glyph_of(UINT8 s, UINT8 from){
 static void draw_cell(UINT8 s, UINT8 from, UINT8 cursor, UINT8 blink){
     char c[2]; UINT8 g = glyph_of(s, from), pal = TXT_WHITE;
     c[1] = 0;
-    if(g == '@') pal = TXT_WHITE; else if(g == 'X') pal = TXT_RED; else if(g == '*') pal = TXT_GOLD; else if(g == '=' || g == ':') pal = TXT_GREY;
+    if(g == '@') pal = TXT_WHITE; else if(g == 'X') pal = TXT_RED; else if(g == '*') pal = TXT_GOLD; else if(g == '=' || g == ':') pal = TXT_GREY; else if(g == '.') pal = cls_p[sclass(s)];
     if(cursor && blink){ g = '+'; pal = TXT_GOLD; }
     c[0] = (char)g;
     txt_put(MX + (s & 15), MY + (s >> 4), c); txt_color(MX + (s & 15), MY + (s >> 4), 1, 1, pal);
@@ -44,7 +48,7 @@ static void info(UINT8 cur, UINT8 from, UINT8 beast_sel, const char *msg){
         cost = cur == from ? 0 : jump_fuel(from, cur);
     }
     ok = sv.el.fuel >= cost;
-    d = scat(b, "JUMP "); d = u16s(d, cost); d = scat(d, " OF "); d = u16s(d, sv.el.fuel); d = scat(d, " FUEL"); pad(d, b, 20);
+    d = scat(b, "JUMP "); d = u16s(d, cost); d = scat(d, "/"); d = u16s(d, sv.el.fuel); if(!beast_sel){ d = scat(d, " "); d = scat(d, cls_n[sclass(cur)]); } pad(d, b, 20);
     txt_line(0, 1, msg ? msg : b, 20); txt_color(0, 1, 20, 1, msg || !ok ? TXT_RED : TXT_WHITE);
 }
 

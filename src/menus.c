@@ -27,15 +27,15 @@ static void print_wrap(UINT8 y, UINT8 rows, const char *s){
 
 /* ------------------------------------------------------------ options */
 enum { OP_DIFF, OP_HUNGER, OP_FAINT, OP_XP, OP_GOLD, OP_MUSIC, OP_SFX, OP_AUTO,
-       OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, OP_BUD, OP_TSPD, OP_RUNB, OP_ASV, OP_RUM, OP_RUMEV, OP_RUMHUM, NOPT };
+       OP_SHAKE, OP_MAP, OP_NUMS, OP_HINTS, OP_ARROW, OP_BUD, OP_TSPD, OP_RUNB, OP_ASV, OP_CLR, OP_RUM, OP_RUMEV, OP_RUMHUM, NOPT };
 static const char *const op_name[NOPT] = { "MODE", "HUNGER", "FAINT LOSS", "XP SPEED", "GOLD",
-    "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW", "LADYBUGS", "TEXT SPD", "RUN WITH B", "TIMED SAVE", "RUMBLE", "RUMBLE FOR", "RUMBLE HUM" };
+    "MUSIC", "SOUND FX", "AUTOSAVE", "SCREEN SHAKE", "STAIRS HINT", "DMG NUMBERS", "HINTS", "GUIDE ARROW", "LADYBUGS", "TEXT SPD", "RUN WITH B", "TIMED SAVE", "COLOURS", "RUMBLE", "RUMBLE FOR", "RUMBLE HUM" };
 static const char *const op_help[NOPT] = {
     "BABY: 1 DAMAGE, NO LOSSES, 2X XP", "OFF: NOBODY EVER STARVES",
     "OFF: FAINTING COSTS NOTHING", "HOW FAST YOU LEVEL UP", "HOW MUCH GOLD THINGS PAY",
     "THE CHIPTUNE TUNES", "BITES, HITS AND PICKUPS",
     "SAVES AT SHIP, DUNGEON, STATION", "THE JOLT WHEN YOU GET HURT", "WAY DOWN SHOWN IN THE HUD",
-    "NUMBERS THAT FLY OFF FOES", "LINES THAT SAY WHAT A DOES", "THE YELLOW ARROW ON PLANETS", "ONE PER 100 LEVELS. SET THE MAX", "HOW FAST TEXT TYPES OUT", "HOLD B, OR TAP B TO TOGGLE", "SAVES EVERY FEW MINUTES",
+    "NUMBERS THAT FLY OFF FOES", "LINES THAT SAY WHAT A DOES", "THE YELLOW ARROW ON PLANETS", "ONE PER 100 LEVELS. SET THE MAX", "HOW FAST TEXT TYPES OUT", "HOLD B, OR TAP B TO TOGGLE", "SAVES EVERY FEW MINUTES", "PALETTE: HIGH CONTRAST HELPS",
     "MOTOR OF RUMBLE CARTS", "ALL, FIGHTS+BIG, BIG ONLY", "ENGINE AND BOOST HUM" };
 static const char *const dif_n[6] = { "BABY", "EASY", "NORMAL", "HARD", "BRUTAL", "NIGHTMR" };
 static const char *const mus_n[3] = { "OFF", "LOW", "FULL" };
@@ -44,6 +44,7 @@ static const char *const yn_n[2]  = { "OFF", "ON" };
 static const char *const tsp_n[4] = { "SLOW", "NORMAL", "FAST", "INSTANT" };
 static const char *const run_n[2] = { "HOLD", "TOGGLE" };
 static const char *const asv_n[3] = { "OFF", "2 MIN", "5 MIN" };
+static const char *const clr_n[4] = { "NORMAL", "CONTRAST", "GREEN", "SEPIA" };
 static const char *const rum_n[6] = { "OFF", "LOW", "MEDIUM", "HIGH", "MAX", "EXTREME" };
 static const char *const rev_n[3] = { "ALL", "FIGHTS", "BIG" };
 static const char *const bud_n[7] = { "ALL", "NONE", "1", "2", "3", "5", "7" };
@@ -56,7 +57,7 @@ static UINT8 *op_ptr(UINT8 i){
         case OP_FAINT: return &opt.faint; case OP_XP: return &opt.xpm;      case OP_GOLD: return &opt.goldm;
         case OP_MUSIC: return &opt.music; case OP_SFX: return &opt.sfx;
         case OP_AUTO: return &opt.autosave; case OP_SHAKE: return &opt.shake; case OP_MAP: return &opt.minimap;
-        case OP_TSPD: return &opt.tspd;   case OP_RUNB: return &opt.runb;    case OP_ASV: return &opt.asv;
+        case OP_TSPD: return &opt.tspd;   case OP_RUNB: return &opt.runb;    case OP_ASV: return &opt.asv;   case OP_CLR: return &opt.clr;
         case OP_NUMS: return &opt.nums;   case OP_HINTS: return &opt.hints; default: return &opt.arrow;   /* (OP_BUD shares the arrow's byte) */
     }
 }
@@ -71,6 +72,7 @@ static const char *op_val(UINT8 i){
         case OP_TSPD: return tsp_n[v & 3];
         case OP_RUNB: return run_n[v & 1];
         case OP_ASV: return asv_n[v > 2 ? 0 : v];
+        case OP_CLR: return clr_n[v > 3 ? 0 : v];
         case OP_XP: case OP_GOLD: return mul_n[v];
         default: return yn_n[v & 1];
     }
@@ -80,6 +82,7 @@ static UINT8 op_max(UINT8 i){            /* number of values */
     if(i == OP_BUD) return 7;
     if(i == OP_TSPD) return 4;
     if(i == OP_ASV) return 3;
+    if(i == OP_CLR) return 4;
     return i == OP_DIFF ? 6 : (i == OP_MUSIC || i == OP_XP || i == OP_GOLD) ? 3 : 2;
 }
 
@@ -126,7 +129,7 @@ void options_screen(void) BANKED {
             if(sel >= OP_RUM){ UINT8 v = rum_get(sel); rum_set(sel, HITR(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n); rumble(RP_TEST); }   /* (a test buzz when you change it) */
             else if(sel == OP_ARROW) opt.arrow ^= 1;                                          /* (bit 0 only: the ladybug cap sits above it) */
             else if(sel == OP_BUD){ UINT8 v = BUD_CODE(); v = HITR(J_RIGHT) ? (v + 1) % n : (v + n - 1) % n; opt.arrow = (opt.arrow & 1) | (v << 1); }
-            else { UINT8 *p = op_ptr(sel); *p = HITR(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; }
+            else { UINT8 *p = op_ptr(sel); *p = HITR(J_RIGHT) ? (*p + 1) % n : (*p + n - 1) % n; if(sel == OP_CLR) txt_pal_reset(); }     /* (the new colours show at once) */
             sfx(SFX_MOVE);
             dirty = 1;
         }

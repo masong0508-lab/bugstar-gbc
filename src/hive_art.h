@@ -47,6 +47,11 @@
 #define TS_EGG 141
 #define TS_STAR 142
 #define TS_CURS2 143
+#define TS_EGGS 144
+#define TS_LARV0 145
+#define TS_LARV1 146
+#define TS_CART 147
+#define TS_TRDR 148
 #define HV_NBG 30
-#define HV_NSP 16
+#define HV_NSP 21
 #endif

@@ -5,6 +5,7 @@
 #include <gb/gb.h>
 #include <string.h>
 #include "save.h"
+#include "sound.h"
 #include "menus.h"
 #include "traits.h"
 #include "hive_int.h"
@@ -25,7 +26,20 @@ UINT8 hs_rnd(void) BANKED {
     return (UINT8)(r >> 3) ^ (UINT8)r;
 }
 UINT8 hs_prof_at(UINT8 kind, UINT8 r) BANKED { return prof[kind % 12][r > 4 ? 4 : r]; }
-void hs_note(UINT8 id) BANKED { HV->note = id; HV->notet = 150; }
+void hs_note(UINT8 id) BANKED {
+    HV->note = id; HV->notet = 150;
+    if(HV->away) return;
+    switch(id){
+        case M_HATCH: sfx(SFX_HATCH); break;
+        case M_BUILT: case M_UPGR: sfx(SFX_BUILT); break;
+        case M_CARAVAN: case M_TRADERS: sfx(SFX_BELL); break;
+        case M_RAID: case M_BOSS: case M_TWOFOLD: sfx(SFX_HORN); break;
+        case M_QUESTDONE: case M_ACH: case M_ROYAL: sfx(SFX_QUEST); break;
+        case M_TECHDONE: case M_WON: case M_OPWON: sfx(SFX_POWER); break;
+        case M_WARN: case M_LOST: case M_OPLOST: case M_STARVE: sfx(SFX_ALARM); break;
+        default: break;
+    }
+}
 void hs_dirty(UINT16 idx) BANKED {
     UINT8 n = HV->stat[S_DQN];
     if(n >= DQN){ HV->stat[S_FULL] = 1; return; }
@@ -53,10 +67,10 @@ void hs_new(UINT8 kind, UINT8 diff) BANKED {
     memset(HV, 0, sizeof(HS));
     HV->magic = 0x32564842UL; HV->seed = sv.seed; HV->ver = HV_VER; HV->kind = kind; HV->diff = diff;
     HV->rng = (UINT16)(sv.seed ^ (sv.seed >> 16)) | 1; HV->rng ^= (UINT16)kind * 977;
-    HV->res[R_FOOD] = 40; HV->res[R_LEAF] = 30; HV->res[R_ORE] = 8; HV->shells = 10; HV->pop = 4; HV->hap = 60; HV->rs = 255;
+    HV->res[R_FOOD] = 45; HV->res[R_LEAF] = 40; HV->res[R_ORE] = 12; HV->shells = 10; HV->pop = 4; HV->hap = 60; HV->rs = 255;
     HV->quota[0] = 2; HV->quota[1] = 1; HV->quota[2] = 0; HV->quota[3] = 0; HV->quota[4] = 1;
-    HV->day = 0; HV->tod = 4; HV->wx = W_CLEAR; HV->rday = diff == 0 ? 7 : diff == 1 ? 5 : 4;
-    od = 2 + 2 * prof[kind][2]; cd = 1 + 2 * prof[kind][3];            /* vein chance in 256ths: the world's kind makes the ground */
+    HV->cvn = 4; HV->orday = 12; HV->day = 0; HV->tod = 4; HV->wx = W_CLEAR; HV->rday = diff == 0 ? 9 : diff == 1 ? 7 : 5;
+    od = 8 + 5 * prof[kind][2]; cd = 1 + 2 * prof[kind][3];            /* vein chance in 256ths: the world's kind makes the ground */
     for(y = 0; y < MH; y++) for(x = 0; x < MW; x++){
         UINT8 c;
         if(y < 2) c = C_SKY;
@@ -70,6 +84,10 @@ void hs_new(UINT8 kind, UINT8 diff) BANKED {
             else if(r > 240 && y > 9) c = C_WATER;
         }
         MAP[CI(x, y)] = c;
+    }
+    for(y = 5; y < MH - 2; y++) for(x = 1; x < MW - 2; x++) if(MAP[CI(x, y)] == C_ORE){        /* veins: ore likes company */
+        if(MAP[CI(x + 1, y)] == C_SOIL && (hs_rnd() & 1)) MAP[CI(x + 1, y)] = C_ORE;
+        if(MAP[CI(x, y + 1)] == C_SOIL && !(hs_rnd() & 3)) MAP[CI(x, y + 1)] = C_ORE;
     }
     MAP[CI(ENTX, ENTY)] = C_ENTRY;
     for(y = 3; y <= 7; y++) MAP[CI(ENTX, y)] = C_TUNNEL;
@@ -155,6 +173,10 @@ static void kill_one(void){ if(HV->pop > 1){ HV->pop--; HV->dead++; hs_assign();
 static UINT8 pickres(void){
     UINT8 k = HV->kind, a = prof[k][0] + 2, b = prof[k][1] + 1, h = prof[k][4] + 1 + (season() == 2 ? 2 : 0), r;
     if(HV->evt == E_BLOOM) h += 2;
+    if(HV->res[R_FOOD] >= hs_stock() * 3 / 4) a = 0;                /* foragers bring what is short, not what already fills the larder */
+    if(HV->res[R_HONEY] >= hs_stock() / 2) h = 0;
+    if(HV->res[R_LEAF] >= hs_stock() * 3 / 4) b = 0;
+    if(!(a + b + h)) a = 1;
     r = hs_rnd() % (a + b + h);
     return r < a ? R_FOOD : r < a + b ? R_LEAF : R_HONEY;
 }
@@ -191,7 +213,7 @@ static void finish_site(Site *s){
 }
 static void dig(UINT16 n, Wk *w){
     UINT8 t = CT(MAP[n]);
-    if(t == C_ORE){ w->carry = (R_ORE + 1) | ((2 + (HV->gear >= 40 ? 1 : 0)) << 3); }
+    if(t == C_ORE){ w->carry = (R_ORE + 1) | ((3 + (HV->gear >= 40 ? 1 : 0)) << 3); }
     else if(t == C_CRYS){ w->carry = (R_CRYS + 1) | (1 << 3); }
     else if(t == C_SOIL && !(hs_rnd() & 7)) w->carry = (R_LEAF + 1) | (1 << 3);
     MAP[n] = C_TUNNEL; hs_dirty(n);
@@ -201,7 +223,7 @@ static void wander(Wk *w){
     UINT8 d = hs_rnd() & 3, k; UINT16 n;
     for(k = 0; k < 4; k++, d = (d + 1) & 3){
         if((d == 0 && w->y == 0) || (d == 1 && w->x == MW - 1) || (d == 2 && w->y == MH - 1) || (d == 3 && w->x == 0)) continue;
-        n = CI(w->x + dxs[d], w->y + dys[d]);
+        n = CI((UINT8)(w->x + dxs[d]), (UINT8)(w->y + dys[d]));
         if(passable(MAP[n])){ wk_step(w, d); return; }
     }
     w->st = 3; w->tm = 20;
@@ -331,7 +353,7 @@ UINT8 hs_start_research(UINT8 t) BANKED {
 }
 /* ------------------------------------------------------------------ raids */
 UINT16 hs_strength(UINT8 kind) BANKED {
-    UINT16 s = 8 + 4 * (UINT16)HV->rn + HV->day / 2;
+    UINT16 s = 6 + 3 * (UINT16)HV->rn + HV->day / 3;
     s = s * (HV->diff == 0 ? 70 : HV->diff == 1 ? 100 : 140) / 100;
     if(kind == RK_BOSS) s *= 2; else if(kind == RK_RIVAL) s += s / 5;
     return s;
@@ -345,32 +367,44 @@ UINT16 hs_defence(void) BANKED {
     return d;
 }
 static void schedule(void){
-    HV->rday = HV->day + 4 + (hs_rnd() % 3) + (HV->diff == 0 ? 3 : 0);
-    if(HV->diff == 2 && HV->rday > HV->day + 4) HV->rday--;
+    HV->rday = HV->day + (HV->diff == 0 ? 8 : HV->diff == 1 ? 6 : 4) + (hs_rnd() % 3);
     HV->rpend = 0;
 }
 void hs_raid_result(UINT8 won) BANKED {
-    UINT8 k = HV->rpend ? HV->rpend - 1 : RK_BANDIT, r;
+    UINT8 k = HV->rpend ? HV->rpend - 1 : RK_BANDIT, r, k2 = HV->rpend2;
     if(won){
-        HV->rwon++; HV->shells += 4 + HV->rn; if(HV->shells > 9999) HV->shells = 9999;
+        HV->rwon++; HV->shells += 4 + HV->rn + (k2 ? 3 : 0); if(HV->shells > 9999) HV->shells = 9999;
         if(k == RK_BOSS){ HV->boss++; add_res(R_CRYS, 3); HV->shells += 15; }
         else add_res(hs_rnd() & 1 ? R_FOOD : R_ORE, 5);
         if(HV->hap < 90) HV->hap += 6;
         hs_note(M_WON);
     } else {
         HV->rlost++;
-        if(k != RK_RIVAL) for(r = 0; r < R_N; r++) HV->res[r] -= HV->res[r] / (k == RK_BOSS ? 2 : 3);
-        if(k != RK_BANDIT){ UINT8 n = HV->pop / (k == RK_BOSS ? 3 : 5); if(!n) n = 1; while(n-- && HV->pop > 3) kill_one(); }
+        if(k != RK_RIVAL || k2) for(r = 0; r < R_N; r++) HV->res[r] -= HV->res[r] / (k == RK_BOSS ? 2 : k2 ? 2 : 3);
+        if(k != RK_BANDIT || k2 == 1 + RK_RIVAL){ UINT8 n = HV->pop / (k == RK_BOSS ? 3 : 5); if(!n) n = 1; while(n-- && HV->pop > 3) kill_one(); }
         HV->shells -= HV->shells / 4; HV->grief = 8; if(HV->hap > 15) HV->hap -= 15;
         hs_note(M_LOST);
     }
-    HV->rn++; schedule();
+    HV->rn++; HV->rpend2 = 0; schedule();
 }
 void hs_raid_auto(void) BANKED {
     UINT8 k = HV->rpend - 1; UINT16 d = hs_defence(), s = hs_strength(k);
+    if(HV->rpend2) s += hs_strength(HV->rpend2 - 1) * 2 / 3;               /* two raids at once */
     s = s - s / 8 + hs_rnd() % (s / 4 + 1);
     hs_raid_result(d >= s);
 }
+/* an outpost is raided: its own level and a third of the home guards stand against a weaker band */
+void hs_outpost_raid(void) BANKED {
+    UINT8 k = HV->orp ? HV->orp - 1 : 0; UINT16 d, s;
+    HV->stat[2] = 0;
+    if(!HV->orp || !HV->outp[k]){ HV->orp = 0; return; }
+    d = 7 * (UINT16)HV->outp[k] + hs_defence() / 4; s = hs_strength(RK_BANDIT) * 3 / 4;
+    s = s - s / 8 + hs_rnd() % (s / 4 + 1);
+    if(d >= s){ HV->orwon++; HV->shells += 3 + HV->outp[k]; if(HV->shells > 9999) HV->shells = 9999; HV->stat[2] = 1; hs_note(M_OPWON); }
+    else { HV->orlost++; HV->outp[k]--; HV->shells -= HV->shells / 8; HV->stat[2] = 2; hs_note(M_OPLOST); }
+    HV->orp = 0;
+}
+UINT8 hs_caravan_here(void) BANKED { return HV->cvs != 0 && HV->cvt == 0; }
 /* ------------------------------------------------------------------ quests, score, achievements */
 UINT16 hs_kmask(void) BANKED {
     UINT16 m = 0; UINT16 s;
@@ -466,7 +500,24 @@ static void daily(void){
     /* raids */
     if(!HV->rpend && HV->day >= HV->rday){
         HV->rpend = 1 + ((HV->rn + 1) % 5 == 0 ? RK_BOSS : (hs_rnd() & 1) ? RK_RIVAL : RK_BANDIT);
+        HV->rpend2 = 0;
+        if(HV->rn >= 2 && HV->rpend != 1 + RK_BOSS && (UINT8)(hs_rnd() % 100) < 10 + 12 * HV->diff) HV->rpend2 = 1 + ((hs_rnd() & 1) ? RK_RIVAL : RK_BANDIT);   /* a second band at once */
         if(HV->away){ hs_raid_auto(); }
+    }
+    if(!HV->orp && HV->day >= HV->orday){                          /* an outpost is raided */
+        UINT8 k, n = 0, pick;
+        for(k = 0; k < 12; k++) if(HV->outp[k]) n++;
+        HV->orday = HV->day + (HV->diff == 0 ? 9 : HV->diff == 1 ? 7 : 5) + (hs_rnd() % 3);
+        if(n){
+            pick = hs_rnd() % n;
+            for(k = 0; k < 12; k++) if(HV->outp[k]){ if(!pick){ HV->orp = k + 1; break; } pick--; }
+            if(HV->away) hs_outpost_raid();
+        }
+    }
+    /* caravans: one sets out now and then, takes a while to arrive, and stays two days */
+    if(HV->cvn) HV->cvn--;
+    else if(!HV->cvt && !HV->cvs && HV->bcnt[C_MARKET] && has_tech(3)){
+        HV->cvt = 8; HV->cvn = 3 + (hs_rnd() % 3); HV->cvg = hs_rnd() % R_N; HV->cvw = (HV->cvg + 1 + hs_rnd() % (R_N - 1)) % R_N; HV->cvq = 6 + (hs_rnd() % 10); HV->cvf = 0;
     }
     if(!HV->rpend && !HV->away && ((HV->tech >> 7) & 1) && HV->day + 1 == HV->rday) hs_note(M_WARN);
     for(q = 0; q < NQ; q++) if(!HV->qt[q] && !HV->qv[q]) hs_quest_new(q);
@@ -479,6 +530,8 @@ void hs_tick(void) BANKED {
     /* the clock */
     HV->tod++;
     if(HV->tod >= 20) daily();
+    if(HV->cvt){ HV->cvt--; if(!HV->cvt){ HV->cvs = 40; if(!HV->away) hs_note(M_CARAVAN); } }
+    else if(HV->cvs){ HV->cvs--; if(!HV->cvs && !HV->away) hs_note(M_CARAWAY); }
     /* food */
     if(!(HV->tod & 1)){
         eat = (HV->pop + 3) / 4; if(HV->diff == 2) eat += (eat + 2) / 3;
@@ -491,6 +544,7 @@ void hs_tick(void) BANKED {
         UINT8 idle = hs_nidle(); UINT16 f = HV->bsum[C_FARM], lf = f * 2, mk;
         mk = 40 + 20 * (UINT16)idle; if(mk > 140) mk = 140;
         if(HV->res[R_LEAF] < lf) lf = HV->res[R_LEAF];
+        { UINT16 room = hs_stock() > HV->res[R_FOOD] ? hs_stock() - HV->res[R_FOOD] : 0; if(lf * 3 / 2 > room) lf = room * 2 / 3 + (room ? 1 : 0); }      /* a full larder does not eat leaf */
         HV->res[R_LEAF] -= lf;
         n = lf * 3 / 2 * mk / 100; if(has_tech(1)) n += n / 2; if(HV->kind == 7) n += n / 4; if(HV->wx == W_RAIN) n += n / 4; if(HV->evt == E_DROUGHT) n -= n / 3;
         add_res(R_FOOD, n);
@@ -531,7 +585,7 @@ void hs_tick(void) BANKED {
     if(tgt < 0) tgt = 0; if(tgt > 100) tgt = 100;
     if(HV->hap < tgt) HV->hap += (tgt - HV->hap > 3 ? 2 : 1); else if(HV->hap > tgt) HV->hap -= (HV->hap - tgt > 3 ? 2 : 1);
     if(HV->hap < 12 && HV->pop > 3 && !(hs_rnd() & 7)){ kill_one(); hs_note(M_LEFT); }
-    if(HV->evt == E_PLAGUE && HV->pop > 3 && (hs_rnd() % 100) < (HV->bsum[C_SHRINE] ? 3 : 10)){ kill_one(); }
+    if(HV->evt == E_PLAGUE && HV->pop > 3 && (hs_rnd() % 100) < (HV->bsum[C_SHRINE] ? 1 : 3) && !(HV->tod & 1)){ kill_one(); }
     /* research */
     if(HV->rs != 255){
         UINT8 sp = 1 + HV->bsum[C_SHRINE] / 3;
@@ -557,10 +611,11 @@ void hs_tick(void) BANKED {
     }
 }
 void hs_away(UINT16 ticks) BANKED {
+    UINT8 w0 = HV->rwon, l0 = HV->rlost, p0 = HV->pop;
     if(ticks > 200) ticks = 200;
-    HV->away = 1;
+    HV->awayd = (UINT8)(ticks / 20); HV->away = 1;
     while(ticks--) hs_tick();
-    HV->away = 0;
+    HV->away = 0; HV->awayw = HV->rwon - w0; HV->awayl = HV->rlost - l0; (void)p0;
 }
 
 #ifdef HT_RICH

@@ -16,6 +16,7 @@
 #include "text.h"
 #include "hud.h"
 #include "dialog.h"
+#include "shop.h"
 #include "sysmenu.h"
 #include "spell.h"
 #include "lab.h"
@@ -409,6 +410,7 @@ static int play_floor(void){                                       /* returns DG
         else if(HIT(J_SELECT) && !(k & J_B)){ cast(); if(portal_go) return DG_EXIT; }
         else if(HIT(J_SELECT)){
             if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); h = tr_pot(h); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; if(TRICK(7)){ UINT16 mm = hud_mpmax(sv.level); sv.mp = sv.mp + mm / 4 > mm ? mm : sv.mp + mm / 4; } } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
+            else if(shop_mana_drink()){ }
             else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
         }
         if(!((UINT8)frames32() & 127) && loot_regen()) dlg_say(0, "YOU ARE HUNGRY. EAT! (SELECT+DOWN)");
@@ -453,7 +455,7 @@ int dungeon_run(void) BANKED {
         break;
     }
     { UINT8 i; for(i = 0; i < 40; i++) move_sprite(i, 0, 0); }
-    if(r == DG_FAINT){ if(opt.diff && opt.faint) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT."); }
+    if(r == DG_FAINT){ if(opt.diff && opt.faint && !shop_clover()) sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1; dlg_say("BOLT", "YOU FAINTED. I DRAGGED YOU BACK TO THE SHIP. SOME GOLD FELL OUT."); }
     else if(r == DG_WIN) dungeon_won(kind);
     else if(r == DG_EXIT && !portal_go) dlg_say(0, "YOU CLIMB BACK OUT INTO THE DAYLIGHT.");
     feats_check();

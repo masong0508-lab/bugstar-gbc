@@ -18,9 +18,20 @@ static void s1(UINT8 sweep, UINT16 h, UINT16 x, UINT8 frames){
     NR10_REG = sweep; NR11_REG = (UINT8)h; NR12_REG = (UINT8)(h >> 8); NR13_REG = (UINT8)x; NR14_REG = (UINT8)(x >> 8);
     busy1 = frames; NR51_REG = 0xFF;                 /* both speakers while it plays */
 }
+static const struct { UINT8 sw; UINT16 h, x; UINT8 f; } sfxt[] = {
+    { (1 << 4) | 2, (0xF << 12) | (5 << 8) | (3 << 6), 0x8000 | 1010, 46 },  /* SFX_HORN */
+    { (4 << 4) | 3, (0xC << 12) | (2 << 8) | (2 << 6), 0x8000 | 1700, 20 },  /* SFX_BUILT */
+    { 0, (0xC << 12) | (4 << 8) | (2 << 6), 0x8000 | 1990, 40 },  /* SFX_BELL */
+    { (2 << 4) | 4, (0xB << 12) | (2 << 8) | (2 << 6), 0x8000 | 1880, 22 },  /* SFX_CASH */
+    { (7 << 4) | 5, (0xB << 12) | (6 << 8) | (1 << 6), 0x8000 | 1100, 44 },  /* SFX_PORTAL */
+    { (1 << 4) | (1 << 3) | 1, (0xE << 12) | (1 << 8) | (2 << 6), 0x8000 | 1850, 22 },  /* SFX_ALARM */
+    { (6 << 4) | 3, (0xD << 12) | (3 << 8) | (2 << 6), 0x8000 | 1500, 34 },  /* SFX_POWER */
+    { (5 << 4) | 2, (0xC << 12) | (3 << 8) | (2 << 6), 0x8000 | 1680, 30 },  /* SFX_QUEST */
+};
 static void s4(UINT16 l, UINT16 h, UINT8 frames){ NR41_REG = (UINT8)l; NR42_REG = (UINT8)(l >> 8); NR43_REG = (UINT8)h; NR44_REG = (UINT8)(h >> 8); busy4 = frames; }
 
 static void play_sfx(UINT8 n){
+    if(n >= SFX_HORN){ s1(sfxt[n - SFX_HORN].sw, sfxt[n - SFX_HORN].h, sfxt[n - SFX_HORN].x, sfxt[n - SFX_HORN].f); return; }
     switch(n){
     case SFX_BITE:    s4((0xA << 12) | (1 << 8), 0x8000 | (3 << 4) | 1, 10); break;
     case SFX_HIT:     s1((2 << 4) | (1 << 3) | 3, (0xC << 12) | (1 << 8) | (2 << 6), 0x8000 | 1750, 14); break;
@@ -46,6 +57,8 @@ static void play_sfx(UINT8 n){
     case SFX_TYPE:    s1(0, (0x4 << 12) | (1 << 8) | (1 << 6), 0x8000 | 1990, 3); break;
     case SFX_COUNT:   s1(0, (0xB << 12) | (1 << 8) | (2 << 6), 0x8000 | 1750, 16); break;                 /* the 3, 2, 1 beeps */
     case SFX_GO:      s1(0, (0xE << 12) | (3 << 8) | (2 << 6), 0x8000 | 1923, 34); break;                  /* ...and the higher GO */
+    case SFX_HATCH:   s1((2 << 4) | 2, (0xA << 12) | (1 << 8) | (1 << 6), 0x8000 | 1960, 14); s4((0x7 << 12) | (1 << 8), 0x8000 | (2 << 4) | 1, 8); break;   /* a small crack and a chirp */
+    case SFX_DIG:     s4((0x8 << 12) | (1 << 8), 0x8000 | (4 << 4) | 3, 8); break;                                                   /* scratch of a claw in soil */
     }
 }
 

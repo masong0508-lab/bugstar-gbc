@@ -90,7 +90,7 @@ void hm_fullmap(void) BANKED {
 }
 static void flush_dirty(void){
     UINT8 n = HV->stat[S_DQN], i;
-    if(HV->stat[S_FULL]){ HV->stat[S_FULL] = 0; HV->stat[S_DQN] = 0; hm_fullmap(); return; }
+    if(HV->stat[S_FULL]){ HV->stat[S_FULL] = 0; HV->stat[S_DQN] = 0; DISPLAY_OFF; hm_fullmap(); DISPLAY_ON; return; }
     for(i = 0; i < n; i++){ UINT16 q = DQ[i]; hm_cell((UINT8)(q & 31), (UINT8)(q >> 5)); }
     HV->stat[S_DQN] = 0;
 }
@@ -129,6 +129,31 @@ static void worker_sprites(UINT8 f){
         }
     }
 }
+static UINT8 nnx[5], nny[5], nnn;                       /* the nurseries that show eggs and larvae */
+static void rescan_nests(void){
+    UINT16 q; nnn = 0;
+    for(q = 3 * 32; q < 1024 && nnn < 5; q++) if(CT(MAP[q]) == C_NURS){ nnx[nnn] = (UINT8)(q & 31); nny[nnn] = (UINT8)(q >> 5); nnn++; }
+}
+static const UINT8 nest_oam[5] = { 25, 34, 35, 36, 37 };
+static void nest_sprites(UINT8 f){
+    UINT8 k, e = HV->egg;
+    for(k = 0; k < 5; k++){
+        UINT8 at = 2 + 2 * k;                              /* egg stage from this much, larva 8 later */
+        if(k >= nnn || e < at){ move_sprite(nest_oam[k], 0, 0); continue; }
+        if(e >= at + 8) hm_put_sprite(nest_oam[k], (INT16)nnx[k] * 8, (INT16)nny[k] * 8, (f & 16) ? TS_LARV1 : TS_LARV0, 3, 0);
+        else hm_put_sprite(nest_oam[k], (INT16)nnx[k] * 8, (INT16)nny[k] * 8, TS_EGGS, 7, 0);
+    }
+}
+static void cart_sprites(UINT16 tf){                       /* the caravan walks in along the grass and down the shaft, then waits near the queen */
+    INT16 px, py, tx2, ty2;
+    if(HV->cvt){
+        UINT16 d = ((UINT16)(8 - HV->cvt) * TICKF + tf) / 21;       /* 0 .. 136 pixels of road */
+        if(d < 104){ px = 24 + d; py = 16; tx2 = px - 7; ty2 = py; }
+        else { px = 128; py = 16 + (d - 104); if(py > 48) py = 48; tx2 = px; ty2 = py - 7; }
+    } else if(hs_caravan_here()){ px = ENTX * 8; py = 48; tx2 = px; ty2 = py - 8; }
+    else { move_sprite(38, 0, 0); move_sprite(39, 0, 0); return; }
+    hm_put_sprite(38, px, py, TS_CART, 2, 0); hm_put_sprite(39, tx2, ty2, TS_TRDR, 0, 0);
+}
 static void weather_sprites(UINT8 f){
     UINT8 k, on = HV->wx == W_RAIN || HV->wx == W_STORM || HV->wx == W_SNOW;
     for(k = 0; k < 8; k++){
@@ -161,26 +186,42 @@ static UINT8 do_menu(void){
 }
 static UINT8 n_budget(void){ return HV->pop > 12 ? 2 : 3; }
 void hm_run(void) BANKED {
-    UINT8 f = 0, bdown = 0, bmoved = 0, i; UINT16 tf = 0; UINT8 hudf = 0;
+    UINT8 f = 0, bdown = 0, bmoved = 0, i; UINT16 tf = 0; UINT8 hudf = 0, palp = 0;
     DISPLAY_OFF; HIDE_SPRITES; hv_art_load(); txt_pal_reset(); hm_pals(); SHOW_BKG;
     cux = ENTX; cuy = 7; cam_x = 6; cam_y = 0; hm_look(cux, cuy);
     memset(wdx, 0, sizeof wdx); memset(wdy, 0, sizeof wdy);
-    hm_fullmap(); hud_on(); txt_soft(); hu_hud(0); txt_soft_end();
+    hm_fullmap(); hud_on(); txt_soft(); hu_hud(0); txt_soft_end(); rescan_nests();
     hs_note(M_HELP); HV->notet = 240;
     DISPLAY_ON;
+    if(HV->awayd || !HV->stat[3]){
+        hm_sprites_off(); txt_pal_reset(); WY_REG = 0;
+        if(HV->awayd) hu2_awayreport();
+        if(!HV->stat[3]){ HV->stat[3] = 1; hu2_help(); }
+        HV->last = play_secs(); DISPLAY_OFF; hm_fullmap(); restore_view(); DISPLAY_ON; hudf = 1;
+    }
     for(;;){
-        wait_vbl_done(); input_poll(); f++;
+        wait_vbl_done(); f++;
+        /* 1. the vertical blank: every write to video memory happens here, right after the wait (the logic below may take longer than a blank) */
+        SCX_REG = (UINT8)(cam_x << 3); SCY_REG = (UINT8)(cam_y << 3);
+        if(palp){ hm_pals(); palp = 0; }
+        else {
+            flush_dirty();
+            if(!(f & 31)) rescan_nests();
+            if(hudf || !(f & 31)){ txt_soft(); hu_hud(HV->notet ? 1 : 0); txt_soft_end(); hudf = 0; }
+        }
+        worker_sprites(f); nest_sprites(f); cart_sprites(tf); weather_sprites(f); cursor_sprite(f);
+        /* 2. the logic */
+        input_poll();
         wspd = HV->stat[S_SPEED] ? 3 : 1;
-        /* keys */
         if(HITR(J_UP) && cuy > 0){ cuy--; hudf = 1; }
         if(HITR(J_DOWN) && cuy < MH - 1){ cuy++; hudf = 1; }
         if(HITR(J_LEFT) && cux > 0){ cux--; hudf = 1; }
         if(HITR(J_RIGHT) && cux < MW - 1){ cux++; hudf = 1; }
-        if(hudf){
+        if(HITR(J_UP | J_DOWN | J_LEFT | J_RIGHT)){
             hm_look(cux, cuy);
-            if(HELD(J_B) && (HITR(J_UP | J_DOWN | J_LEFT | J_RIGHT))){
+            if(HELD(J_B)){
                 UINT16 i2 = CI(cux, cuy); bmoved = 1;
-                if(hs_can_dig(i2) == 1 && !(MAP[i2] & MARKD)){ MAP[i2] |= MARKD; hm_cell(cux, cuy); sfx(SFX_STEP); }
+                if(hs_can_dig(i2) == 1 && !(MAP[i2] & MARKD)){ MAP[i2] |= MARKD; hs_dirty(i2); sfx(SFX_STEP); }
             }
         }
         if(HIT(J_B)){ bdown = 1; bmoved = 0; }
@@ -191,7 +232,7 @@ void hm_run(void) BANKED {
             UINT16 i2 = CI(cux, cuy); UINT8 t = CT(MAP[i2]), d;
             if(t == C_SOIL || t == C_ORE || t == C_CRYS){
                 d = hs_can_dig(i2);
-                if(d == 1){ MAP[i2] ^= MARKD; hm_cell(cux, cuy); hs_note((MAP[i2] & MARKD) ? M_MARKED : M_UNMARK); sfx(SFX_PICK); }
+                if(d == 1){ MAP[i2] ^= MARKD; hs_dirty(i2); hs_note((MAP[i2] & MARKD) ? M_MARKED : M_UNMARK); sfx(SFX_PICK); }
                 else { hs_note(d == 2 ? M_DEEP : M_NOCELL); sfx(SFX_HURT); }
             } else if(t == C_TUNNEL){
                 hm_sprites_off(); txt_pal_reset(); WY_REG = 0;
@@ -207,7 +248,7 @@ void hm_run(void) BANKED {
         /* time */
         tf += wspd;
         if(tf >= TICKF){
-            tf = 0; hs_tick(); hm_pals(); hudf = 1;
+            tf = 0; hs_tick(); palp = 1; hudf = 1;
             if(!HV->tod) hive_save();
         }
         /* workers: walking pixels, waiting, and a few decisions a frame */
@@ -220,10 +261,7 @@ void hm_run(void) BANKED {
                 else if(budget){ hs_think(i); budget--; }
             }
         }
-        flush_dirty();
-        worker_sprites(f); weather_sprites(f); cursor_sprite(f);
         if(HV->notet){ HV->notet--; if(!HV->notet) hudf = 1; }
-        if(hudf || !(f & 31)){ txt_soft(); hu_hud(HV->notet ? 1 : 0); txt_soft_end(); hudf = 0; }
         /* the raiders arrive */
         if(HV->rpend){
             hm_sprites_off();
@@ -232,6 +270,13 @@ void hm_run(void) BANKED {
             if(HV->stat[S_DEF]){ UINT8 won = hd_run(); HV->stat[S_DEF] = 0; hs_raid_result(won); hu_report(won); }
             else { UINT8 lw = HV->rwon; hs_raid_auto(); hu_report(HV->rwon > lw); }
             HV->last = play_secs(); music(MUS_CAMP);
+            DISPLAY_OFF; hm_fullmap(); restore_view(); DISPLAY_ON; hudf = 1; hs_recount();
+        }
+        if(HV->orp){                                           /* an outpost is raided at the same time or on its own: by numbers */
+            UINT8 ok = HV->orp - 1;
+            hm_sprites_off(); txt_pal_reset(); WY_REG = 0;
+            hs_outpost_raid(); hu_opreport(ok, HV->stat[2] == 1);
+            HV->last = play_secs();
             DISPLAY_OFF; hm_fullmap(); restore_view(); DISPLAY_ON; hudf = 1; hs_recount();
         }
     }

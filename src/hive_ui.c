@@ -17,7 +17,7 @@ static const char *const mtext[M_N] = {
     "RAIN BEGINS", "A STORM!", "SNOW FALLS", "A DRY SPELL", "THE SKY CLEARS", "DROUGHT: LESS FOOD", "PLAGUE IN THE HIVE", "TRADERS ARE HERE", "FLOWERS BLOOM!", "RAIDERS!", "RAID DRIVEN OFF!",
     "THE HIVE WAS LOOTED", "AN EGG HATCHED", "A BUG STARVED", "NEEDS DEEP DIG", "SPRING COMES", "SUMMER COMES", "AUTUMN COMES", "WINTER COMES", "RESEARCH DONE!", "QUEST PAID!",
     "NEW ACHIEVEMENT!", "A NEW DAY", "NIGHT FALLS", "TIME X3", "NORMAL TIME", "BOSS RAID!", "A BUG LEFT SADLY", "MARKED TO DIG", "MARK REMOVED", "WOULD TRAP THE HIVE",
-    "UPGRADED!", "ALREADY RESEARCHING", "NOTHING TO DO", "PLACE GUARDS", "ROYAL VISIT!", "RAIDERS TOMORROW!", "A:DIG/BUILD B:MENU" };
+    "UPGRADED!", "ALREADY RESEARCHING", "NOTHING TO DO", "PLACE GUARDS", "ROYAL VISIT!", "RAIDERS TOMORROW!", "A:DIG/BUILD B:MENU", "A CARAVAN COMES!", "THE CARAVAN LEFT", "OUTPOST HELD!", "OUTPOST RAIDED!", "TWO RAIDS AT ONCE!" };
 void hu_text(UINT8 id, char *out) BANKED { out[0] = 0; if(id < M_N) scat(out, mtext[id]); }
 static const char *const bnames[C_N] = { "SOIL", "TUNNEL", "ROCK", "IRON ORE", "CRYSTAL", "SKY", "GRASS", "FLOWERS", "ENTRANCE", "WATER", "BUILDING SITE", "QUEEN ROOM",
     "NURSERY", "FUNGUS FARM", "STOREHOUSE", "BARRACKS", "WORKSHOP", "SMELTER", "WALL", "GATE", "WATCHTOWER", "SHRINE", "MARKET" };
@@ -263,8 +263,8 @@ static void quest_page(void){
 }
 /* ---------------------------------------------------------------- the main menu */
 static UINT8 ml(UINT8 i, char *o){
-    static const char *const t[9] = { "RESUME", "JOBS", "RESEARCH", "QUESTS", "TRADE", "OUTPOSTS", "LINK TO GAME", "COLONY AND SCORE", "OPTIONS" };
-    if(i < 9){ scat(o, t[i]); return TXT_WHITE; }
+    static const char *const t[10] = { "RESUME", "JOBS", "RESEARCH", "QUESTS", "TRADE", "OUTPOSTS", "LINK TO GAME", "COLONY AND SCORE", "HELP", "OPTIONS" };
+    if(i < 10){ scat(o, t[i]); return TXT_WHITE; }
     scat(o, "SAVE AND LEAVE"); return TXT_GOLD;
 }
 static void mf(UINT8 i, char *l1, char *l2){
@@ -273,10 +273,11 @@ static void mf(UINT8 i, char *l1, char *l2){
         case 1: d = scat(l1, "IDLE "); d = u16s(d, hs_nidle()); scat(l2, "SET WHO DOES WHAT"); break;
         case 2: if(HV->rs != 255){ d = scat(l1, "NOW: "); d = scat(d, tname[HV->rs]); d = scat(d, " "); u16s(d, HV->rsleft); } else scat(l1, "NOTHING IN HAND"); break;
         case 3: d = scat(l1, "DONE "); u16s(d, HV->qn); scat(l2, "TIED TO TRAVEL"); break;
-        case 4: scat(l1, HV->trader ? "TRADERS ARE HERE!" : "BUY AND SELL"); break;
         case 5: scat(l1, "OTHER WORLDS"); break;
         case 6: scat(l1, "GOLD, ORE, TRIBUTE"); break;
-        case 9: scat(l1, "HIVE KEEPS GOING"); scat(l2, "WHILE YOU PLAY"); break;
+        case 4: scat(l1, hs_caravan_here() ? "A CARAVAN IS HERE!" : HV->cvt ? "A CARAVAN COMES" : HV->trader ? "TRADERS ARE HERE!" : "BUY AND SELL"); break;
+        case 8: scat(l1, "HOW TO PLAY"); scat(l2, "SIX SHORT PAGES"); break;
+        case 10: scat(l1, "HIVE KEEPS GOING"); scat(l2, "WHILE YOU PLAY"); break;
         default: break;
     }
 }
@@ -284,7 +285,7 @@ UINT8 hu_main_menu(void) BANKED {
     UINT8 r, out = 0, msel = 0;
     page_open(); lp_sel = 0;
     for(;;){
-        r = listpage("BUG HIVE", 10, ml, mf, 0); msel = lp_sel;
+        r = listpage("BUG HIVE", 11, ml, mf, 0); msel = lp_sel;
         if(r == 255 || r == 253) break;
         if(r == 0) break;
         if(r == 1) jobs_page();
@@ -294,8 +295,9 @@ UINT8 hu_main_menu(void) BANKED {
         else if(r == 5) hu2_outposts();
         else if(r == 6) hu2_link();
         else if(r == 7) hu2_status();
-        else if(r == 8){ if(hu2_options()){ HV->stat[S_DEF] = 2; out = 1; break; } }
-        else if(r == 9){ out = 1; break; }
+        else if(r == 8) hu2_help();
+        else if(r == 9){ if(hu2_options()){ HV->stat[S_DEF] = 2; out = 1; break; } }
+        else if(r == 10){ out = 1; break; }
         page_open(); lp_sel = msel;
     }
     return out;
@@ -346,6 +348,7 @@ void hu_raid_alert(void) BANKED {
     UINT8 k = HV->rpend - 1, f = 0, sel = 0, redraw = 1; char b[24], *d; UINT16 s, df;
     page_open(); sfx(SFX_HURT);
     s = hs_strength(k); df = hs_defence();
+    if(HV->rpend2){ s += hs_strength(HV->rpend2 - 1) * 2 / 3; hs_note(M_TWOFOLD); }
     HV->stat[S_DEF] = 0;
     for(;;){
         if(redraw){
@@ -353,6 +356,7 @@ void hu_raid_alert(void) BANKED {
             d = scat(b, rkname[k]); d = scat(d, " COMES"); txt_put(2, 4, b);
             d = scat(b, "THEIR POWER  "); d = u16s(d, s); txt_put(2, 6, b);
             d = scat(b, "YOUR DEFENCE "); d = u16s(d, df); txt_put(2, 7, b);
+            if(HV->rpend2){ d = scat(b, "AND "); d = scat(d, rkname[HV->rpend2 - 1]); txt_put(2, 5, b); }
             txt_put(2, 9, df >= s ? "IT SHOULD HOLD." : "IT WILL FALL!");
             txt_color(2, 9, 18, 1, df >= s ? TXT_WHITE : TXT_RED);
             txt_put(1, 12, sel == 0 ? ">YOU DEFEND IT" : " YOU DEFEND IT"); txt_put(1, 13, sel == 1 ? ">LET GUARDS DEFEND" : " LET GUARDS DEFEND");
@@ -372,6 +376,16 @@ void hu_report(UINT8 won) BANKED {
     txt_soft(); frame_page(won ? "VICTORY!" : "DEFEAT");
     if(won){ txt_put(2, 4, "THE RAIDERS FLEE."); d = scat(b, "LOOT  "); d = u16s(d, 4 + HV->rn); scat(d, " SHELLS"); txt_put(2, 6, b); txt_put(2, 8, "THE BUGS CHEER."); }
     else { txt_put(2, 4, "THEY BROKE IN."); txt_put(2, 6, "STORES LOOTED."); d = scat(b, "BUGS NOW "); u16s(d, HV->pop); txt_put(2, 8, b); txt_put(2, 10, "BUILD WALLS AND"); txt_put(2, 11, "TOWERS, TRY AGAIN"); }
+    txt_put(2, 15, "PRESS A"); txt_soft_end();
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
+}
+void hu_opreport(UINT8 kind, UINT8 won) BANKED {
+    char b[24], *d;
+    page_open(); sfx(won ? SFX_OK : SFX_HURT);
+    txt_soft(); frame_page(won ? "OUTPOST HELD!" : "OUTPOST RAIDED!");
+    d = scat(b, "THE "); d = scat(d, kind_name[kind]); d = scat(d, " OUTPOST"); txt_put(2, 4, b);
+    if(won){ txt_put(2, 6, "BEAT BACK THE RAID."); txt_put(2, 8, "A FEW SHELLS WIN."); }
+    else { txt_put(2, 6, "WAS OVERRUN."); d = scat(b, "NOW LEVEL "); u16s(d, HV->outp[kind]); txt_put(2, 8, b); txt_put(2, 10, "MORE GUARDS AT"); txt_put(2, 11, "HOME HELP IT."); }
     txt_put(2, 15, "PRESS A"); txt_soft_end();
     for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
 }

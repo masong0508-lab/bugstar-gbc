@@ -22,13 +22,13 @@
 #include "wild.h"
 
 static const char *const nm[4] = { "BOUNTY OFFICE", "CANTINA", "RACE POST", "MARKET" };
-void town3_name(UINT8 id, char *out) BANKED { scat(out, nm[id - SV3_BOUNTY]); }
-UINT8 town3_open(UINT8 id, UINT8 night) BANKED { return id == SV3_CANTINA || !night; }
+void town3_name(UINT8 id, char *out) BANKED { if(id >= SV4_FOLK){ town4_name(id, out); return; } scat(out, nm[id - SV3_BOUNTY]); }
+UINT8 town3_open(UINT8 id, UINT8 night) BANKED { if(id >= SV4_FOLK) return town4_open(id, night); return id == SV3_CANTINA || !night; }
 UINT8 town3_add(UINT8 *ids, UINT8 n, UINT8 tier, UINT16 th) BANKED {
     (void)th;
     if(tier >= 1){ ids[n++] = SV3_MARKET; ids[n++] = SV3_BOUNTY; ids[n++] = SV3_CANTINA; }
     if(tier >= 2) ids[n++] = SV3_RACE;
-    return n;
+    return town4_add(ids, n);
 }
 
 static void line(UINT8 y, const char *s, UINT8 pal){ txt_win(1); txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); txt_win(0); }
@@ -63,7 +63,7 @@ void bounty_tick(void) BANKED {
     XA x; UINT16 g; char b[40], *d;
     xa_get(&x);
     if(!x.bt || !bj_done(&x)) return;
-    g = bj_pay(&x); xa_put(&x); sfx(SFX_FANFARE);
+    g = bj_pay(&x); xa_put(&x); sfx(SFX_QUEST);
     d = u16s(scat(b, "JOB DONE! THE OFFICE WIRED "), g); scat(d, "G. BEEP."); dlg_say(0, b);
 }
 static UINT8 bj_ok(UINT8 t, UINT8 tier, const XA *x){            /* can this job be done at all (a counter that stopped at 255 cannot) */
@@ -80,7 +80,7 @@ static void bounty(UINT8 tier, UINT16 th){
     w[0] = 0;
     for(;;){
         xa_get(&x);
-        if(x.bt && bj_done(&x)){ UINT16 g = bj_pay(&x); xa_put(&x); d = u16s(scat(w, "WIRED "), g); scat(d, "G. BEEP."); m = "JOB DONE!"; mp = TXT_GOLD; sfx(SFX_FANFARE); }
+        if(x.bt && bj_done(&x)){ UINT16 g = bj_pay(&x); xa_put(&x); d = u16s(scat(w, "WIRED "), g); scat(d, "G. BEEP."); m = "JOB DONE!"; mp = TXT_GOLD; sfx(SFX_QUEST); }
         have = x.bt; pay = w16(x.bg);
         if(have){ t = x.bt; n = x.bn; }
         else {                                                      /* the job on offer: the same for this town until you take it */
@@ -274,6 +274,7 @@ static void market(UINT8 tier){
 }
 
 void town3_go(UINT8 id, UINT8 tier, UINT16 th) BANKED {
+    if(id >= SV4_FOLK){ town4_go(id, tier, th); return; }
     seed_rs(th);
     if(id == SV3_BOUNTY) bounty(tier, th);
     else if(id == SV3_CANTINA) cantina(tier, th);

@@ -264,7 +264,7 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
                 if(qt == 4) sv.el.cargo[qa] -= qb;
                 bounty_tick();
                 sv.gold += g; fame_add(3 + tier * 2); unlocks_update(); gain_xp(5 + (qr > 400 ? 40 : qr / 10));
-                Q_T = 0; Q_N++; sfx(SFX_FANFARE); m = "THANK YOU! PAID."; break;
+                Q_T = 0; Q_N++; sfx(SFX_QUEST); m = "THANK YOU! PAID."; break;
             }
             if(HIT(J_SELECT) && have){ Q_T = 0; sfx(SFX_BACK); m = "QUEST DROPPED"; break; }
         }
@@ -276,7 +276,7 @@ static const char *const sv_nm[10] = { "THE INN", "QUEST BOARD", "GENERAL STORE"
 extern volatile UINT8 snd_song;
 UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {   /* returns 0, or tier + 1 when the person paid for the bug pit */
     UINT8 old_song = snd_song;
-    UINT8 ids[18], n = 0, sel = 0, top = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
+    UINT8 ids[22], n = 0, sel = 0, top = 0, i, sprites = LCDC_REG & LCDCF_OBJON, redraw = 1, sp, out = 0, night; char b[24], *d; const char *msg = 0;
     th = thash(star, idx); shrine_used = 0; mpal = TXT_GOLD;
     rs = (UINT16)frames32() ^ ((UINT16)DIV_REG << 8) ^ th; if(!rs) rs = 1;
     ids[n++] = SV_INN; ids[n++] = SV_QUEST;
@@ -289,7 +289,7 @@ UINT8 town_run(UINT8 star, UINT8 idx, UINT8 tier, INT8 ddx, INT8 ddy) BANKED {  
       for(k = 0; k < 4; k++) if(sp & (1 << k)) ids[n++] = SV_ACADEMY + k; }
     if(tier >= 3) ids[n++] = SV_PIT;
     n = town2_add(ids, n, tier, th);
-    HIDE_SPRITES; sfx(SFX_OK); music(MUS_TOWN);
+    HIDE_SPRITES; sfx(SFX_BELL); music(MUS_TOWN);
     for(;;){
         night = tod_dark() >= 10;
         if(redraw){

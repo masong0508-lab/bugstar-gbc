@@ -77,7 +77,7 @@ static void settings_load(void){
     if(opt.goldm > 2) opt.goldm = 2;
     opt.sfx &= 1; opt.autosave &= 1; opt.shake &= 1; opt.hunger &= 1; opt.faint &= 1;
     if(RUM_LVL() > 5) opt.cam = (opt.cam & ~7) | 2; if(RUM_EV() > 2) opt.cam = (opt.cam & ~0x18) | 8; opt.cam &= 0x3F;
-    if(opt.tspd > 3) opt.tspd = 1; opt.runb &= 1; if(opt.asv > 2) opt.asv = 1; if(opt.clr > 2) opt.clr = 0;
+    if(opt.tspd > 3) opt.tspd = 1; opt.runb &= 1; if(opt.asv > 2) opt.asv = 1; if(opt.clr > 3) opt.clr = 0;
     opt.minimap &= 1; opt.nums &= 1; opt.hints &= 1; opt.arrow &= 0x0F; if(BUD_CODE() > 6) opt.arrow &= 1;
 }
 

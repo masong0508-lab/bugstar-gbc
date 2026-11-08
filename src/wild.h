@@ -94,5 +94,12 @@ UINT8 town3_add(UINT8 *ids, UINT8 n, UINT8 tier, UINT16 th) BANKED;
 void  town3_name(UINT8 id, char *out) BANKED;
 UINT8 town3_open(UINT8 id, UINT8 night) BANKED;
 void  town3_go(UINT8 id, UINT8 tier, UINT16 th) BANKED;
+#define SV4_FOLK    24
 void  bounty_tick(void) BANKED;                 /* pays the bounty office's job the moment it is done (called whenever a counter may have moved) */
+
+/* ---- bank 52: TOWNSFOLK and their errands (id 24) */
+UINT8 town4_add(UINT8 *ids, UINT8 n) BANKED;
+void  town4_name(UINT8 id, char *out) BANKED;
+UINT8 town4_open(UINT8 id, UINT8 night) BANKED;
+void  town4_go(UINT8 id, UINT8 tier, UINT16 th) BANKED;
 #endif

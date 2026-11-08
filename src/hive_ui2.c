@@ -71,15 +71,24 @@ static UINT16 price(UINT8 r, UINT8 sell){
     p = base[r] * m / 100; if(sell){ p = p * 7 / 10; p += p * HV->bsum[C_MARKET] / 25; if(HV->trader) p += p / 5; }
     return p ? p : 1;
 }
+static const char *const sn[R_N] = { "FOOD", "LEAF", "ORE", "BARS", "CRYS", "HONEY" };
+static UINT16 cv_sell(void){ UINT16 p = price(HV->cvg, 0) * 7 / 10; return p ? p : 1; }       /* the caravan sells cheap per unit */
+static UINT16 cv_buy(void){ return price(HV->cvw, 1) * 3 / 2; }                               /* and pays well */
 static UINT8 trl(UINT8 i, char *o){
-    static const char *const sn[R_N] = { "FOOD", "LEAF", "ORE", "BARS", "CRYS", "HONEY" };
-    char *d = scat(o, sn[i]); while(d - o < 6) *d++ = ' ';
+    char *d;
+    if(i >= R_N){
+        if(i == R_N){ d = u16s(o, HV->cvq); d = scat(d, " "); d = scat(d, sn[HV->cvg]); d = scat(d, (HV->cvf & 1) ? " SOLD" : " $"); if(!(HV->cvf & 1)) u16s(d, cv_sell() * HV->cvq); return (HV->cvf & 1) ? TXT_GREY : TXT_GOLD; }
+        d = scat(o, "WANTS 10 "); d = scat(d, sn[HV->cvw]); d = scat(d, (HV->cvf & 2) ? " DONE" : " $"); if(!(HV->cvf & 2)) u16s(d, cv_buy() * 10); return (HV->cvf & 2) ? TXT_GREY : TXT_GOLD;
+    }
+    d = scat(o, sn[i]); while(d - o < 6) *d++ = ' ';
     d = u16s(d, HV->res[i]); while(d - o < 10) *d++ = ' ';
     d = scat(d, "B"); d = u16s(d, price(i, 0)); d = scat(d, " S"); u16s(d, price(i, 1));
     return TXT_WHITE;
 }
 static void trf(UINT8 i, char *l1, char *l2){
-    char *d = scat(l1, "TOWN "); d = world_name(d, world_seed(town_star())); d = scat(d, " "); (void)i;
+    char *d;
+    if(i >= R_N){ scat(l1, "THE CARAVAN IS HERE"); scat(l2, i == R_N ? "A: BUY ALL, CHEAP" : "A: SELL 10, DEAR"); return; }
+    d = scat(l1, "TOWN "); d = world_name(d, world_seed(town_star())); d = scat(d, " ");
     scat(d, HV->trader ? "TRADERS!" : "");
     scat(l2, "R:BUY 5  L:SELL 5");
 }
@@ -93,12 +102,19 @@ void hu2_trade(void) BANKED {
     }
     for(;;){
         char b[24]; UINT16 p;
-        r = listpage("TRADE (SHELLS)", R_N, trl, trf, 0);
+        r = listpage("TRADE (SHELLS)", hs_caravan_here() ? R_N + 2 : R_N, trl, trf, 0);
         (void)b;
         if(r == 255) break;
+        if(r == 253) continue;
+        if(r >= R_N && r < 253){                                    /* the caravan's two offers */
+            if(r == R_N && !(HV->cvf & 1)){ p = cv_sell() * HV->cvq; if(HV->shells >= p && HV->res[HV->cvg] + HV->cvq <= hs_stock()){ HV->shells -= p; HV->res[HV->cvg] += HV->cvq; HV->cvf |= 1; sfx(SFX_COIN); } else sfx(SFX_HURT); }
+            else if(r == R_N + 1 && !(HV->cvf & 2)){ if(HV->res[HV->cvw] >= 10){ HV->res[HV->cvw] -= 10; HV->shells += cv_buy() * 10; if(HV->shells > 9999) HV->shells = 9999; HV->cvf |= 2; sfx(SFX_CASH); } else sfx(SFX_HURT); }
+            else sfx(SFX_HURT);
+            continue;
+        }
         if(r == 254){
             if(lp_dir == 1){ p = price(lp_sel, 0) * 5; if(HV->shells >= p){ UINT16 cap = hs_stock(); if(HV->res[lp_sel] + 5 <= cap){ HV->shells -= p; HV->res[lp_sel] += 5; sfx(SFX_COIN); } else sfx(SFX_HURT); } else sfx(SFX_HURT); }
-            else { if(HV->res[lp_sel] >= 5){ HV->res[lp_sel] -= 5; HV->shells += price(lp_sel, 1) * 5; if(HV->shells > 9999) HV->shells = 9999; sfx(SFX_COIN); } else sfx(SFX_HURT); }
+            else { if(HV->res[lp_sel] >= 5){ HV->res[lp_sel] -= 5; HV->shells += price(lp_sel, 1) * 5; if(HV->shells > 9999) HV->shells = 9999; sfx(SFX_CASH); } else sfx(SFX_HURT); }
         }
     }
 }
@@ -229,4 +245,45 @@ UINT8 hu2_options(void) BANKED {
         if(r == 2){ if(sure){ return 1; } sure = 1; sfx(SFX_HURT); }
     }
     return 0;
+}
+/* ---------------------------------------------------------------- help */
+static const char *const hp_title[6] = { "THE HIVE", "THE MAP", "JOBS", "GROWING", "RAIDS", "TRADE AND MORE" };
+static const char *const hp_text[6][10] = {
+    { "A COLONY OF BUGS", "LIVES UNDER THE", "GROUND. WORKERS", "WALK THE TUNNELS", "AND DO THE WORK.", "", "FEED THEM, KEEP", "THEM HAPPY AND", "GUARD THE QUEEN.", "" },
+    { "D-PAD: CURSOR", "A ON SOIL: MARK", "IT TO DIG. HOLD B", "AND WALK TO", "DRAG-DIG.", "A ON A TUNNEL:", "BUILD A ROOM.", "A ON A ROOM: LEVEL", "SELECT: TIME X3", "START OR B: MENU" },
+    { "FORAGERS FETCH", "FOOD AND LEAF.", "MINERS DIG ORE.", "BUILDERS RAISE", "ROOMS AND DIG.", "NURSES TEND EGGS.", "GUARDS DEFEND.", "THE IDLE TEND", "FARMS, SHRINES.", "SET QUOTAS: JOBS" },
+    { "FARMS TURN LEAF", "INTO FOOD.", "SMELTERS MAKE BARS", "FROM ORE AND LEAF,", "WORKSHOPS TURN", "BARS INTO GEAR.", "EGGS AND LARVAE", "GROW IN NURSERIES.", "STORES HOLD MORE.", "" },
+    { "RAIDERS COME EVERY", "FEW DAYS, AT TIMES", "TWO BANDS AT ONCE,", "AND OUTPOSTS ARE", "RAIDED TOO.", "SELECT PLACES THEM", "DOES IT FOR YOU.", "OR LET THEM FIGHT.", "WALLS, GATES AND", "TOWERS HELP." },
+    { "A MARKET BRINGS", "CARAVANS THAT", "WALK IN OVER", "TIME. OUTPOSTS ON", "OTHER WORLDS GIVE", "GOODS. THE LINK", "GIVES GOLD, AND A", "ROYAL VISIT.", "THE HIVE RUNS ON", "WHILE YOU PLAY." }
+};
+void hu2_help(void) BANKED {
+    UINT8 pg = 0, redraw = 1, i; char b[24], *d;
+    page_open();
+    for(;;){
+        if(redraw){
+            txt_soft(); frame_page(hp_title[pg]);
+            for(i = 0; i < 10; i++) txt_line(1, 3 + i, hp_text[pg][i], 18);
+            d = scat(b, pg ? "< " : "  "); d = u16s(d, pg + 1); d = scat(d, "/6"); d = scat(d, pg < 5 ? " >" : "  "); txt_put(6, 15, b);
+            txt_color(6, 15, 8, 1, TXT_GREY);
+            txt_soft_end(); redraw = 0;
+        }
+        wait_vbl_done(); input_poll();
+        if(HIT(J_RIGHT) || HIT(J_A)){ if(pg < 5){ pg++; redraw = 1; sfx(SFX_MOVE); } else if(HIT(J_A)) break; }
+        if(HIT(J_LEFT) && pg){ pg--; redraw = 1; sfx(SFX_MOVE); }
+        if(HIT(J_B) || HIT(J_START)){ sfx(SFX_BACK); break; }
+    }
+}
+void hu2_awayreport(void) BANKED {
+    char b[24], *d;
+    page_open();
+    txt_soft(); frame_page("AWAY REPORT");
+    d = u16s(b, HV->awayd); d = scat(d, HV->awayd == 1 ? " DAY PASSED" : " DAYS PASSED"); txt_put(2, 4, b);
+    d = scat(b, "BUGS NOW "); u16s(d, HV->pop); txt_put(2, 6, b);
+    d = scat(b, "RAIDS WON  "); u16s(d, HV->awayw); txt_put(2, 8, b);
+    d = scat(b, "RAIDS LOST "); u16s(d, HV->awayl); txt_put(2, 9, b);
+    if(HV->awayl) txt_color(2, 9, 16, 1, TXT_RED);
+    txt_put(2, 11, "THE WORKERS KEPT"); txt_put(2, 12, "GOING ALONE.");
+    txt_put(2, 15, "PRESS A"); txt_soft_end();
+    for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_B)) break; }
+    HV->awayd = 0;
 }

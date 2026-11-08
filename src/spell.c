@@ -40,6 +40,7 @@ UINT8 spell_pay(UINT8 s) BANKED {
     if(sv.mp < sp_cost[s]){ sfx(SFX_HURT); dlg_say(0, "NOT ENOUGH MANA."); return 0; }
     sv.mp -= sp_cost[s]; if(EX_CASTS < 255) EX_CASTS++;
     if(s > 1 && s < 4) sfx(SFX_SPARK);
+    if(s == 4) sfx(SFX_PORTAL);
     if(s == 5 || s == 6) sfx(SFX_SPARK); else if(s == 7) sfx(SFX_BOOM); else if(s == 8) sfx(SFX_LASER); else if(s == 9) sfx(SFX_FIRE);
     if(s == 2){ sv.hp += mx / 2; if(sv.hp > mx) sv.hp = mx; }
     return 1;

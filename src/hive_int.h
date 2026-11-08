@@ -52,6 +52,11 @@ typedef struct {
     UINT32 last; UINT16 rng; UINT8 away, nsite;
     UINT16 dead;                                  /* bugs lost */
     UINT8  note, notet;                           /* the message on the HUD (M_*) and how long it stays */
+    UINT8  rpend2;                                /* a second raider coming with the first: 1 + kind, 0 none */
+    UINT8  orp, orwon, orlost;                    /* an outpost under attack (index + 1), outpost raids won and lost */
+    UINT16 orday;                                 /* day of the next outpost raid */
+    UINT8  cvt, cvs, cvg, cvq, cvw, cvf, cvn;     /* caravan: ticks to arrive, ticks it stays, good it sells, how many, good it buys, done flags (1 bought 2 sold), days to the next */
+    UINT8  awayd, awayw, awayl;                   /* what the last catch-up did: days, raids won, raids lost */
     UINT8  stat[8];                               /* S_* below */
     UINT8  bsum[C_N], bcnt[C_N];                  /* worked out from the map, not saved as truth */
     Wk     wk[NWK];
@@ -63,7 +68,7 @@ extern __at(0xD600) UINT8 hv_map[1024];
 extern __at(0xDA00) UINT8 hv_vis[1024];
 extern __at(0xDE00) UINT16 hv_que[128];
 extern __at(0xDF00) UINT16 hv_dq[32];                        /* cells to redraw, filled by the rules, emptied by the map */
-typedef struct { UINT8 gx[10], gy[10], ghp[10], gflash[10], ox[12], oy[12], ohp[12], oflash[12], tx[8], ty[8], tl[8], gn, gmax, on_, oboss, brk_hp, brk_at_x, brk_at_y, tn; } HD;   /* the defend phase (WRAM bank 6, DF40) */
+typedef struct { UINT8 px[10], py[10], gx[10], gy[10], ghp[10], gflash[10], ox[12], oy[12], ohp[12], oflash[12], tx[8], ty[8], tl[8], gn, gmax, on_, oboss, brk_hp, brk_at_x, brk_at_y, tn; } HD;   /* the defend phase (WRAM bank 6, DF40) */
 extern __at(0xDF40) HD hvd;
 #define HV (&hvs)
 #define MAP hv_map
@@ -71,7 +76,7 @@ extern __at(0xDF40) HD hvd;
 #define QUE hv_que
 #define DQ  hv_dq
 #define DQN 32
-#define HV_VER 7
+#define HV_VER 8
 #define S_VGEN 1
 #define S_DQN 4
 #define S_FULL 5
@@ -101,6 +106,8 @@ UINT8  hs_guardcap(void) BANKED;
 UINT16 hs_defence(void) BANKED;                             /* the number the auto-resolved raid is measured against */
 UINT16 hs_strength(UINT8 kind) BANKED;
 void   hs_raid_auto(void) BANKED;                           /* the pending raid is fought without the player */
+void   hs_outpost_raid(void) BANKED;                        /* the attacked outpost is fought by numbers: HV->orp is cleared; returns through HV->stat[2] = 1 won / 2 lost */
+UINT8  hs_caravan_here(void) BANKED;                        /* 1 while the caravan stands in the colony */
 void   hs_raid_result(UINT8 won) BANKED;                    /* ...or after the defend phase */
 UINT32 hs_score(void) BANKED;
 void   hs_ach(void) BANKED;                                 /* check the achievements */
@@ -137,7 +144,10 @@ void   hu_cell_menu(UINT8 x, UINT8 y) BANKED;               /* a building: level
 UINT8  hu_main_menu(void) BANKED;                           /* START: pages; returns 1 to leave the hive */
 UINT8  hu_intro(void) BANKED;                               /* first time: pick the world and difficulty: kind | diff << 4 */
 void   hu_raid_alert(void) BANKED;
-void   hu_report(UINT8 won) BANKED;                         /* after a raid: what happened */
+void   hu_report(UINT8 won) BANKED;
+void   hu_opreport(UINT8 kind, UINT8 won) BANKED;           /* an outpost was raided: its kind of world, held or not */
+void   hu2_help(void) BANKED;                               /* hive_ui2.c: the tutorial pages */
+void   hu2_awayreport(void) BANKED;                         /* what the colony did while the player was away */                         /* after a raid: what happened */
 void   hu_cellinfo(UINT8 x, UINT8 y, char *out) BANKED;     /* the line under the HUD while the cursor sits on a cell */
 void   hu_bname(UINT8 type, char *out) BANKED;
 void   hu2_trade(void) BANKED;                              /* hive_ui2.c (bank 51) */
@@ -150,5 +160,5 @@ UINT8  hd_run(void) BANKED;                                 /* the defend phase:
 /* message ids (hive_ui.c holds the text) */
 enum { M_NONE, M_BUILT, M_DUG, M_NOLEAF, M_NOPAY, M_NEEDTECH, M_BLOCKED, M_MAXLV, M_NOCELL, M_SITEFULL, M_NEEDSTORE, M_RAIN, M_STORM, M_SNOW, M_DRY, M_CLEAR,
        M_DROUGHT, M_PLAGUE, M_TRADERS, M_BLOOM, M_RAID, M_WON, M_LOST, M_HATCH, M_STARVE, M_DEEP, M_SEASON0, M_SEASON1, M_SEASON2, M_SEASON3, M_TECHDONE, M_QUESTDONE,
-       M_ACH, M_DAY, M_NIGHT, M_FAST, M_NORMAL, M_BOSS, M_LEFT, M_MARKED, M_UNMARK, M_NOWALL, M_UPGR, M_RESEARCH, M_NOTHING, M_GUARDS, M_ROYAL, M_WARN, M_HELP, M_N };
+       M_ACH, M_DAY, M_NIGHT, M_FAST, M_NORMAL, M_BOSS, M_LEFT, M_MARKED, M_UNMARK, M_NOWALL, M_UPGR, M_RESEARCH, M_NOTHING, M_GUARDS, M_ROYAL, M_WARN, M_HELP, M_CARAVAN, M_CARAWAY, M_OPWON, M_OPLOST, M_TWOFOLD, M_N };
 #endif

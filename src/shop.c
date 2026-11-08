@@ -15,6 +15,7 @@
 #include "bolt.h"
 #include "econ.h"
 #include "loot.h"
+#include "dialog.h"
 
 #define POTION_COST 40
 
@@ -92,13 +93,15 @@ void skills_run(void) BANKED {
 }
 
 /* ---------------------------------------------------------------- shop */
-enum { I_POTION, I_FANG, I_SHELL, I_LASER, I_GUNS, I_ENGINE, I_TURBO, I_HULL, I_MAGNET, I_SHIELD, I_HOLD, I_TANK, I_N };
-static const char *const it_name[I_N] = { "POTION", "FANG", "SHELL", "LASER", "GUNS", "ENGINE", "TURBO", "HULL", "MAGNET", "SHIELD", "HOLD", "TANK" };
-static const UINT8  it_up[I_N] = { 0, UP_FANG, UP_SHELL, UP_LASER, UP_GUNS, UP_ENGINE, UP_TURBO, UP_HULL, UP_MAGNET, UP_SHIELD, UP_HOLD, UP_TANK };
+enum { I_POTION, I_FANG, I_SHELL, I_MANA, I_CLOVER, I_LASER, I_GUNS, I_ENGINE, I_TURBO, I_HULL, I_MAGNET, I_SHIELD, I_HOLD, I_TANK, I_N };
+static const char *const it_name[I_N] = { "POTION", "FANG", "SHELL", "MANA", "CLOVER", "LASER", "GUNS", "ENGINE", "TURBO", "HULL", "MAGNET", "SHIELD", "HOLD", "TANK" };
+static const UINT8  it_up[I_N] = { 0, UP_FANG, UP_SHELL, 0, 0, UP_LASER, UP_GUNS, UP_ENGINE, UP_TURBO, UP_HULL, UP_MAGNET, UP_SHIELD, UP_HOLD, UP_TANK };
 static const UINT16 it_cost[I_N][5] = {
     { POTION_COST, 0, 0, 0, 0 },
     { 150, 300, 600, 1200, 2400 },     /* FANG */
     { 200, 400, 800, 1600, 3200 },     /* SHELL */
+    { 60, 0, 0, 0, 0 },                /* MANA POTION */
+    { 250, 0, 0, 0, 0 },               /* LUCKY CLOVER */
     { 120, 300, 700, 1500, 3000 },     /* LASER */
     { 250, 500, 1000, 2000, 4000 },    /* GUNS */
     { 150, 350, 700, 1400, 2800 },     /* ENGINE */
@@ -110,7 +113,7 @@ static const UINT16 it_cost[I_N][5] = {
     { 150, 300, 600, 1200, 2400 },     /* TANK */
 };
 static const char *const gun_name[6] = { "ONE SHOT", "RAPID FIRE", "TWIN SHOTS", "TWIN RAPID", "TRIPLE SHOT", "TRIPLE RAPID" };
-static const char *const it_what[I_N] = { "HEALS HALF YOUR HP", "BITES HIT HARDER", "TOUGHER SHELL", "SHIP LASER POWER", "MORE LASERS", "FASTER CRUISING", "FASTER BOOSTING", "TOUGHER SHIP", "MORE GOLD IN SPACE", "ABSORBS DAMAGE", "BIGGER CARGO BAY", "BIGGER FUEL TANK" };
+static const char *const it_what[I_N] = { "HEALS HALF YOUR HP", "BITES HIT HARDER", "TOUGHER SHELL", "FILLS YOUR MANA", "FAINT? KEEP GOLD", "SHIP LASER POWER", "MORE LASERS", "FASTER CRUISING", "FASTER BOOSTING", "TOUGHER SHIP", "MORE GOLD IN SPACE", "ABSORBS DAMAGE", "BIGGER CARGO BAY", "BIGGER FUEL TANK" };
 static void it_effect(UINT8 it, UINT8 lv, char *out){
     switch(it){
     case I_FANG:   num(out, "BITE +", lv * 2, ""); break;
@@ -127,8 +130,12 @@ static void it_effect(UINT8 it, UINT8 lv, char *out){
     }
 }
 #define SHOP_MAXLV 5
+static UINT8 is_con(UINT8 it){ return it == I_POTION || it == I_MANA || it == I_CLOVER; }                /* things you carry and use up (counts), not gear (levels) */
+static UINT8 *con_ptr(UINT8 it){ return it == I_POTION ? &sv.potions : it == I_MANA ? &sv.rsv2[0] : &sv.rsv2[1]; }
+static UINT8 it_lv(UINT8 it){ return is_con(it) ? *con_ptr(it) : sv.up[it_up[it]]; }
+static UINT8 it_max(UINT8 it){ return it == I_CLOVER ? 5 : is_con(it) ? 9 : SHOP_MAXLV; }
 static UINT8 s_mode, s_n, s_first, s_disc, s_ask;                   /* 0 the planet's shop (potions, bug gear), 1 the shipyard of a station (ship parts) */
-static UINT16 s_price(UINT8 it, UINT8 lv){ return (UINT16)((UINT32)it_cost[it][it ? lv : 0] * (100 - s_disc) / 100); }
+static UINT16 s_price(UINT8 it, UINT8 lv){ return (UINT16)((UINT32)it_cost[it][is_con(it) ? 0 : lv] * (100 - s_disc) / 100); }
 static const char s_thanks[] = "THANK YOU!";
 static void shop_draw(UINT8 cur, const char *msg){
     UINT8 i, it = s_first + cur, lv, r = 4 + s_n; char b[24], *d;
@@ -136,27 +143,27 @@ static void shop_draw(UINT8 cur, const char *msg){
     d = scat(b, s_mode ? "YARD  GOLD " : "SHOP  GOLD "); d = u32s(d, sv.gold > 999999999UL ? 999999999UL : sv.gold); pad(d, b, 18); txt_line(1, 1, b, 18); txt_color(1, 1, 18, 1, TXT_GOLD);
     txt_line(1, 2, s_ask ? "A: YES   B: NO" : "A:BUY S:SELL >GEAR", 18); txt_color(1, 2, 18, 1, s_ask ? TXT_GOLD : TXT_GREY);   /* what the buttons do, like the GBA's footer */
     for(i = 0; i < s_n; i++){
-        it = s_first + i; lv = it ? sv.up[it_up[it]] : sv.potions;
+        it = s_first + i; lv = it_lv(it);
         d = scat(b, i == cur ? S_CURSOR : " "); d = scat(d, it_name[it]); d = pad(d, b, 8);
-        if(it == I_POTION){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= 9) scat(d, "FULL"); else num(d, "", POTION_COST, ""); }
+        if(is_con(it)){ d = scat(d, "x"); d = u16s(d, lv); d = pad(d, b, 13); if(lv >= it_max(it)) scat(d, "FULL"); else num(d, "", s_price(it, 0), ""); }
         else { d = pips(d, lv, SHOP_MAXLV); if(lv < SHOP_MAXLV) num(d, "", s_price(it, lv), ""); else scat(d, "MAX"); }
         txt_line(1, 3 + i, b, 18); txt_color(1, 3 + i, 18, 1, i == cur ? TXT_GOLD : TXT_WHITE);
-        if(it ? lv < SHOP_MAXLV : lv < 9){ if(sv.gold < s_price(it, it ? lv : 0)) txt_color(14, 3 + i, 5, 1, TXT_RED); }   /* a price you cannot pay is red */
+        if(lv < it_max(it)){ if(sv.gold < s_price(it, lv)) txt_color(14, 3 + i, 5, 1, TXT_RED); }   /* a price you cannot pay is red */
     }
     it = s_first + cur;
     txt_line(1, r, it_what[it], 18); txt_color(1, r, 18, 1, TXT_WHITE);
-    if(it == I_POTION){ txt_line(1, r + 1, "SELECT DRINKS ONE", 18); txt_color(1, r + 1, 18, 1, TXT_GREY); txt_line(1, r + 2, "", 18); }
+    if(is_con(it)){ txt_line(1, r + 1, it == I_POTION ? "SELECT DRINKS ONE" : it == I_MANA ? "SELECT AT FULL HP" : "USED ON A FAINT", 18); txt_color(1, r + 1, 18, 1, TXT_GREY); txt_line(1, r + 2, "", 18); }
     else {
         lv = sv.up[it_up[it]];
         d = scat(b, "NOW  "); it_effect(it, lv, d); txt_line(1, r + 1, b, 18); txt_color(1, r + 1, 18, 1, TXT_GREY);
         if(lv < SHOP_MAXLV){ d = scat(b, "NEXT "); it_effect(it, lv + 1, d); } else scat(b, "FULLY UPGRADED");
         txt_line(1, r + 2, b, 18); txt_color(1, r + 2, 18, 1, TXT_GOLD);
     }
-    lv = it ? sv.up[it_up[it]] : sv.potions;
+    lv = it_lv(it);
     if(s_ask){ msg = "MOST OF YOUR GOLD!"; }
     if(msg){ txt_line(1, r + 3, msg, 18); txt_color(1, r + 3, 18, 1, msg == s_thanks ? TXT_GOLD : TXT_RED); }
-    else if(it ? lv < SHOP_MAXLV : lv < 9){                                   /* what the gold will be, or what is missing (the GBA's PRICE / LEFT / NEED line) */
-        UINT16 pr = s_price(it, it ? lv : 0);
+    else if(lv < it_max(it)){                                   /* what the gold will be, or what is missing (the GBA's PRICE / LEFT / NEED line) */
+        UINT16 pr = s_price(it, lv);
         if(sv.gold >= pr){ d = scat(b, "LEFT "); u32s(d, sv.gold - pr); txt_line(1, r + 3, b, 18); txt_color(1, r + 3, 18, 1, TXT_GREY); }
         else { d = scat(b, "NEED "); d = u32s(d, pr - sv.gold); scat(d, " MORE"); txt_line(1, r + 3, b, 18); txt_color(1, r + 3, 18, 1, TXT_RED); }
     } else { txt_line(1, r + 3, "", 18); }
@@ -175,7 +182,7 @@ static UINT8 shop_sure(UINT8 cur){                              /* a big buy ask
 extern volatile UINT8 snd_song;
 void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a station's shipyard */
     UINT8 old = snd_song, cur = 0, sprites = LCDC_REG & LCDCF_OBJON, h; const char *msg = 0;
-    s_mode = mode; s_n = mode ? 9 : 3; s_first = mode ? I_LASER : I_POTION; s_disc = mode ? fame_disc() : 0; h = 9 + s_n;
+    s_mode = mode; s_n = mode ? 9 : 5; s_first = mode ? I_LASER : I_POTION; s_disc = mode ? fame_disc() : 0; h = 9 + s_n;
     HIDE_SPRITES; if(!mode) music(MUS_SHOP);
     txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0);
     shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN;
@@ -187,13 +194,13 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
         if(HIT(J_SELECT)){ loot_run(mode ? 2 : 1); txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN; }
         if(HITR(J_RIGHT)){ loot_run(3); txt_win(1); txt_soft(); txt_box(0, 0, 20, h); txt_win(0); msg = 0; shop_draw(cur, msg); txt_soft_end(); move_win(7, 144 - h * 8); SHOW_WIN; }
         if(HIT(J_A)){
-            UINT8 it = s_first + cur, lv = it ? sv.up[it_up[it]] : sv.potions, mx = it ? SHOP_MAXLV : 9;
-            if(lv >= mx){ msg = it ? "ALREADY THE BEST!" : "POCKETS FULL!"; sfx(SFX_BACK); }
+            UINT8 it = s_first + cur, lv = it_lv(it), mx = it_max(it);
+            if(lv >= mx){ msg = is_con(it) ? "POCKETS FULL!" : "ALREADY THE BEST!"; sfx(SFX_BACK); }
             else if(sv.gold < s_price(it, lv)){ msg = "NOT ENOUGH GOLD"; sfx(SFX_BACK); }
             else if(s_price(it, lv) >= 60 && (UINT32)s_price(it, lv) * 2 > sv.gold && !shop_sure(cur)){ msg = "MAYBE LATER"; sfx(SFX_BACK); }
             else {
-                sv.gold -= s_price(it, lv); msg = s_thanks; sfx(SFX_COIN);
-                if(!it) sv.potions++; else sv.up[it_up[it]]++;
+                sv.gold -= s_price(it, lv); msg = s_thanks; sfx(SFX_CASH);
+                if(is_con(it)) (*con_ptr(it))++; else sv.up[it_up[it]]++;
                 if(it == I_SHIELD) sv.mp = hud_mpmax(sv.level);
             }
             shop_draw(cur, msg);
@@ -202,6 +209,13 @@ void shop_run(UINT8 mode) BANKED {                              /* mode 1 = a st
     sfx(SFX_BACK); if(!mode) music(old);
     if(sprites) SHOW_SPRITES;
 }
+
+/* SELECT in a dungeon with full hearts: a mana potion fills the mana. And a lucky clover saves the gold when you faint (both counts live in sv.rsv2). */
+UINT8 shop_mana_drink(void) BANKED {
+    if(!sv.rsv2[0] || sv.mp >= hud_mpmax(sv.level)) return 0;
+    sv.rsv2[0]--; sv.mp = hud_mpmax(sv.level); sfx(SFX_POWER); dlg_say(0, "MANA POTION! MANA IS FULL."); return 1;
+}
+UINT8 shop_clover(void) BANKED { if(!sv.rsv2[1]) return 0; sv.rsv2[1]--; return 1; }
 
 /* ---------------------------------------------------------------- the STATUS page (the GBA's BUG tab: you, your bars, your numbers) */
 static void st_bar(char *b, const char *lab, UINT32 v, UINT32 mx){       /* "HP ●●●●●● 12/34": the pips give way when the numbers get long (level 900: 2300/2300) */
