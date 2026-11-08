@@ -23,7 +23,12 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
   dungeons, queens and cages, fainting rules, six difficulties (BABY ... NIGHTMARE).
 - Space: flight, pirates, 256-star galaxy map and arrow, warp rail shooter, 3D flight, stations, Elite trade (goods, jobs, fame), lounge,
   fleet battles and wingmen, outposts, the Technobeast fight.
-- Kart racing and KART WORLD (quick race and more modes, items, jump pads), mining, feats, extras cards, how-to guide, debug menu.
+- Kart racing and KART WORLD (grand prix, time trial, quick race, items, jump pads), mining, feats, extras cards, how-to guide, debug menu.
+- **KART WORLD polish** (this pass): 1, 3 or 5 laps, a FINAL LAP banner, FORWARD or REVERSE (the same road driven the other way round), a results box after every race, best lap / best race / best time trial per track and per way kept in their own SRAM block (offset 3072, older saves just start empty), a records panel in the track menu, KART and WAR tunes, count-down beeps. The road runs at ~57 fps (raw STAT interrupt, VBlank-only HUD and palette writes, assembly row fill).
+- **WARSHIP RAID** (this pass, EXTRAS, level 6): the GBA's colossal warships as a one-screen mission: a hull of 2, 4 or 6 guns over a world whose planet-buster is counting down; shoot the guns, then the core. Your ship parts count (LASER, GUNS, ENGINE, HULL, SHIELD). Gold, XP and fame; each size opens the next; best times kept (SRAM offset 3584).
+- **STATS book** (this pass, EXTRAS): three pages of counters (adventure, galaxy, games).
+- **HUD** (this pass): bars glide to the real value, the heart bar blinks at low HP, numbers are four characters wide (K past 9999), STATUS pips shrink for long numbers. The level cap stays 999 (audited: every level multiplication fits 16 bits there; 9999 would not).
+- **Save safety** (this pass): every slot is written twice (a mirror at SRAM offset 4096 first, then the real copy); a torn write leaves one good copy and load falls back to the mirror. The host test covers it.
 - Saving: 3 slots, checksums, 6 difficulties, old-save conversion (versions 1 to 4).
 
 ## Approximated
@@ -35,6 +40,7 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Bolt is the ship in the GBC game's lines; the GBA now has him as a small droid that rolls after you. Same remarks, ship wording left alone.
 - Ladybug buddies: one extra for every 100 player levels (up to nine), as on the GBA; OPTIONS > LADYBUGS is the most you bring (ALL/NONE/1/2/3/5/7). They are small gold sprites that keep a place round you and nip monsters near them (never the last bit of health). Differences: the GBA ones are red and go after the nearest monster; the GBC has no spare red sprite palette, and it has no pet Buddy (the old "friends" trail you as before). To make the unlock reachable the GBC level cap went from 99 to 999; past level 99 the HP/MP curve is gentler, and the HUD shows "L100".
 - Options: 15 plus 3 rumble rows; the GBA has more (message speed, buddy, graphics...). HUNGER/STAIRS HINT/etc. exist; camera option is not used.
+- Warships: the GBA has threats that bombard worlds, troop waves, boarding and a burning-planet escape; the GBC has the one-screen RAID only (no consequences for failing).
 - Mining: ore for gold at the ship. The GBA has a 12-ore catalogue, smelter, forge and ore grades.
 
 ## Not ported yet (would fit, left for a later pass)
