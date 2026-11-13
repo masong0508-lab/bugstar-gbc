@@ -439,11 +439,13 @@ int planet_run(void) BANKED {                                    /* returns PL_T
 #ifdef TEST_FISH
     fish_run(wk);
 #endif
+    { UINT32 lastv = frames32();                                           /* WALKING IS REAL TIME: a busy picture (a scroll, a crowd) takes two or three blanks, and the bug then takes two or three steps */
     for(;;){
         input_poll();
         k = keys;
         { INT8 vx = (k & J_LEFT) ? -1 : (k & J_RIGHT) ? 1 : 0, vy = (k & J_UP) ? -1 : (k & J_DOWN) ? 1 : 0; UINT8 sp, n; if(opt.runb){ if(HIT(J_B)) runt ^= 1; sp = runt ? 2 : 1; } else sp = (k & J_B) ? 2 : 1;
           if(vx < 0) flip = 1; else if(vx > 0) flip = 0;
+          { UINT32 nv = frames32(); UINT8 dt = (UINT8)(nv - lastv); lastv = nv; if(dt < 1) dt = 1; if(dt > 3) dt = (dt > 12) ? 1 : 3; sp = (UINT8)(sp * dt); }
           for(n = 0; n < sp; n++){
               if(vx && !blocked(bx + vx, by)) bx = (bx + vx) & 4095;
               if(vy && !blocked(bx, by + vy)) by = (by + vy) & 4095;
@@ -521,5 +523,6 @@ int planet_run(void) BANKED {                                    /* returns PL_T
                   was_door = 1; camera(); enter(); continue; } }
             bugspr_load(&sv.look);
         }
+    }
     }
 }
