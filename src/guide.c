@@ -59,3 +59,9 @@ void guide_run(void) BANKED {
     HIDE_SPRITES; if(!was) SPRITES_8x8;
     txt_cls();
 }
+
+#include "sysmenu.h"
+void sm_hint(UINT8 sel) BANKED {
+    static const char *const hint[10] = { "B: PLAY ON", "HP AND XP", "KEEPS GAME", "SETTINGS", "NAME, LOOK", "PERKS", "MINI GAMES", "BADGES", "HOW TO", "TITLE" };
+    txt_line(1, SM_H - 2, hint[sel], SM_W - 2); txt_color(1, SM_H - 2, SM_W - 2, 1, TXT_GREY);
+}

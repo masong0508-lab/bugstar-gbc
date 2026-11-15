@@ -20,7 +20,7 @@ UINT8 sys_space;
 #define NITEM 10
 #define ROW0  3                              /* first item row inside the box */
 #define OFFX  167                            /* window X with the box just off the right edge */
-static const char *const item[NITEM] = { "RESUME", "STATUS", "SAVE", "OPTIONS", "MIRROR", "SKILLS", "EXTRAS", "FEATS", "GUIDE", "TO TITLE" };
+static const char *const item[NITEM] = { "RESUME", "STATUS", "SAVE", "OPTIONS", "MY BUG", "SKILLS", "EXTRAS", "FEATS", "GUIDE", "TO TITLE" };
 
 static void slide_x(UINT8 from, UINT8 to){   /* 8 pixels per frame */
     UINT8 x = from;
@@ -40,6 +40,7 @@ static void frame(void){                               /* the box, the title and
 static void draw_items(UINT8 sel){
     UINT8 i; char b[12];
     txt_win(1);
+    sm_hint(sel);
     for(i = 0; i < NITEM; i++){
         char *d = scat(b, i == sel ? S_CURSOR : " ");
         scat(d, item[i]);

@@ -63,6 +63,7 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Mining: 3+ good hits in a row add a bonus, 4 in a row pays MOTHERLODE +100.
 - Kart: 4 bodies (STOCK, SPEEDY, GRIPPY, TURBO), SELECT in the kart menu.
 - Station lounge: a riddle for 25 gold.
+- System menu: MIRROR is now MY BUG, and a one-line help under the list says what the picked item does.
 
 ## Not ported yet (would fit, left for a later pass)
 - Tabbed hangar-style creators for bug and humanoid; ornaments; the deeper anchored wings/horns/hats/tails. (The GBC creator already has wings, horns, hats and tails as parts; the GBA's new anchoring and ornaments are not in.)

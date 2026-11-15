@@ -13,4 +13,5 @@ extern UINT8 sys_gfx_lost;               /* 1 while redraw() must also reload th
 extern UINT8 sys_space;                  /* 1 while the caller is flying in space: EXTRAS may then switch the view or start the Arena */
 enum { SYS_RESUME, SYS_TITLE, SYS_FLIP, SYS_ARENA, SYS_HELL, SYS_MOON, SYS_KART };   /* FLIP: the 2D / 3D view was switched; ARENA: start the Arena (only asked for when sys_space) */
 int sysmenu_run(void (*redraw)(void));     /* returns SYS_RESUME or SYS_TITLE; redraw may be 0 */
+void sm_hint(UINT8 sel) BANKED;   /* (bank of guide.c) the one-line help under the system menu */
 #endif
