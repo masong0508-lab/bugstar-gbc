@@ -400,6 +400,7 @@ static int play_floor(void){                                       /* returns DG
         if(inv) inv--;
         if(!(step & 127) && sv.mp < hud_mpmax(sv.level)) sv.mp++;
         mon_step(); lb_step(); pets_fight(); if(TRICK(4) && !step && sv.hp && sv.hp < hud_hpmax(sv.level)) sv.hp++;
+        if(!(step & 31) && loot_auto()) dlg_say(0, "LOW! DRANK A POTION.");
         if(pit && pit_tick()) return DG_WIN;
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
@@ -408,11 +409,7 @@ static int play_floor(void){                                       /* returns DG
         if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 15); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 15, b); dlg_say(0, b); } }
         else if(HIT(J_SELECT) && (k & J_DOWN)){ char lb[28]; loot_eat(lb); dlg_say(0, lb); }
         else if(HIT(J_SELECT) && !(k & J_B)){ cast(); if(portal_go) return DG_EXIT; }
-        else if(HIT(J_SELECT)){
-            if(sv.potions && sv.hp < hud_hpmax(sv.level)){ UINT16 mx = hud_hpmax(sv.level); sv.potions--; sfx(SFX_SPARK); { UINT16 h = mx / 2 + mx / 20 * UPG(SK_VIGOR) + (TRICK(0) ? mx / 4 : 0); h = tr_pot(h); sv.hp = sv.hp + h > mx ? mx : sv.hp + h; if(TRICK(7)){ UINT16 mm = hud_mpmax(sv.level); sv.mp = sv.mp + mm / 4 > mm ? mm : sv.mp + mm / 4; } } dlg_say(0, "GLUG GLUG. YOU FEEL BETTER."); }
-            else if(shop_mana_drink()){ }
-            else if(!sv.potions) dlg_say(0, "NO POTIONS LEFT.");
-        }
+        else if(HIT(J_SELECT)){ char lb[28]; lb[0] = 0; loot_quaff(lb); dlg_say(0, lb); }
         if(!((UINT8)frames32() & 127) && loot_regen()) dlg_say(0, "YOU ARE HUNGRY. EAT! (SELECT+DOWN)");
         wait_vbl_done();
         shake_tick(); SCX_REG = (UINT8)cam_x + shake_x; SCY_REG = (UINT8)cam_y + shake_y;

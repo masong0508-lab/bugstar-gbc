@@ -217,3 +217,9 @@ void loot_run(UINT8 mode) BANKED {
     txt_win(1); txt_soft(); txt_win(0);
     if(sprites) SHOW_SPRITES;
 }
+
+UINT8 loot_auto(void) BANKED {
+    char lb[28];
+    if(!sv.hp || !sv.potions || sv.hp >= hud_hpmax(sv.level) / 5) return 0;
+    lb[0] = 0; return loot_quaff(lb);
+}

@@ -58,6 +58,10 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Warships: the GBA has threats that bombard worlds, troop waves, boarding and a burning-planet escape; the GBC has the one-screen RAID only (no consequences for failing).
 - Mining: ore for gold at the ship. The GBA has a 12-ore catalogue, smelter, forge and ore grades.
 
+## Newer GBC-only comforts
+- SELECT on the planet or in a dungeon drinks a potion (or a mana dew) at once; in a dungeon the bug drinks one by itself when health is under a fifth.
+- Mining: 3+ good hits in a row add a bonus, 4 in a row pays MOTHERLODE +100.
+
 ## Not ported yet (would fit, left for a later pass)
 - Tabbed hangar-style creators for bug and humanoid; ornaments; the deeper anchored wings/horns/hats/tails. (The GBC creator already has wings, horns, hats and tails as parts; the GBA's new anchoring and ornaments are not in.)
 - Humanoid form, humanoid CALLINGS (outfit perks) and creature shapes. The GBC has no humanoid form at all, so callings have nothing to attach to.

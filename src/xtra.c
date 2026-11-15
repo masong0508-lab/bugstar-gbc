@@ -93,7 +93,7 @@ void xtra_relic_screen(void) BANKED {
 
 /* ---------------------------------------------------------------- MINING: press A when the pick is over the ore */
 void xtra_mine(void) BANKED {
-    UINT8 sw, m, dir, t, tick, hit, dist, got = 0, ok; UINT16 pay = 0, ores = 0; char b[21], bar[21], *d;
+    UINT8 sw, m, dir, t, tick, hit, dist, got = 0, ok, streak = 0, best_st = 0; UINT16 pay = 0, ores = 0; char b[21], bar[21], *d;
     static const char *const nm[5] = { "A ROCK. NOTHING.", "COPPER! +4", "SILVER! +10", "GOLD! +20", "A GEM! +40" };
     static const UINT8 val[5] = { 0, 4, 10, 20, 40 };
     xs_load();
@@ -117,11 +117,12 @@ void xtra_mine(void) BANKED {
         dist = m > t + 1 ? m - (t + 1) : (t + 1) - m;
         ok = dist == 0 ? 4 : dist == 1 ? 3 : dist == 2 ? 2 : dist <= 4 ? 1 : 0;
         txt_line(2, 10, nm[ok], 18); txt_color(2, 10, 18, 1, ok ? TXT_GOLD : TXT_RED);
-        pay += val[ok]; if(ok){ ores++; got++; } sfx(ok ? SFX_COIN : SFX_HURT);
+        pay += val[ok]; if(ok >= 3){ if(++streak > 1) pay += (UINT16)streak * 3; if(streak > best_st) best_st = streak; } else streak = 0; if(ok){ ores++; got++; } sfx(ok ? SFX_COIN : SFX_HURT);
         for(tick = 0; tick < 40; tick++) wait_vbl_done();
     }
     if(sw < 9){
         screen("MINING"); d = scat(b, "ORES "); d = u16s(d, ores); *d = 0; txt_line(4, 5, b, 14);
+        if(best_st >= 4){ pay += 100; txt_line(4, 11, "MOTHERLODE! +100", 16); txt_color(4, 11, 16, 1, TXT_GOLD); }
         pay += pay * weird_pct(weird_of(sv.star), WP_ORE) / 100;
         d = scat(b, "PAY +"); d = u16s(d, pay); d = scat(d, " G"); *d = 0; txt_line(4, 7, b, 14); txt_color(4, 7, 14, 1, TXT_GOLD);
         sv.gold += pay; xs.ore += got; if(pay > xs.best) xs.best = pay > 255 ? 255 : (UINT8)pay;

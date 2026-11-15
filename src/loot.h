@@ -15,4 +15,5 @@ UINT8 loot_xp(UINT8 x) BANKED;                          /* extra XP with the XP 
 UINT8 loot_regen(void) BANKED;                          /* call every ~2 s in the dungeon: LOCKET heals, HUNGER (OPTIONS) grows; returns 1 the moment the belly starts to rumble */
 UINT8 loot_quaff(char *msg) BANKED;                     /* planet hotkey (SELECT): drink a potion if hurt, else a mana dew if the magic is low; msg gets the line; 1 if used */
 UINT8 loot_eat(char *msg) BANKED;                       /* dungeon hotkey: eat the smallest food that is not wasted; msg gets the line to show; 1 if something was eaten */
+UINT8 loot_auto(void) BANKED;                          /* dungeon: below a fifth of the health, drinks a potion by itself; 1 if it did */
 #endif
