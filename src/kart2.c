@@ -97,6 +97,8 @@ static void menu_show(void){ move_win(7, 16); SHOW_WIN; }                 /* (th
 static const char *const cupnm[4] = { "NONE YET", "BRONZE", "SILVER", "GOLD" };
 #define NTRK() (ks.cup ? 6 : 3)                                                 /* tracks open: the second three come with any cup */
 static void way_line(void){ char b[17], *d = scat(b, "WAY: "); d = scat(d, waynm[kart_rev & 1]); *d = 0; txt_line(4, 7, b, 14); }
+UINT8 kart_body = 0;
+static void body_line(void){ static const char *const bn[4] = { "STOCK", "SPEEDY", "GRIPPY", "TURBO" }; char b[19], *d = scat(b, "SELECT KART:"); d = scat(d, bn[kart_body & 3]); *d = 0; txt_line(1, 13, b, 18); txt_color(1, 13, 18, 1, TXT_GREY); }
 static void mode_info(UINT8 sel){
     char b[19], *d = b;
     if(sel == 0){ d = scat(d, "CUP: "); d = scat(d, cupnm[ks.cup]); }
@@ -112,13 +114,14 @@ static UINT8 pick_mode(void){                                                 /*
     DISPLAY_OFF; txt_win(1); menu_box("KART WORLD", 15);
     txt_line(4, 3, "GRAND PRIX 1", 14); txt_line(4, 4, ks.cup ? "GRAND PRIX 2" : "GRAND PRIX 2 *", 14); txt_line(4, 5, "TIME TRIAL", 14); txt_line(4, 6, "QUICK RACE", 14); way_line(); txt_line(4, 8, "EXIT", 14);
     txt_color(2, 9, 17, 1, TXT_GREY);
-    txt_line(1, 11, "A GAS  DOWN BRAKE", 18); txt_line(1, 12, "B ITEM  START QUIT", 18); txt_line(1, 13, "LONG TURN = TURBO", 18);
-    txt_color(1, 11, 18, 3, TXT_GREY);
+    txt_line(1, 11, "A GAS  DOWN BRAKE", 18); txt_line(1, 12, "B ITEM  START QUIT", 18); body_line();
+    txt_color(1, 11, 18, 2, TXT_GREY);
     mode_info(0); txt_put(2, 3, ">");
     menu_show(); DISPLAY_ON;
     for(;;){
         wait_vbl_done(); input_poll();
         f++; UI_BLINK(2, 3 + sel, f); if(!(f & 7)){ txt_color(2, 3, 16, 6, TXT_WHITE); txt_color(2, 3 + sel, 16, 1, TXT_GOLD); }
+        if(HIT(J_SELECT)){ kart_body = (kart_body + 1) & 3; body_line(); sfx(SFX_OK); }
         if(HITR(J_DOWN)){ txt_put(2, 3 + sel, " "); sel = sel < 5 ? sel + 1 : 0; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
         if(HITR(J_UP)){ txt_put(2, 3 + sel, " "); sel = sel ? sel - 1 : 5; txt_put(2, 3 + sel, ">"); mode_info(sel); sfx(SFX_MOVE); }
         if(sel == 4 && (HITR(J_LEFT) || HITR(J_RIGHT) || HIT(J_A))){ kart_rev ^= 1; way_line(); sfx(SFX_OK); continue; }

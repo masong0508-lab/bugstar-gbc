@@ -144,6 +144,25 @@ static void tip_show(UINT8 i){
     const char *s = tips[i % 12]; UINT8 y = 8; char b[21]; UINT8 k;
     for(;;){ for(k = 0; k < 20 && s[k] && s[k] != '\n'; k++) b[k] = s[k]; b[k] = 0; txt_line(2, y, b, 18); txt_color(2, y, 18, 1, TXT_WHITE); y++; s += k; if(!*s) break; s++; }
 }
+/* THE BARMAN'S RIDDLE: three answers, one is right; 25 gold for it */
+static void riddle(void){
+    static const char *const q[8] = { "WHAT HAS KEYS BUT\nOPENS NO DOOR?", "WHAT GETS WETTER\nAS IT DRIES?", "WHAT RUNS BUT HAS\nNO LEGS?", "WHAT HAS A HEAD\nAND NO BODY?", "WHAT BREAKS WHEN\nYOU SAY IT?", "WHAT GOES UP BUT\nNEVER COMES DOWN?", "WHAT HAS HANDS BUT\nCAN NOT CLAP?", "WHAT HAS EYES BUT\nCAN NOT SEE?" };
+    static const char *const a[8][3] = { {"A PIANO","A CASTLE","A MAP"}, {"A TOWEL","A SPONGE","A CLOUD"}, {"A BEETLE","A RIVER","A SHADOW"}, {"A COIN","A TREE","A WORM"}, {"AN EGG","SILENCE","GLASS"}, {"A KITE","AGE","SMOKE"}, {"A CLOCK","A GLOVE","A CAT"}, {"A POTATO","A BAT","A MOON"} };
+    static const UINT8 ans[8] = { 0, 0, 1, 0, 1, 1, 0, 0 };
+    UINT8 i = (UINT8)(xrnd() & 7), sel = 0, row, d = 1, k;
+    screen("RIDDLE"); { const char *t = q[i]; UINT8 y = 3; char b[21]; for(;;){ for(k = 0; k < 20 && t[k] && t[k] != '\n'; k++) b[k] = t[k]; b[k] = 0; txt_line(2, y, b, 18); y++; t += k; if(!*t) break; t++; } }
+    for(;;){
+        if(d){ for(row = 0; row < 3; row++){ txt_line(2, 7 + row, row == sel ? S_CURSOR : " ", 1); txt_line(4, 7 + row, a[i][row], 14); txt_color(2, 7 + row, 18, 1, row == sel ? TXT_GOLD : TXT_WHITE); } d = 0; }
+        wait_vbl_done(); input_poll();
+        if(HIT(J_B) || HIT(J_START)) return;
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 2; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
+        if(HIT(J_A)) break;
+    }
+    if(sel == ans[i]){ sv.gold += 25; txt_line(2, 11, "RIGHT! +25 GOLD", 18); txt_color(2, 11, 18, 1, TXT_GOLD); sfx(SFX_FANFARE); gold_line(); }
+    else { txt_line(2, 11, "WRONG. HA!", 18); txt_color(2, 11, 18, 1, TXT_RED); sfx(SFX_HURT); }
+    txt_line(2, 14, "A: OK", 8); wait_a();
+}
 void xtra_lounge(void) BANKED {
     UINT8 sel = 0, d = 1, tip = 0, row;
     xs_load(); tip = xs.lounge;
@@ -151,15 +170,16 @@ void xtra_lounge(void) BANKED {
         if(d){
             screen("STATION LOUNGE");
             txt_line(2, 3, "THE BARMAN NODS.", 18); txt_color(2, 3, 18, 1, TXT_GREY);
-            for(row = 0; row < 3; row++){ txt_line(2, 5 + row, row == sel ? S_CURSOR : " ", 1); txt_line(4, 5 + row, row == 0 ? "LISTEN TO A RUMOUR" : row == 1 ? "BUY A DRINK 10G" : "LEAVE", 16); txt_color(2, 5 + row, 18, 1, row == sel ? TXT_GOLD : TXT_WHITE); }
+            for(row = 0; row < 4; row++){ txt_line(2, 5 + row, row == sel ? S_CURSOR : " ", 1); txt_line(4, 5 + row, row == 0 ? "LISTEN TO A RUMOUR" : row == 1 ? "BUY A DRINK 10G" : row == 2 ? "A RIDDLE: 25G" : "LEAVE", 16); txt_color(2, 5 + row, 18, 1, row == sel ? TXT_GOLD : TXT_WHITE); }
             gold_line(); d = 0;
         }
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) break;
-        if(HITR(J_UP)){ sel = sel ? sel - 1 : 2; d = 1; sfx(SFX_MOVE); }
-        if(HITR(J_DOWN)){ sel = sel < 2 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_UP)){ sel = sel ? sel - 1 : 3; d = 1; sfx(SFX_MOVE); }
+        if(HITR(J_DOWN)){ sel = sel < 3 ? sel + 1 : 0; d = 1; sfx(SFX_MOVE); }
         if(HIT(J_A)){
-            if(sel == 2) break;
+            if(sel == 3) break;
+            if(sel == 2){ riddle(); d = 1; xs_save(); continue; }
             if(sel == 0){ d = 1; screen("A RUMOUR"); tip_show(tip); tip = (tip + 1) % 12; xs.lounge = tip; sfx(SFX_OK); txt_line(2, 14, "A: OK", 8); wait_a(); }
             else if(sv.gold < 10){ txt_line(2, 10, "NOT ENOUGH GOLD.", 18); txt_color(2, 10, 18, 1, TXT_RED); sfx(SFX_HURT); }
             else if(sv.hp >= hud_hpmax(sv.level)){ txt_line(2, 10, "YOU ARE FINE.", 18); txt_color(2, 10, 18, 1, TXT_GREY); }

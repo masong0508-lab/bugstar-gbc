@@ -286,9 +286,9 @@ static void items_tick(UINT8 go){
 static void drive(UINT8 go){
     INT16 v = vel[0], cur = curve_at(tm[0], tf[0]), cap;
     INT8 dir = 0; UINT8 k, off = (lx[0] > 150 || lx[0] < -150);
-    cap = off ? (boost_t ? 140 : 70) : (boost_t ? 400 : VMAX);
+    cap = off ? (boost_t ? 140 : 70) : (boost_t ? 400 : VMAX + (kart_body == 1 ? 40 : 0));
     if(go && !stun[0]){
-        if(HELD(J_A) || KX_GAS) v += boost_t ? 12 : 4; else v -= 2;
+        if(HELD(J_A) || KX_GAS) v += boost_t ? 12 : (kart_body == 2 ? 7 : 4); else v -= 2;
         if(HELD(J_DOWN)) v -= 8;
         if(HELD(J_LEFT)) dir = -1;
         if(HELD(J_RIGHT)) dir = 1;
@@ -297,11 +297,11 @@ static void drive(UINT8 go){
 #endif
         if(HIT(J_B) && hold && !air_t) use_item();
         if(dir && v > 160 && HELD(J_A)){ if(drift_t < 250) drift_t++; }              /* a long, held bend charges a little turbo */
-        else { if(drift_t > 60){ boost_t = 36; sfx(SFX_LASER); } drift_t = 0; }
+        else { if(drift_t > (kart_body == 3 ? 35 : 60)){ boost_t = kart_body == 3 ? 50 : 36; sfx(SFX_LASER); } drift_t = 0; }
     } else if(!go) v = 0; else { v -= (v >> 3) + 1; drift_t = 0; }
     if(v > cap){ v -= (v - cap > 8) ? 8 : (v - cap); }
     if(v < 0) v = 0;
-    lx[0] += dir * ((v >> 6) + (v > 0 ? 1 : 0));
+    lx[0] += dir * ((v >> 6) + (v > 0 ? 1 : 0) + (kart_body == 2 ? 1 : 0));
     lx[0] -= (cur * v) >> 12;
     if(lx[0] > 200) lx[0] = 200; if(lx[0] < -200) lx[0] = -200;
     if(kart_air((UINT16)(tm[0] & (LAPM - 1)), lx[0], v, HIT(J_B))){ boost_t = 60; sfx(SFX_LASER); }
