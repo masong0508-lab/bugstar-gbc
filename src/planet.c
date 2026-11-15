@@ -10,6 +10,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "loot.h"
 #include "fx.h"
 #include "sound.h"
 #include "input.h"
@@ -513,6 +514,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
             UINT8 z = near_ship() ? 1 : water_near() ? 2 : 0;
             if(z != hint_z){ hint_z = z; if(z == 1) note("A: YOUR SHIP (HEAL, SAVE, FLY)"); else if(z == 2) note("A: FISH IN THE WATER"); }
         }
+        if(HIT(J_SELECT)){ char qb[28]; qb[0] = 0; loot_quaff(qb); note(qb); }                 /* a quick drink without the menu */
         if(HIT(J_START)){
             { int sr = sysmenu_run(redraw);
               if(sr == SYS_TITLE){ leave(); return PL_TITLE; }

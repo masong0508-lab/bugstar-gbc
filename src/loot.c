@@ -126,6 +126,12 @@ static UINT8 use(UINT8 i, char *msg){                      /* 1 if it was used u
     }
     scat(msg, "NOT FOR EATING. SELL IT"); sfx(SFX_BACK); return 0;
 }
+UINT8 loot_quaff(char *msg) BANKED {                       /* SELECT on the planet: drink a potion (or a mana dew when only the magic is low) without opening the bag */
+    UINT16 mx = hud_hpmax(sv.level), mm = hud_mpmax(sv.level);
+    if(sv.potions && sv.hp < mx) return use(L_POTION, msg);
+    if(*slot(L_MANA) && sv.mp < mm) return use(L_MANA, msg);
+    scat(msg, sv.hp >= mx ? "YOU FEEL FINE" : "NO POTIONS LEFT"); return 0;
+}
 UINT8 loot_eat(char *msg) BANKED {
     UINT8 i; ensure(); msg[0] = 0;
     if(sv.hp >= hud_hpmax(sv.level) && !(opt.hunger && hg >= 30)){ scat(msg, "NOT HUNGRY (HP FULL)"); return 0; }

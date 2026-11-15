@@ -13,5 +13,6 @@ UINT8 loot_ward(void) BANKED;                            /* 1 with the WARD CHAR
 UINT16 loot_clover(UINT16 g) BANKED;                    /* extra gold with the CLOVER charm worn */
 UINT8 loot_xp(UINT8 x) BANKED;                          /* extra XP with the XP BEAD worn */
 UINT8 loot_regen(void) BANKED;                          /* call every ~2 s in the dungeon: LOCKET heals, HUNGER (OPTIONS) grows; returns 1 the moment the belly starts to rumble */
+UINT8 loot_quaff(char *msg) BANKED;                     /* planet hotkey (SELECT): drink a potion if hurt, else a mana dew if the magic is low; msg gets the line; 1 if used */
 UINT8 loot_eat(char *msg) BANKED;                       /* dungeon hotkey: eat the smallest food that is not wasted; msg gets the line to show; 1 if something was eaten */
 #endif
