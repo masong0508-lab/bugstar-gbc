@@ -310,22 +310,6 @@ static UINT8 chart(void){                                                   /* S
     if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");
     return 1;
 }
-static void wrecked(void){
-    UINT8 n; char b[96], *d;
-    for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
-    sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1;
-    d = scat(b, "OUCH! THE PIRATES WRECKED THE SHIP. I LIMPED BACK TO "); d = world_name(d, world_seed(sv.star)); scat(d, ". SOME GOLD FELL OUT.");
-    dlg_say("BOLT", b);
-}
-static void land(UINT8 s){
-    char b[64], *d;
-    sv.star = s;
-    d = scat(b, "LANDING ON "); d = world_name(d, world_seed(s)); d = scat(d, ", A "); d = scat(d, kind_name[star_k[s]]); scat(d, " WORLD.");
-    sfx(SFX_STAIRS); dlg_say("BOLT", b);
-    if(opt.autosave) slot_write(cur_slot);
-}
-
-
 /* ================================================================ the Arena
    A hovering ship, waves of pirates from all round, every 4th wave a flagship that fires three orbs at once. B drops a bomb (clears the
    orbs, hurts every pirate). Gold for every kill and every wave; a wreck halves the pay. The best wave is kept in the save. */
@@ -591,10 +575,10 @@ int space3d_run(UINT8 keep) BANKED {
         else if(++lab_t >= 8){ lab_t = 0; s3_target_hud(); }
         hud_update();
         if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
-        if(!sv.hp){ wrecked(); break; }
+        if(!sv.hp){ s3_wrecked(); break; }
         if(story_boss_finish()){ out = SP_END; break; }
         if(HIT(J_A)){
-            if(near_pl != 255){ land(near_pl); break; }
+            if(near_pl != 255){ s3_land(near_pl); break; }
             if(near_st != 255 && !dock_lock){
                 if(elite_dock(near_st)){ out = SP_FLIP; break; }
                 inv = 60; dock_lock = 50; vel = 0;
