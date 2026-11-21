@@ -53,6 +53,19 @@ static void say3(const char *s){ txt_win(1); txt_line(0, 2, s, 20); txt_color(0,
 static void line3(void){           /* keep actionable controls in view instead of truncating them after a long planet name */
     char b[28], name[24], *d;
     UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
+    if(story_boss_state){
+        if(story_boss_state == 2) scat(b, "TECHNOBEAST FALLS!");
+        else {
+            UINT8 i, hp = 0, open = 0;
+            for(i = 0; i < NP3; i++) if(pir[i].st == 1 && pir[i].kind == 2){
+                hp = pir[i].hp; open = (pir[i].t & 31) < 18; break;
+            }
+            d = scat(b, open ? "CORE OPEN HP " : "ARMOR CLOSED HP ");
+            u16s(d, hp);
+        }
+        txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0);
+        return;
+    }
     if(near_pl != 255 || near_st != 255){
         d = scat(b, near_pl != 255 ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
         world_name(name, world_seed(s));
@@ -235,6 +248,11 @@ static void shoot(void){                                                    /* a
     }
 }
 static void pirate_hit(P3 *p, UINT8 dmg){
+    if(p->kind == 2 && (p->t & 31) >= 18){
+        /* The Technobeast only exposes its core while it glows.
+           Its palette changes with the phase: no invisible armour trick. */
+        sfx(SFX_THUD); return;
+    }
     if(p->hp > dmg){ p->hp -= dmg; shake(3); return; }
     p->st = 2; sfx(SFX_BOOM); shake(p->kind == 2 ? 20 : 8);
     if(p->kind == 2){ story_boss_state = 2; story_boss_fade = 80; say3("TECHNOBEAST DEFEATED!"); return; }
