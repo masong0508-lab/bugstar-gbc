@@ -76,7 +76,7 @@ static const char *const bolt_zone[12] = {
     "I DO NOT LIKE THE WRAITHS. THEY KNOW ME.",
     "THE BEES SING. I KNOW THE TUNE. HELP.",
     "DUST AND HONEY. MY SENSORS ARE CONFUSED.",
-    "THE ANTHILL. THE DAWN FELL HERE. SO DID I.",
+    "THE ANTHILL. SOMETHING FELL. SO DID I.",
     "THE KING WAITS. LET US NOT KEEP HIM."
 };
 static const char *const bolt_cls[32] = {
