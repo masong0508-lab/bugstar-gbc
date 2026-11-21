@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate expanded bestiary sprites, AI and save compatibility
+        run: python3 tools/check_monsters.py
       - name: Host tests (save system + menus)
         run: make test
       - name: Install GBDK-2020
