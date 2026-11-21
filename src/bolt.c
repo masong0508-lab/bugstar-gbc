@@ -17,30 +17,34 @@ static const UINT8 wk_cls[12] = { 0, 4, 5, 6, 3, 9, 1, 6, 12, 10, 11, 9 };
 static const UINT8 wt_trait[32] = { 19, 6, 15, 38, 35, 36, 1, 10, 30, 24, 33, 26, 27, 16, 34, 8,
                                     19, 23, 7, 13, 18, 26, 33, 10, 28, 37, 27, 13, 20, 29, 24, 36 };
 
-static void say(const char *t){ char b[110]; strncpy(b, t, 109); b[109] = 0; dlg_say("BOLT", b); }   /* (copied to RAM: the text lives in this bank) */
+/* Bolt's caller already owns a 110-byte dialogue buffer. Reusing it
+   avoids a second 110-byte automatic array on the nested say->dlg_say path
+   (the cartridge's fixed WRAM stack is small). Copy before crossing the
+   bank boundary so ROM strings remain mapped for the whole read. */
+static void say(const char *t, char *b){ strncpy(b, t, 109); b[109] = 0; dlg_say("BOLT", b); }
 
 void bolt_talk(void) BANKED {
     char b[110], *d; UINT8 w = weird_of(sv.star), n = 0, k, cores = sv.cores > 8 ? 8 : sv.cores;
     UINT16 hmax = hud_hpmax(sv.level);
     const char *c[6];
     /* what worries him first (at most two things) */
-    if((UINT16)(sv.hp * 2) < hmax){ say("YOU ARE HURT. THE CARE TAB WILL HEAL YOU."); n++; }
-    if(sv.el.fuel * 4 < TANK_CAP() && n < 2){ say("THE FUEL IS LOW. REST HERE OR DOCK AT A STATION."); n++; }
-    if(!sv.potions && n < 2){ say("NO HEALTH POTIONS. THE SHOP SELLS THEM."); n++; }
+    if((UINT16)(sv.hp * 2) < hmax){ say("YOU ARE HURT. THE CARE TAB WILL HEAL YOU.", b); n++; }
+    if(sv.el.fuel * 4 < TANK_CAP() && n < 2){ say("THE FUEL IS LOW. REST HERE OR DOCK AT A STATION.", b); n++; }
+    if(!sv.potions && n < 2){ say("NO HEALTH POTIONS. THE SHOP SELLS THEM.", b); n++; }
     /* what to do next */
     if(cores < 8){
         d = scat(b, "THE QUEENS HOLD MY MEMORY. "); d = u16s(d, cores); scat(d, " OF 8 ARE BACK. FIND A DOOR AND GO DOWN.");
         dlg_say("BOLT", b);
         if(cores){ k = cores - 1; d = scat(b, "I REMEMBER: "); d = scat(d, bolt_mem[k * 4]); d = scat(d, " "); scat(d, bolt_mem[k * 4 + 1]); dlg_say("BOLT", b); }
     } else if(!(sv.story & ST_DONE)){
-        say("I KNOW MY NAME. THE DAWN. FIND THE TECHNOBEAST: THE ARROW IN SPACE POINTS TO IT.");
-    } else say("THE GALAXY IS OPEN. GO ANYWHERE.");
+        say("I KNOW MY NAME. THE DAWN. FIND THE TECHNOBEAST: THE ARROW IN SPACE POINTS TO IT.", b);
+    } else say("THE GALAXY IS OPEN. GO ANYWHERE.", b);
     /* a remark about where you are */
     k = 0;
     c[k++] = bolt_zone[(sv.zone % 6) * 2 + (bolt_chat & 1)];
     c[k++] = bolt_cls[wk_cls[bolt_wk % 12] * 2 + ((bolt_chat >> 1) & 1)];
     if(w){ c[k++] = "A WEIRD WORLD. KEEP YOUR EYES OPEN."; c[k++] = bolt_trait[wt_trait[w & 31]]; }
-    say(c[(bolt_chat + (sv.star & 7)) % k]);
-    say(bolt_idle[(bolt_chat * 13 + cores * 5 + sv.zone * 3 + (sv.star & 63)) & 63]);       /* 13 is odd: it visits all 64 */
+    say(c[(bolt_chat + (sv.star & 7)) % k], b);
+    say(bolt_idle[(bolt_chat * 13 + cores * 5 + sv.zone * 3 + (sv.star & 63)) & 63], b);       /* 13 is odd: it visits all 64 */
     bolt_chat++;
 }

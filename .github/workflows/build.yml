@@ -5,6 +5,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Audit kart WRAM scratch and fixed interrupt buffer separation
+        run: python3 tools/check_kart_wram.py
       - name: Check 3D cockpit, space docking and perspective continuity
         run: python3 tools/check_space3d.py
       - name: Validate expanded bestiary sprites, AI and save compatibility
