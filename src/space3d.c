@@ -100,7 +100,12 @@ static void spr(UINT8 tile, INT16 x, INT16 y, UINT8 pal){                  /* x,
 }
 static UINT8 blit(UINT8 tile, UINT8 cols, UINT8 rows, INT16 cx, INT16 cy, UINT8 pal){     /* cols x rows of 8x16 sprites, middle at (cx, cy) */
     UINT8 r, c;
-    INT16 x0 = cx - cols * 4, y0 = (cy - rows * 8) & (INT16)~3;       /* (rows start on a 4-line band: a picture's rows never share a band, so 6 sprites a row fit) */
+    INT16 x0 = cx - cols * 4, y0 = cy - rows * 8;
+    /* Don't snap every planet/station to a 4-pixel vertical grid: that
+       caused visible judder when looking up/down or approaching. Only the
+       6-column, multi-row giant planet needs band alignment to protect the
+       Game Boy's ten-sprites-per-scanline hardware budget. */
+    if(cols > 4 && rows > 1) y0 &= (INT16)~3;
     UINT8 k, h;
     if(dn + cols * rows > 40) return 0;
     h = band_hi(y0 + rows * 16 - 16);
