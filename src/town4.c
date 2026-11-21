@@ -35,13 +35,13 @@ static const char chat[12][3][19] = {
     { "ORE SINGS WHEN YOU", "KNOCK ON IT.", "LISTEN CLOSELY." },
     { "STARS ARE SUNS.", "EACH WITH A WORLD.", "ISN'T THAT NICE?" },
     { "THE BERRIES ARE", "EARLY THIS YEAR.", "A GOOD SIGN." },
-    { "THE ROUTES ARE SAFE", "UNTIL THEY AREN'T.", "FLY CAREFULLY." },
+    { "ROUTES ARE SAFE", "UNTIL THEY AREN'T.", "FLY CAREFULLY." },
     { "A NEW COAT OF DYE", "MAKES A NEW BUG.", "COME BY LATER." },
-    { "SLEEP AT THE INN.", "HEAL AT THE SHRINE.", "BOTH ARE KIND." },
+    { "SLEEP AT THE INN.", "HEAL AT THE SHRINE", "BOTH ARE KIND." },
     { "FORMS, FORMS,", "FORMS. NOBODY", "READS THEM." },
-    { "I SAW A SPIDER!", "IT WAS HUGE. ALMOST", "AS BIG AS MY HAND." }
+    { "I SAW A SPIDER!", "IT WAS SO HUGE.", "AS BIG AS MY HAND." }
 };
-static const char mood[8][19] = { "NICE DAY, ISN'T IT?", "BUSY TODAY.", "YOU AGAIN! WELCOME.", "HAVE YOU EATEN?", "THE TOWN IS QUIET.", "NEWS TRAVELS SLOW.", "MIND THE BEETLES.", "GOOD LUCK OUT THERE." };
+static const char mood[8][19] = { "NICE DAY, IS IT?", "BUSY TODAY.", "YOU AGAIN! WELCOME", "HAVE YOU EATEN?", "THE TOWN IS QUIET.", "NEWS TRAVELS SLOW.", "MIND THE BEETLES.", "GOOD LUCK, BUG!" };
 
 static void line(UINT8 y, const char *s, UINT8 pal){ txt_win(1); txt_line(1, y, s, 18); txt_color(1, y, 18, 1, pal); txt_win(0); }
 static void page(const char *title){
@@ -65,7 +65,10 @@ static UINT8 e_have(const XA *x, UINT8 t){                         /* what you h
         case 1: return sv.potions;
         case 2: return sv.el.cargo[G_ORE];
         case 5: return ex.fish;
-        case 4: { UINT16 k = EX_KILLS, b = w16(&x->xr[E_BASE]); return k > b ? (k - b > 255 ? 255 : (UINT8)(k - b)) : 0; }
+        case 4: { /* Lifetime kill total wraps at 65,535: quests still count. */
+            UINT16 delta = (UINT16)(EX_KILLS - w16(&x->xr[E_BASE]));
+            return delta > 255 ? 255 : (UINT8)delta;
+        }
         default: return sv.star == x->E_N ? 1 : 0;
     }
 }
