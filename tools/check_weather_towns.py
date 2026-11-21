@@ -54,7 +54,7 @@ test_c = r"""
 typedef uint8_t UINT8;
 typedef uint16_t UINT16;
 typedef struct { UINT8 xr[20]; } XA;
-static UINT8 wx_rs=1, saved_fish=0;
+static UINT8 wx_rs=1;
 static UINT16 kill_total=0;
 static struct {
     UINT8 potions, star;
