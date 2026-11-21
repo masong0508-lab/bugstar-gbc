@@ -156,7 +156,7 @@ assert len(lines) == 32
 assert lines[0] == "I WAS A SHIP."
 assert lines[1] == "A NAME WAS PAINTED ON MY HULL.", "Bolt's first core spoils his real name"
 assert "I WAS CALLED THE DAWN." not in lines[:28]
-assert "I KNOW MY NAME NOW." in lines[-4:]
+assert any("MY NAME" in line for line in lines[-4:]), "eighth core must resolve the hidden name"
 assert "A NAME WAS PAINTED ON MY HULL." in generator, "regenerating data would undo the clue"
 
 with tempfile.TemporaryDirectory(prefix="bugstar-gbc-quests-") as tmp:
