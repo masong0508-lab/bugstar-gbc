@@ -29,7 +29,12 @@
 #define OAM_BITE  0                /* 0,1: the bite flash. 4..14: the bug. 16..39: monsters */
 #define OAM_MON0  16
 
-enum { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_QUEEN };
+/* Twelve regular enemy families, plus the queen. The last eight use dedicated
+   two-frame silhouettes from ROM bank 59. No added actors or save slots. */
+enum { K_SPIDER, K_BEETLE, K_WASP, K_SLIME,
+       K_CRAWLER, K_GOLEM, K_MOTH, K_SPORE,
+       K_SHADE, K_STINGER, K_CRAB, K_REAPER, K_QUEEN };
+#define DG_BASE_FAMILY(k) ((k) & 3)
 typedef struct { UINT16 x, y; UINT8 kind, hp, cool, flash, frame, alive; INT8 kx, ky; UINT8 st, t; INT8 lx, ly; } Mon;
 /* st/t: spiders crouch (st 1, they blink) then lunge (st 2); a slime with st 9 is a small one that will not split again;
    the queen counts t up to calling her spiderlings */
