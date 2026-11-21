@@ -11,6 +11,8 @@ jobs:
         run: python3 tools/check_monsters.py
       - name: Host tests (save system + menus)
         run: make test
+      - name: Validate actual GBC link packet codec and both Ready confirmations
+        run: make link-test
       - name: Install GBDK-2020
         run: |
           curl -sL https://github.com/gbdk-2020/gbdk-2020/releases/latest/download/gbdk-linux64.tar.gz | tar xz -C /opt
