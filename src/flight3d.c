@@ -566,7 +566,10 @@ int space3d_run(UINT8 keep) BANKED {
         if(dock_lock) dock_lock--;
         if(cool) cool--;
         if(inv) inv--;
-        if((k & J_A) && !cool && near_pl == 255 && near_st == 255) shoot(); /* A lands or docks first, shoots otherwise */
+        /* During the required Technobeast fight, A ALWAYS fires.
+           Nearby planet/port boxes must not silently block the gun. */
+        if((k & J_A) && !cool &&
+           (story_boss_state == 1 || (!story_boss_state && near_pl == 255 && near_st == 255))) shoot();
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); s3_dust_step();
         if(story_boss_state == 1) s3_boss_arrow();
         s3_render(frame);
@@ -578,7 +581,7 @@ int space3d_run(UINT8 keep) BANKED {
         if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
         if(!sv.hp){ s3_wrecked(); break; }
         if(story_boss_finish()){ out = SP_END; break; }
-        if(HIT(J_A)){
+        if(HIT(J_A) && !story_boss_state){
             if(near_pl != 255){ s3_land(near_pl); break; }
             if(near_st != 255 && !dock_lock){
                 if(elite_dock(near_st)){ out = SP_FLIP; break; }
