@@ -586,10 +586,11 @@ int space3d_run(UINT8 keep) BANKED {
             if(near_pl != 255){ land(near_pl); break; }
             if(near_st != 255 && !dock_lock){
                 if(elite_dock(near_st)){ out = SP_FLIP; break; }
-                hud_back(); inv = 60; dock_lock = 50; vel = 0;
-                /* Keep the ship where it docked: the old exit jumped 70 units
-                   backwards and caused a disorienting perspective change. */
+                inv = 60; dock_lock = 50; vel = 0;
+                /* Recreate the cockpit graphics after station services or
+                   shipyard screens reused video memory; keep ship coordinates. */
                 objects_clear();
+                fade_out(); DISPLAY_OFF; gfx3();
                 continue;
             }
         }
