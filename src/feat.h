@@ -26,5 +26,6 @@ UINT8 fish_run(UINT8 world) BANKED;
 
 /* the queen's trick: one for each kind of world (bits of ex.tricks) */
 #define TRICK(k) (ex.tricks & (1 << (k)))
+void  boss_evidence(UINT8 core) BANKED;              /* first unfreed Queen-floor ledger, bank 20 */
 void  dungeon_won(UINT8 kind) BANKED;                 /* the words and the trick after a queen falls */
 #endif
