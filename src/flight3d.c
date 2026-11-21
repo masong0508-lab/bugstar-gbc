@@ -45,8 +45,6 @@
 static UINT8 msg_t, told3, lab_t;           /* the message timer, the how-to-fly talk (once), frames since the target line was drawn */
 UINT8 story_boss_state;                       /* global to the 3D sprite renderer and early HUD */
 #define basis s3_basis
-#define dust_born s3_dust_born
-static UINT16 yaw_o; static INT16 pit_o;                                    /* the heading last frame (dust swings with turns) */
 #define scan s3_scan
 
 /* ---------------------------------------------------------------- messages on the window's third row */
@@ -90,8 +88,7 @@ static void objects_clear(void){
     for(i = 0; i < NB3; i++) bolt[i].life = 0;
     for(i = 0; i < NO3; i++) orb[i].life = 0;
     for(i = 0; i < NPOD3; i++) pod[i].life = 0;
-    for(i = 0; i < NDUST; i++) dust_born(i, 0);
-    yaw_o = yaw; pit_o = pit16;
+    s3_dust_reset();
 }
 
 /* ---------------------------------------------------------------- the ship is hit */
@@ -304,21 +301,6 @@ static void step_spawn(void){                                               /* n
     if(alive < maxp && near_st == 255 && near_pl == 255) pirate_spawn(0);
     spawn_t = 260 + (rnd() & 127);
 }
-static void step_dust(void){                                               /* dust streams past, and swings the other way when you turn or climb (like the stars behind it) */
-    UINT8 i, sp = (UINT8)(vel >> 2);
-    INT16 px = (INT16)(((INT16)(yaw - yaw_o) >> 2) * 63) >> 11, py = (INT16)(pit16 - pit_o) >> 7;
-    yaw_o = yaw; pit_o = pit16;
-    if(sp < 3) sp = 3;
-    for(i = 0; i < NDUST; i++){
-        if(dust_z[i] <= 8 + sp){ dust_born(i, 1); continue; }
-        dust_z[i] -= sp;
-        if(px || py){
-            INT16 x = dust_x[i] + ((px * dust_z[i]) >> 6), y = dust_y[i] + ((py * dust_z[i]) >> 6);
-            if(x < -120 || x > 120 || y < -120 || y > 120) dust_born(i, 1); else { dust_x[i] = (INT8)x; dust_y[i] = (INT8)y; }
-        }
-    }
-}
-
 /* the sprite list: the cross and the target mark, shots, pirates, crates, dust, then worlds and stations nearest first */
 static UINT8 chart(void){                                                   /* SELECT: the galaxy chart, then the warp; 1 if we jumped */
     UINT16 r; UINT8 cell = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8));
@@ -474,7 +456,7 @@ void arena_run(void) BANKED {
         if(inv) inv--;
         if((k & J_A) && !cool) shoot();
         if(HIT(J_B) && ar_bombs) ar_bomb();
-        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); step_dust(); ar_arrow();
+        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); s3_dust_step(); ar_arrow();
         s3_render(frame);
         wait_vbl_done();
         s3_flush(frame);
@@ -621,7 +603,7 @@ int space3d_run(UINT8 keep) BANKED {
         if(cool) cool--;
         if(inv) inv--;
         if((k & J_A) && !cool && near_pl == 255 && near_st == 255) shoot(); /* A lands or docks first, shoots otherwise */
-        step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); step_dust();
+        step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); s3_dust_step();
         if(story_boss_state == 1) s3_boss_arrow();
         s3_render(frame);
         wait_vbl_done();
