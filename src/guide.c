@@ -9,6 +9,7 @@
 #include "menus.h"
 #include "guide.h"
 #include "guide_pages.h"
+#include "sysmenu.h"   /* sys_space selects the relevant help page */
 
 #define IC_BUG 0
 static const INT8 bob[4] = { 0, -1, -2, -1 };
@@ -33,7 +34,10 @@ static void page_draw(UINT8 p){
 }
 
 void guide_run(void) BANKED {
-    UINT8 p = 0, t = 0, k, was = LCDC_REG & LCDCF_OBJ16, crawl, cx = 0;
+    /* From a flying ship, open right on the HUD meanings rather than
+     * making players page through thirteen unrelated dungeon tutorials.
+     * The title-screen guide still begins at THE BASICS. */
+    UINT8 p = sys_space ? 13 : 0, t = 0, k, was = LCDC_REG & LCDCF_OBJ16, crawl, cx = 0;
     crawl = (((frames32() * 2654435761UL) >> 12) % 1000UL) == 0;       /* a little bug trots along the bottom, 1 time in 1000 */
     VBK_REG = 0;
     for(k = 0; k < 40; k++) move_sprite(k, 0, 0);
