@@ -191,7 +191,12 @@ static void edge_mark(INT16 dx, INT16 dy, INT16 dz, UINT8 above){        /* wher
 static void target_mark(void){
     UINT8 s = tgt;
     INT16 dx = unit(star_px(s) << 4, shx), dy = unit(star_py(s) << 4, shy), dz = star_z(s) - (sz >> 4);
-    tgt_d = aabs(dx) > aabs(dy) ? aabs(dx) + aabs(dy) / 2 : aabs(dy) + aabs(dx) / 2;
+    { INT16 ax = aabs(dx), ay = aabs(dy), az = aabs(dz), flat;
+      flat = ax > ay ? ax + ay / 2 : ay + ax / 2;
+      /* Show actual 3D range, not just flat-map distance: a world high
+         above the ship must not read zero while still far from landing. */
+      tgt_d = flat > az ? flat + az / 3 : az + flat / 3;
+    }
     { INT16 tx = dx, ty = dy, tz = dz;
       while(!inbox(tx) || !inbox(ty)){ tx >>= 1; ty >>= 1; tz >>= 1; }
       tgt_rear = ((tx * vfx) >> 6) + ((ty * vfy) >> 6) + ((tz * vfz) >> 6) <= 0;
