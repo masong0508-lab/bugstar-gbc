@@ -442,6 +442,8 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
     UINT8 k, done = 0, state = 0, place = 1;
     UINT16 sc[1 + NRIV];
     INT8 dir = 0; UINT16 tcount = 0; UINT32 lastf = 0;
+    /* Menu/save corruption must not index past the six track definitions. */
+    if(t >= 6) t = (UINT8)(t % 6);
     trk = t; rivals_on = !tt; rev = kart_rev & 1; nlaps = gpn ? 3 : kart_laps; if(nlaps != 1 && nlaps != 5) nlaps = 3;
     if(rev){ for(k = 0; k < 16; k++) rsg[k] = -segs[(t << 4) + ((16 - k) & 15)]; sg = rsg; } else sg = &segs[t << 4];
     bst = nlaps == 3 ? kart_rec(2, t, rev) : 0;
