@@ -145,7 +145,6 @@ static void story_boss_spawn(void){
     p->x = (UINT16)BEAST_X << 4; p->y = (UINT16)BEAST_Y << 4;
     p->z = 0; p->hp = BEAST_HP; p->t = 0;
     story_boss_state = 1; story_boss_fade = 0;
-    spawn_t = 250;
     say3("TECHNOBEAST! FIRE!");
 }
 static void story_boss_near(void){
