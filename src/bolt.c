@@ -39,7 +39,12 @@ void bolt_talk(void) BANKED {
     } else if(!(sv.story & ST_DONE)){
         say("I REMEMBER MY NAME. THE DAWN. THE KING LOCKED THE REST OF MY HEART IN THE TECHNOBEAST.", b);
         say("FOLLOW THE ARROW IN SPACE. WAIT FOR ITS CORE TO GLOW, THEN FIRE. WE CAN GO HOME.", b);
-    } else say("THE GALAXY IS OPEN. GO ANYWHERE.", b);
+    } else {
+        /* Winning is not the end of caring for the rescued crew.
+           Keep Bolt's familiar nickname, restored identity and the open
+           galaxy together without another dialogue buffer or save flag. */
+        say("I AM DAWN. BUT YOU CAN STILL CALL ME BOLT. WE CAN KEEP LOOKING FOR THE FRIENDS WE MISSED.", b);
+    }
     /* a remark about where you are */
     k = 0;
     c[k++] = bolt_zone[(sv.zone % 6) * 2 + (bolt_chat & 1)];
