@@ -275,17 +275,20 @@ static void list_things(UINT8 frame){
     UINT8 i;
     INT16 sx, sy, cz, dx, dy;
     for(i = 0; i < NB3; i++){ B3 *b = &bolt[i];
+        if(!b->life) continue;           /* dead bolts need no 32-bit world wrapping or camera maths */
         dx = unit(b->x, shx); dy = unit(b->y, shy);
-        if(b->life && inbox(dx) && inbox(dy) && proj(dx, dy, (b->z - sz) >> 4, &sx, &sy, &cz)) dot(cz < 70 ? TS(DOT2) : TS(DOT1), sx, sy, PAL_LAS);
+        if(inbox(dx) && inbox(dy) && proj(dx, dy, (b->z - sz) >> 4, &sx, &sy, &cz)) dot(cz < 70 ? TS(DOT2) : TS(DOT1), sx, sy, PAL_LAS);
     }
     for(i = 0; i < NO3; i++){ B3 *o = &orb[i];
+        if(!o->life) continue;
         dx = unit(o->x, shx); dy = unit(o->y, shy);
-        if(o->life && inbox(dx) && inbox(dy) && proj(dx, dy, (o->z - sz) >> 4, &sx, &sy, &cz)) spr(T_ORB, sx - 4, sy - 4, PAL_ORB);
+        if(inbox(dx) && inbox(dy) && proj(dx, dy, (o->z - sz) >> 4, &sx, &sy, &cz)) spr(T_ORB, sx - 4, sy - 4, PAL_ORB);
     }
     for(i = 0; i < NP3; i++){ P3 *p = &pir[i];
         UINT8 pal;
+        if(!p->st) continue;
         dx = unit(p->x, shx); dy = unit(p->y, shy);
-        if(!p->st || !inbox(dx) || !inbox(dy) || !proj(dx, dy, (p->z - sz) >> 4, &sx, &sy, &cz)) continue;
+        if(!inbox(dx) || !inbox(dy) || !proj(dx, dy, (p->z - sz) >> 4, &sx, &sy, &cz)) continue;
         /* The story beast flashes when its core is open. Keep its two
            palettes below slot 4: slot 4+ belongs to nearby planets, and
            sharing it made the boss randomly change colour during fights. */
@@ -295,8 +298,9 @@ static void list_things(UINT8 frame){
         else dot(TS(DOT2), sx, sy, pal);
     }
     for(i = 0; i < NPOD3; i++){ Pod3 *q = &pod[i];
+        if(!q->life) continue;
         dx = unit(q->x, shx); dy = unit(q->y, shy);
-        if(q->life && inbox(dx) && inbox(dy) && proj(dx, dy, (q->z - sz) >> 4, &sx, &sy, &cz)){
+        if(inbox(dx) && inbox(dy) && proj(dx, dy, (q->z - sz) >> 4, &sx, &sy, &cz)){
             if(cz < 160) spr(T_POD, sx - 4, sy - 8, PAL_LAS); else dot(TS(DOT2), sx, sy, PAL_LAS);
         }
     }
