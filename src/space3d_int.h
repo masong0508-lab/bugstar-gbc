@@ -39,7 +39,7 @@ extern INT8   dust_x[NDUST], dust_y[NDUST]; extern UINT8 dust_z[NDUST];
 extern UINT8  dn, prev_dn;
 extern UINT8  pk3[4];
 extern UINT8  near_pl, near_st, tgt, tgt_rear; extern INT16 tgt_d;
-extern UINT8  arena_on, edge_on; extern INT16 ed_x, ed_y, ed_z;
+extern UINT8  arena_on, edge_on, story_boss_state; extern INT16 ed_x, ed_y, ed_z;
 static INT16 unit(UINT16 a, UINT16 b){ return (INT16)(a - b) >> 4; }       /* a - b, 1/16 units -> units, the short way round */
 static INT16 aabs(INT16 v){ return v < 0 ? -v : v; }
 static UINT8 inbox(INT16 v){ return v > -500 && v < 500; }
