@@ -49,27 +49,6 @@ UINT8 story_boss_state;                       /* global to the 3D sprite rendere
 
 /* ---------------------------------------------------------------- messages on the window's third row */
 static void say3(const char *s){ txt_win(1); txt_line(0, 2, s, 20); txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0); msg_t = 90; }
-static void line3(void){           /* keep actionable controls in view instead of truncating them after a long planet name */
-    char b[28], name[24], *d;
-    UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
-    if(story_boss_state){ s3_boss_hud(); return; }
-    if(near_pl != 255 || near_st != 255){
-        d = scat(b, near_pl != 255 ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
-        world_name(name, world_seed(s));
-        { char *n = name; while(*n && d < b + 20) *d++ = *n++; }
-        *d = 0;
-    } else if(tgt_rear){
-        d = scat(b, "BEHIND! "); d = u16s(d, tgt_d); *d = 0;
-    } else {
-        char *n;
-        world_name(name, world_seed(s));
-        d = b; n = name;
-        while(*n && d < b + 12) *d++ = *n++;  /* reserve room for the distance */
-        *d++ = ' '; d = u16s(d, tgt_d); *d = 0;
-    }
-    txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
-}
-
 static void gfx3(void){                                                     /* LCD off: everything on the screen, then it fades in */
     s3_load();
     hud_init(); hud_pos(HUD3_Y);
@@ -609,7 +588,7 @@ int space3d_run(UINT8 keep) BANKED {
         wait_vbl_done();
         s3_flush(frame);
         if(msg_t){ if(!--msg_t){ lab_t = 99; txt_win(1); txt_line(0, 2, "", 20); txt_win(0); } }
-        else if(++lab_t >= 8){ lab_t = 0; line3(); }
+        else if(++lab_t >= 8){ lab_t = 0; s3_target_hud(); }
         hud_update();
         if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
         if(!sv.hp){ wrecked(); break; }
