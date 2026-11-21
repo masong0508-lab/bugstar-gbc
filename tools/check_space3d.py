@@ -151,7 +151,8 @@ assert "p->kind == 2 && (p->t & 31) >= 18" in fly
 assert "story_boss_state = 2; story_boss_fade = 80;" in fly
 assert "sv.story |= ST_DONE;" in boss
 assert all(t in boss for t in ("sv.gold += 5000;", "fame_add(300);", "gain_xp(200);"))
-assert "space_say(SAY_DAWN);" in boss
+assert "space_say(SAY_DAWN);" in fly
+assert "space_say(SAY_DAWN);" not in boss
 assert "if(story_boss_finish()){ out = SP_END; break; }" in fly
 assert "if(dist > 700 && !arena_on && p->kind != 2)" in fly
 assert "if(story_boss_state == 1) s3_boss_arrow();" in fly
