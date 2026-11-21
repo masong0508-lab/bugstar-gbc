@@ -12,6 +12,7 @@ read = lambda path: (root / path).read_text()
 st = read("src/space3d_int.h")
 s3 = read("src/space3d.c")
 fly = read("src/flight3d.c")
+boss = read("src/space3d_boss.c")
 flat = read("src/space.c")
 api = read("src/space3d.h")
 
@@ -144,18 +145,27 @@ for target in ((400,0,0),(-480,0,0),(0,450,0),(250,-420,120),(-500,-350,200)):
 # omit the Beast option and force an undocumented trip back to 2D.
 assert "galaxy_run(cell, sv.cores >= 8 && !(sv.story & ST_DONE))" in fly
 assert "r == GAL_BEAST ? 2100 : 1500" in fly
-assert "p->hp = BEAST_HP" in fly
-assert "p->x = (UINT16)BEAST_X << 4" in fly
+assert "p->hp = BEAST_HP" in boss
+assert "p->x = (UINT16)BEAST_X << 4" in boss
 assert "p->kind == 2 && (p->t & 31) >= 18" in fly
 assert "story_boss_state = 2; story_boss_fade = 80;" in fly
-assert "sv.story |= ST_DONE;" in fly
-assert "sv.gold += 5000; fame_add(300); gain_xp(200);" in fly
-assert "space_say(SAY_DAWN);" in fly
+assert "sv.story |= ST_DONE;" in boss
+assert all(t in boss for t in ("sv.gold += 5000;", "fame_add(300);", "gain_xp(200);"))
+assert "space_say(SAY_DAWN);" in boss
 assert "if(story_boss_finish()){ out = SP_END; break; }" in fly
 assert "if(dist > 700 && !arena_on && p->kind != 2)" in fly
-assert "if(story_boss_state == 1) story_arrow();" in fly
+assert "if(story_boss_state == 1) s3_boss_arrow();" in fly
 assert "p->kind == 2 ? ((p->t & 31) < 18 ? PAL_LAS : PAL_ORB)" in s3
 assert "else if(story_boss_state && edge_on) edge_mark(" in s3
+assert "#pragma bank 53" in boss
+assert "void s3_boss_spawn(void) BANKED" in boss
+assert "void s3_boss_arrow(void) BANKED" in boss
+assert "void s3_boss_hud(void) BANKED" in boss
+assert "void s3_boss_reward(void) BANKED" in boss
+assert "s3_boss_hud(); return;" in fly
+assert "s3_boss_reward();" in fly
+assert "story_boss_state = 0; story_boss_fade = 0; edge_on = 0;" in fly
+assert "static void story_boss_spawn(void)" not in fly
 # At a 3D Beast-map jump the ship is 150 units south and initially faces
 # north; 150 is inside the 195-unit aim-assist limit, unlike old far locks.
 assert 24 < 150 < 195
