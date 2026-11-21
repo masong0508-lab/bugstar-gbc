@@ -99,6 +99,9 @@ assert len(ledger) == 8
 assert all(0 < len(s) < 110 for s in ledger), (
     "ledger dialogue must fit Bolt's existing 110-byte dialog buffer"
 )
+assert "WRAM_AT(WRAM_TXT, char)" in clue_section and (
+    "scat(b, ledger[core]);" in clue_section and 'dlg_say("EVIDENCE",b)' in clue_section
+), "banked ledger text must be copied into persistent WRAM before typewriter playback"
 assert all("THE DAWN" not in s for s in ledger), (
     "the Queen records must not spoil the eighth memory's identity reveal"
 )
