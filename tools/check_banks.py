@@ -19,5 +19,8 @@ m = re.search(r'([0-9A-F]{8})\s+s__HEAP_E', t)
 if m:
     end = int(m.group(1), 16); room = 0xD000 - end
     print("RAM      variables end at 0x%04X: %d bytes left for the stack (below D000)" % (end, room))
-    if room < 0x300: print("RAM OVERFLOW: the stack needs at least 768 bytes"); bad = 1
+    # Keep one whole kilobyte between permanent data and the D000 stack
+    # ceiling. The older 768-byte gate let deeply nested menus+VBlank run
+    # with only 870 bytes on the real GBC ROM.
+    if room < 0x400: print("RAM OVERFLOW: the stack needs at least 1024 bytes"); bad = 1
 sys.exit(bad)
