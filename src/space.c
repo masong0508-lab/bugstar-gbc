@@ -335,7 +335,11 @@ static int space2d(void) {
             { UINT8 t = near_station();
               if(t != 255){
                   if(elite_dock(t)){ k = SP_FLIP; goto out; }                  /* the person switched the view to 3D */
-                  hud_redraw(); hud_pos(HUD_Y); shown = 255; toast_t = 0; inv = 40; continue; } }
+                  /* The station and its submenus can reuse BG/sprite tiles.
+                     Rebuild the flight scene rather than returning with a
+                     mangled background or ship palettes. Keep shx/shy. */
+                  fade_out(); DISPLAY_OFF; gfx();
+                  hud_pos(HUD_Y); shown = 255; toast_t = 0; inv = 40; continue; } }
             if(!cool){ UINT8 g = UPG(UP_GUNS); fire(); cool = gun_cool[g > 5 ? 5 : g]; }
         }
         if(HIT(J_SELECT) && !b_dead){                                /* the galaxy chart: pick a world, jump there */
