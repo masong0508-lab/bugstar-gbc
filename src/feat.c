@@ -139,8 +139,13 @@ void boss_evidence(UINT8 core) BANKED {
         "THE KING'S WARNING. A NAME OPENS THE HEART. KEEP THE DROID SILENT.",
         "LAST ORDER. BURN THE RECORDS. THE SHIP MUST NEVER SPEAK ITS NAME."
     };
+    /* The typewriter calls sound/HUD routines in other ROM banks. Copy the
+       chosen bank-20 string into the existing 110-byte WRAM text scratch
+       before entering it, or the ledger pointer can become invalid. */
+    char *b = WRAM_AT(WRAM_TXT, char);
     if(core>7) core=7;
-    dlg_say("EVIDENCE",ledger[core]);
+    b[0] = 0; scat(b, ledger[core]);
+    dlg_say("EVIDENCE",b);
 }
 void dungeon_won(UINT8 kind) BANKED {                 /* the queen is beaten and the cage is open */
     char *b = WRAM_AT(WRAM_TXT, char), *d;
