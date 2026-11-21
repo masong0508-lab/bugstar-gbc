@@ -52,6 +52,12 @@ assert "THE KING CUT OPEN MY HEART." in memory_lines, (
 assert "MY NAME HAS COME BACK AT LAST." in memory_lines[28:], (
     "GBC memory eight must pay off the mystery"
 )
+zone = re.search(r"static const char \*const bolt_zone\[12\] = \{(.*?)\};", mem, re.S)
+assert zone, "GBC zone dialogue table is missing"
+assert "THE DAWN" not in zone.group(1), (
+    "GBC anthill dialogue must not reveal the eighth-core identity too early"
+)
+
 
 assert "if(cores < 8)" in bolt and "else if(!(sv.story & ST_DONE))" in bolt
 assert 'say("I REMEMBER MY NAME. THE DAWN.' in bolt
