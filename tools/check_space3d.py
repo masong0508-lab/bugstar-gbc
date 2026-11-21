@@ -72,6 +72,9 @@ assert "if(near_st != 255 && !dock_lock)" in fly
 assert "static Cand cand[16]" in s3
 assert "if(i >= 15)" in s3 and "if(z >= far) return;" in s3
 assert "pal_used |= 1 << i" in s3
+assert "y0 = cy - rows * 8;" in s3
+assert "if(cols > 4 && rows > 1) y0 &=" in s3
+assert "scan();                         /* correct docking/boost state on the very first frame */" in fly
 assert "return 4;                   /* fifth distinct biome" in s3
 assert "tgt_rear" in s3 and "BEHIND!" in fly
 assert "s3_render(frame);" in fly and "s3_flush(frame);" in fly
