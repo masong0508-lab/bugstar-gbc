@@ -41,3 +41,36 @@ static const UINT8 extra_mon_tiles[DG_EXTRA_TILES * 16] = {
 void dg_extra_load(UINT8 mon0) BANKED {
     set_sprite_data(mon0 + MON_NTILES, DG_EXTRA_TILES, extra_mon_tiles);
 }
+
+/* Eight recognizable combat rhythms. One small byte of phase already exists
+   in Mon.t, so no new WRAM or per-actor allocation. Keep this in bank 59:
+   bank 5 (the dungeon proper) has a very tight 16-KB ROM budget. */
+UINT8 dg_extra_motion(Mon *m, INT16 *dx, INT16 *dy, UINT8 step) BANKED {
+    UINT8 p = ++m->t;
+    switch(m->kind){
+    case K_CRAWLER:  /* dashes out of holes, then scuttles */
+        return (p & 63) >= 48 ? 3 : ((step & 1) ? 1 : 0);
+    case K_GOLEM:    /* very slow but heavily armoured */
+        return (step & 3) == 0 ? 1 : 0;
+    case K_MOTH:     /* circles in a weaving flight */
+        if(p & 16) *dx += *dy > 0 ? 22 : -22;
+        else *dy += *dx > 0 ? -22 : 22;
+        return (step & 3) ? 2 : 3;
+    case K_SPORE:    /* lurches and can burst into smaller spores */
+        return (step & 3) ? 0 : 2;
+    case K_SHADE:    /* phases between hiding and chasing */
+        if((p & 63) < 20){ m->flash = 2; return 0; }
+        return (p & 63) > 48 ? 3 : 1;
+    case K_STINGER:  /* flashes before a fast sting */
+        if((p & 31) >= 20 && (p & 31) < 26){ m->flash = 2; return 0; }
+        return (p & 31) >= 26 ? 4 : 1;
+    case K_CRAB:     /* sidesteps around the player */
+        if(p & 16) *dy += *dx > 0 ? 18 : -18;
+        else *dx += *dy > 0 ? 18 : -18;
+        return (step & 1) ? 1 : 0;
+    case K_REAPER:   /* long, visible warning followed by a fierce dash */
+        if((p & 63) >= 44 && (p & 63) < 54){ m->flash = 2; return 0; }
+        return (p & 63) >= 54 ? 4 : 1;
+    default: return 1;
+    }
+}
