@@ -2,6 +2,7 @@
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include <string.h>
+#include "wram.h"
 #include "sound.h"
 #include "input.h"
 #include "save.h"
@@ -59,8 +60,11 @@ static const INT8  BXL[3] = { -80, 80, 0 };
 #define BXMR(b) (rev ? (UINT16)(LAPM - BXM[b]) : BXM[b])        /* (driven backwards the boxes are where the road has them from the other end) */
 
 static const INT8 *sg;
-static INT8 rsg[16];                            /* the road driven the other way round: the bends reversed and mirrored */
-static UINT16 kp[12];                           /* this track's palettes */
+/* Temporary kart staging fits in the fade scratch of switchable WRAM bank 1.
+   Palette fades happen before/after the actual race, not while its road
+   interrupt is active. The interrupt-visible road_scx stays in fixed WRAM. */
+#define rsg WRAM_AT(WRAM_KART_REV, INT8)
+#define kp  WRAM_AT(WRAM_KART_PAL, UINT16)
 UINT8  rivals_on; UINT8 kart_trk; UINT8 kart_laps = 3, kart_rev = 0;
 #define trk kart_trk
 extern volatile UINT8 snd_song;
@@ -73,7 +77,7 @@ static UINT8  tf[1 + NRIV];                     /* ...and the 1/256 of a metre t
 static INT16  vel[1 + NRIV], lx[1 + NRIV];     /* speed (1/256 m a frame) and the sideways spot (128 = the road's edge) */
 static const INT8 *brow;                         /* the bend of every pair of road lines for the curve you are on: read straight from the ROM table */
 #define bend_at(i) (brow[(i) >> 1])
-static UINT8  tab[144];
+#define tab WRAM_AT(WRAM_KART_TAB, UINT8) /* scratch, 144 scanlines; not an array for sizeof */
 static UINT8  stripe, sky_x;
 UINT16 tot_t, best_run; static UINT16 stripe_acc, lap_t, frame;
 static INT16  head;
@@ -461,7 +465,7 @@ UINT8 kart_race(UINT8 t, UINT8 tt, UINT8 gpn) BANKED {
 #ifdef KX_OILSELF
     oil[0].m = tm[0] + 60; oil[0].lane = 0; oil[0].life = 900;
 #endif
-    memset(tab, 0, sizeof tab); flip(); set_stripes();
+    memset(tab, 0, 144); flip(); set_stripes();
     txt_win(0);                                                                   /* the HUD rows (BG rows 0 and 1) and the banner box (window rows 0..2) are drawn once; only their text changes */
     VBK_REG = 0; fill_bkg_rect(0, 0, 32, 2, T_BLANK); VBK_REG = 1; fill_bkg_rect(0, 0, 32, 1, TXT_GOLD); fill_bkg_rect(0, 1, 32, 1, TXT_WHITE); VBK_REG = 0;
     hbp = TXT_WHITE; hbpd = 0;
@@ -538,6 +542,6 @@ void kart_setup(void) BANKED {                                                 /
     hide_from(0);
     SCX_REG = 0; SCY_REG = 0;
     track_pal(0);
-    memset(tab, 0, sizeof tab); flip();
+    memset(tab, 0, 144); flip();
 }
 void kart_pal0(void) BANKED { track_pal(0); set_bkg_palette(4, 3, kt_pal); hide_from(0); }
