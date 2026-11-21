@@ -52,6 +52,9 @@ static const char *const nm[60] = {
     "BOG SPIDER", "LEECH", "MIDGE", "BOG SLIME", "SWAMP QUEEN",
     "LICORICE", "GUMDROP", "SUGAR BEE", "JELLY BLOB", "CANDY QUEEN" };
 static const char *const wn[12] = { "GARDEN", "DESERT", "ICE", "JUNGLE", "OCEAN", "DUSK", "MESA", "FUNGAL", "CRYSTAL", "LAVA", "SWAMP", "CANDY" };
+/* Names are combined with world names: eight new families in all twelve
+   biomes = 96 additional named enemies (plus the original 60). */
+static const char *const extra_nm[8] = { "CRAWLER", "GOLEM", "MOTH", "SPORE", "SHADE", "STINGER", "CRAB", "REAPER" };
 /* health in eighths of the usual, and extra bite, for each of the 4 */
 static const UINT8 hpm[48] = { 7, 9, 6, 11,   6, 14, 8, 12,   4, 14, 7, 10,   8, 9, 8, 7,   12, 11, 5, 8,   9, 13, 5, 10,
     8, 15, 7, 12,   6, 9, 5, 13,   9, 10, 8, 14,   9, 12, 9, 11,   10, 8, 5, 14,   5, 8, 6, 15 };
@@ -75,26 +78,32 @@ static const palette_color_t pal[12][16] = {
 void bst_pals(UINT8 wk) BANKED { set_sprite_palette(0, 4, pal[wk]); }
 UINT8 bst_hp(UINT8 hp, UINT8 k, UINT8 wk) BANKED {
     UINT16 h = hp; UINT8 p = weird_pct(weird_of(sv.star), WP_FOE);
-    if(k < 4) h = h * hpm[wk * 4 + k] / 8;
+    if(k < 12) h = h * hpm[wk * 4 + (k & 3)] / 8;
+    if(k == 5 || k == 10) h += h / 3;            /* golems and crabs wear thick shells */
     h += h * p / 100;
     return h > 255 ? 255 : h ? (UINT8)h : 1;
 }
-UINT8 bst_dmg(UINT8 k, UINT8 wk) BANKED { return (k < 4 ? dm[wk * 4 + k] : 0) + weird_pct(weird_of(sv.star), WP_HIT); }
+UINT8 bst_dmg(UINT8 k, UINT8 wk) BANKED { return (k < 12 ? dm[wk * 4 + (k & 3)] : 0) + (k == 9 || k == 11 ? 1 : 0) + weird_pct(weird_of(sv.star), WP_HIT); }
 void bst_kill(UINT8 k, UINT8 wk, UINT8 depth) BANKED {
-    UINT8 i = k == 4 ? 48 + wk : wk * 4 + k, p = weird_pct(weird_of(sv.star), WP_GOLD);
+    /* Preserve the original 60 saved kill counters: new variants contribute
+       to their parent family; the queen still has one slot per world. */
+    UINT8 i = k >= 12 ? 48 + wk : wk * 4 + (k & 3), p = weird_pct(weird_of(sv.star), WP_GOLD);
     wild_load();
     wram_bank(2); if(XAP->kills[i] < 255) XAP->kills[i]++; wram_bank(1);
     wild_save();
     if(p){ UINT16 g = (UINT16)(3 + k * 2 + depth) * p / 100; sv.gold += g ? g : 1; }
 }
-void bst_name(char *out, UINT8 wk, UINT8 k) BANKED { scat(out, nm[wk * 5 + k]); }
+void bst_name(char *out, UINT8 wk, UINT8 k) BANKED {
+    if(k >= 4 && k < 12){ scat(out, wn[wk]); scat(out, " "); scat(out, extra_nm[k - 4]); }
+    else scat(out, nm[wk * 5 + (k >= 12 ? 4 : k)]);
+}
 
 /* ---- the book */
 static void bk_page(UINT8 pg, const UINT8 *kl){
     UINT8 i; char b[21], *d;
     DISPLAY_OFF; txt_win(0); txt_cls(); txt_box(0, 0, 20, 18);
     txt_line(2, 1, "BESTIARY", 8); txt_color(2, 1, 8, 1, TXT_GOLD);
-    d = u16s(b, pg + 1); d = scat(d, "/14"); *d = 0; txt_line(15, 1, b, 3); txt_color(15, 1, 3, 1, TXT_GREY);
+    d = u16s(b, pg + 1); d = scat(d, "/26"); *d = 0; txt_line(15, 1, b, 4); txt_color(15, 1, 3, 1, TXT_GREY);
     if(pg < 12){
         UINT16 all = 0;
         txt_line(2, 3, wn[pg], 10); txt_color(2, 3, 10, 1, TXT_WHITE);
@@ -105,9 +114,18 @@ static void bk_page(UINT8 pg, const UINT8 *kl){
             d = u16s(b, n); *d = 0; txt_line(14, y, b, 4); txt_color(14, y, 4, 1, n ? TXT_WHITE : TXT_GREY);
         }
         d = scat(b, "KILLED HERE "); d = u16s(d, all); *d = 0; txt_line(2, 15, b, 16); txt_color(2, 15, 16, 1, TXT_GREY);
+    } else if(pg < 24){
+        txt_line(2, 3, wn[pg - 12], 12); txt_color(2, 3, 12, 1, TXT_GOLD);
+        txt_line(2, 4, "DEEP-FLOOR SPECIES", 18); txt_color(2, 4, 18, 1, TXT_WHITE);
+        for(i = 0; i < 8; i++){
+            b[0] = 0; bst_name(b, pg - 12, i + 4);
+            txt_line(1, 6 + i, b, 18);
+            txt_color(1, 6 + i, 18, 1, i & 1 ? TXT_GREY : TXT_WHITE);
+        }
+        txt_line(2, 15, "KILLS SHARE FAMILIES", 19); txt_color(2, 15, 19, 1, TXT_GREY);
     } else {
-        txt_line(2, 3, pg == 12 ? "WEIRD WORLDS 1" : "WEIRD WORLDS 2", 14); txt_color(2, 3, 14, 1, TXT_WHITE);
-        weird_screen(5, pg - 12);
+        txt_line(2, 3, pg == 24 ? "WEIRD WORLDS 1" : "WEIRD WORLDS 2", 14); txt_color(2, 3, 14, 1, TXT_WHITE);
+        weird_screen(5, pg - 24);
     }
     txt_line(2, 16, "< > PAGE B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
     txt_pal_reset(); SHOW_BKG; DISPLAY_ON;
@@ -120,7 +138,7 @@ void bst_screen(void) BANKED {
     for(;;){
         wait_vbl_done(); input_poll();
         if(HIT(J_B) || HIT(J_START)) return;
-        if(HITR(J_RIGHT)){ pg = pg < 13 ? pg + 1 : 0; sfx(SFX_MOVE); bk_page(pg, kl); }
-        if(HITR(J_LEFT)){ pg = pg ? pg - 1 : 13; sfx(SFX_MOVE); bk_page(pg, kl); }
+        if(HITR(J_RIGHT)){ pg = pg < 25 ? pg + 1 : 0; sfx(SFX_MOVE); bk_page(pg, kl); }
+        if(HITR(J_LEFT)){ pg = pg ? pg - 1 : 25; sfx(SFX_MOVE); bk_page(pg, kl); }
     }
 }
