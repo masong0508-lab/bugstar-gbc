@@ -59,5 +59,6 @@ UINT8 s3_to2d(void) BANKED;                  /* quantize 3D nose direction to th
 void s3_boss_spawn(void) BANKED;
 void s3_boss_arrow(void) BANKED;
 void s3_boss_hud(void) BANKED;
+void s3_target_hud(void) BANKED;       /* shared navigation/port/boss line every eight frames */
 void s3_boss_reward(void) BANKED;
 #endif
