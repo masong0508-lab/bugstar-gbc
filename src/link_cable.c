@@ -65,7 +65,7 @@ void gbc_cable_step(uint16_t tick){
     if(!link_on)return;
     gbc_link_timeout(&link_state,tick);
     /* Atomic handoff: the ISR only stores one byte and two flags. */
-    critical {
+    __critical {
         if(sio_ready){
             b=sio_byte;sio_ready=0;got=1;
         }
