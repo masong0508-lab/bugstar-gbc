@@ -55,7 +55,7 @@ INT16 tgt_d;
 void s3_from2d(UINT8 heading, UINT8 reference_star) BANKED {
     yaw = (UINT16)((UINT8)(128 - (heading << 5))) << 8;
     pit16 = 0;
-    sz = star_z(reference_star) << 4;
+    sz = star_z(reference_star) * 16;  /* signed heights: multiplication also works for negative values */
 }
 UINT8 s3_to2d(void) BANKED {
     return (UINT8)(128 - (UINT8)(yaw >> 8) + 16) >> 5;
