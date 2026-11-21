@@ -99,5 +99,5 @@ void s3_boss_reward(void) BANKED {
     sv.gold += 5000;
     fame_add(300);
     gain_xp(200);
-    space_say(SAY_DAWN);
+    /* Story dialogue is invoked by the flight caller after returning to bank 19. */
 }
