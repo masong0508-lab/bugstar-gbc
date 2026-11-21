@@ -51,6 +51,9 @@ assert "void s3_from2d" in api and "UINT8 s3_to2d" in api
 
 # B is never locked to turbo while inside the landing/docking zone.
 assert "want = (k & J_B) ? 0 : 12" in fly
+assert "UINT8 brake = (k & (J_B | J_DOWN)) == (J_B | J_DOWN)" in fly
+assert "want = brake ? 0" in fly
+assert "((k & J_DOWN) && !brake)" in fly
 assert "if(vel > want) vel = want;" in fly
 assert "if(vel < want) vel = want;" in fly
 for velocity in (0, 3, 13, 24, 56, 92):
