@@ -1,6 +1,6 @@
 # BUGSTAR GBC: multiplayer link-cable implementation plan
 
-Status: **planned, not implemented**. Companion to
+Status: **L0 packet/Ready state code is on an implementation branch; real serial link and gameplay are not yet implemented**. Companion to
 [BUGSTAR multiplayer plan](https://github.com/masong0508-lab/bugstar/blob/main/MULTIPLAYER_PLAN.md).
 This document applies to the real Game Boy Color ROM in this repository,
 not an imaginary Internet-enabled GBC. Keep `PARITY.md` accurate.
@@ -45,9 +45,12 @@ not an imaginary Internet-enabled GBC. Keep `PARITY.md` accurate.
 
 ## Milestones with entry/exit criteria
 
-1. **L0 interface contract + host tests:** portable protocol description,
-   packet encode/decode tested for 1,000 tick rollovers, CRC failure, wrong
-   version, disconnect, and small memory ceiling. No gameplay yet.
+1. **L0 interface contract + host tests (implemented, CI pending):** `src/link_proto.h/.c`
+   now implement a compact 12-byte GBC-only packet, little-endian seed/tick,
+   CRC8, explicit Ready and Active flags, wrap-aware sequence rejection, timeout
+   and manual Ready reset after disconnect. `make link-test` exercises 10,000
+   round trips and two peers. This is transport-independent code: it does
+   **not** exchange actual cable bytes, show the second ship or save rewards.
 2. **L1 real link handshake:** connect/ready/leave and failure message on
    two linked emulators. Verify re-entry to solo without a reboot.
 3. **L2 real gameplay:** 3D ship movement, two viewpoints, shots, authoritative
