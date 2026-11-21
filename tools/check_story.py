@@ -27,6 +27,18 @@ assert len(pages) == 27, "the three nine-line ending panels changed unexpectedly
 assert all(len(s) <= 20 for s in pages), "ending text overflows 20-column GBC viewport"
 assert "THE SHIP WAS DAWN." in pages, "true identity needs a precise payoff"
 assert "THE KING TOOK THEM." in pages, "ending lost the antagonist's responsibility"
+assert "TO WARM HIS NEST." in pages, (
+    "GBC must establish the King's motive without excusing the kidnapping"
+)
+assert 'sv.friends ? "SOME FRIENDS MADE IT" : "FRIENDS STILL WAIT"' in ending, (
+    "GBC epilogue must honor actual rescued-friend count"
+)
+assert all(len(line) <= 20 for line in ("SOME FRIENDS MADE IT", "FRIENDS STILL WAIT")), (
+    "conditional post-finale lines must fit the 20-column viewport"
+)
+assert "if(spoken[0]) wait_a(" in ending, (
+    "new conditional ending line must respect existing A/START pacing"
+)
 assert "YOU CARRIED BOLT" in pages, "ending has no player/companion connection"
 assert any("YOU ALL HOME." in s for s in pages), "the ending must conclude Bolt's promise"
 assert "i == 0 ? TXT_GOLD" in ending, "chapter intertitle contrast is missing"
@@ -61,6 +73,12 @@ assert "THE DAWN" not in zone.group(1), (
 
 assert "if(cores < 8)" in bolt and "else if(!(sv.story & ST_DONE))" in bolt
 assert 'say("I REMEMBER MY NAME. THE DAWN.' in bolt
+assert "I AM DAWN. BUT YOU CAN STILL CALL ME BOLT." in bolt, (
+    "post-finale companion must retain his name and personality"
+)
+assert "KEEP LOOKING FOR THE FRIENDS WE MISSED." in bolt, (
+    "the GBC postgame must not claim every captive was rescued"
+)
 assert "WAIT FOR ITS CORE TO GLOW" in bolt, "companion no longer tells the player how to win"
 assert "sv.cores < 8" in boss, "3D Technobeast must remain gated behind eight cores"
 
