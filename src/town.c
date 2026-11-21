@@ -211,15 +211,21 @@ static UINT16 seen_n(void){ UINT8 i, b; UINT16 c = 0; for(i = 0; i < 32; i++) fo
 static void q_offer(UINT8 star, UINT8 idx, UINT8 tier){
     UINT16 r = th ^ ((UINT16)Q_N * 0x3D5u);
     UINT16 unseen = 256u - seen_n();
+    UINT8 maxfloor = 3 + (sv.zone > 3 ? 3 : sv.zone);
     UINT8 t; r ^= r >> 6; r *= 0x2D3Bu; r ^= r >> 5;
     t = 1 + (UINT8)(r % 8); qs = star; qb = 0;
+    if(t == 2 && sv.deepest >= maxfloor) t = 5; /* normal campaign capped; don't silently require an endless dungeon */
     if(t == 3 && sv.friends >= 250) t = 1;
     if(t == 6 && EX_FISHN > 240) t = 5;
     if(t == 8 && ex.pit >= 9) t = unseen ? 7 : 5;
     if(t == 7 && !unseen) t = 5; /* every world visited: offer a hunt, not an impossible landing */
     qt = t;
     if(t == 1){ qa = (idx + 1 + ((r >> 3) & 1)) % 3; qr = 40 + 25 * (UINT16)tier + (r & 15); }
-    else if(t == 2){ qa = sv.deepest < 90 ? sv.deepest + 2 : 92; qr = 50 + 8 * (UINT16)qa + 20 * (UINT16)tier; }
+    else if(t == 2){
+        qa = sv.deepest + 2;
+        if(qa > maxfloor) qa = maxfloor;
+        qr = 50 + 8 * (UINT16)qa + 20 * (UINT16)tier;
+    }
     else if(t == 3){ qa = sv.friends + 1; qr = 90 + 40 * (UINT16)tier; }
     else if(t == 5){ qa = 6 + 3 * tier + (UINT8)((r >> 4) & 3); qs = (UINT8)EX_KILLS; qr = 30 + 8 * (UINT16)qa; }              /* squash monsters */
     else if(t == 6){ qa = 2 + (UINT8)((r >> 4) & 3); qs = EX_FISHN; qr = 30 + 18 * (UINT16)qa; }                                  /* catch fish */
