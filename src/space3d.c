@@ -45,11 +45,21 @@ INT8   dust_x[NDUST], dust_y[NDUST]; UINT8 dust_z[NDUST];
 UINT8  dn, prev_dn;
 static UINT8 dl_t[40], dl_x[40], dl_y[40], dl_p[40];
 UINT8  pk3[4];                       /* the kind each planet palette (4..7) holds */
-static UINT8 pal_next;
+static UINT8 pal_used;                /* palette slots already claimed by the nearest visible worlds this frame */
 UINT8  arena_on, edge_on; INT16 ed_x, ed_y, ed_z;
 static Cand cand[16]; static UINT8 ncand;
-UINT8 near_pl, near_st, tgt;
+UINT8 near_pl, near_st, tgt, tgt_rear;
 INT16 tgt_d;
+/* Switching the same physical ship between flat and cockpit space must not
+   teleport the station, reset the heading or invent a different altitude. */
+void s3_from2d(UINT8 heading, UINT8 reference_star) BANKED {
+    yaw = (UINT16)((UINT8)(128 - (heading << 5))) << 8;
+    pit16 = 0;
+    sz = star_z(reference_star) << 4;
+}
+UINT8 s3_to2d(void) BANKED {
+    return (UINT8)(128 - (UINT8)(yaw >> 8) + 16) >> 5;
+}
 
 /* ---------------------------------------------------------------- the maths */
 void s3_basis(void) BANKED {
@@ -106,29 +116,40 @@ static void dust_dot(INT16 cx, INT16 cy){                                  /* a 
 }
 
 /* ---------------------------------------------------------------- worlds */
-static UINT8 pal_for(UINT8 kind){                                           /* a planet palette slot (4..7) that holds this kind */
+static UINT8 pal_for(UINT8 kind){     /* lock each palette for this frame; no recolouring a nearer world halfway through rendering */
     UINT8 i;
-    for(i = 0; i < 4; i++) if(pk3[i] == kind) return 4 + i;
-    i = pal_next; pal_next = (pal_next + 1) & 3;
-    pk3[i] = kind; space_kind_pal(4 + i, kind);
-    return 4 + i;
+    for(i = 0; i < 4; i++) if(pk3[i] == kind){ pal_used |= 1 << i; return 4 + i; }
+    for(i = 0; i < 4; i++) if(!(pal_used & (1 << i))){
+        pal_used |= 1 << i; pk3[i] = kind; space_kind_pal(4 + i, kind);
+        return 4 + i;
+    }
+    return 4;                   /* fifth distinct biome is far away: reuse a near palette, never make nearer worlds flash */
 }
 
+static void cand_add(UINT8 s, UINT8 st, INT16 x, INT16 y, INT16 z){
+    UINT8 n, i = ncand;
+    if(i >= 15){
+        INT16 far = -1; i = 255;
+        for(n = 0; n < ncand; n++) if(cand[n].cz > far){ far = cand[n].cz; i = n; }
+        if(z >= far) return;   /* keep the nearby planet, not the first 15 stars found by grid order */
+    } else ncand++;
+    cand[i].s = s; cand[i].st = st; cand[i].sx = x; cand[i].sy = y; cand[i].cz = z;
+}
 void s3_scan(void) BANKED {                                                     /* every star near the ship: what to draw, what is in reach, the nearest */
     UINT8 cx = (UINT8)(((shx >> 4) >> 8) & 15), cy = (UINT8)(((shy >> 4) >> 8) & 15), i, j, nearest = 0;
     INT16 best = 32000, sx, sy, cz;
     ncand = 0; near_pl = near_st = 255;
     for(j = 0; j < 5; j++) for(i = 0; i < 5; i++){
         UINT8 s = (UINT8)((((cy + j - 2) & 15) << 4) | ((cx + i - 2) & 15));
-        INT16 dx = unit(star_px(s) << 4, shx), dy = unit(star_py(s) << 4, shy), dz = star_z(s) - (sz >> 4), ad, ex, ez;
+        INT16 dx = unit(star_px(s) << 4, shx), dy = unit(star_py(s) << 4, shy), dz = star_z(s) - (sz >> 4), ad, ex, ey, ez;
         if(!inbox(dx) || !inbox(dy)) continue;
         ad = aabs(dx) + aabs(dy) + aabs(dz);
         if(ad < best){ best = ad; nearest = s; }
         if(aabs(dx) < LAND_R && aabs(dy) < LAND_R && aabs(dz) < LAND_R) near_pl = s;
-        ex = dx + ST_DX; ez = dz + 8;
-        if(aabs(ex) < DOCK_R && aabs(dy) < DOCK_R && aabs(ez) < DOCK_R) near_st = s;
-        if(ncand < 15 && proj(dx, dy, dz, &sx, &sy, &cz)){ cand[ncand].s = s; cand[ncand].st = 0; cand[ncand].sx = sx; cand[ncand].sy = sy; cand[ncand].cz = cz; ncand++; }
-        if(ncand < 15 && ad < 330 && proj(ex, dy, ez, &sx, &sy, &cz)){ cand[ncand].s = s; cand[ncand].st = 1; cand[ncand].sx = sx; cand[ncand].sy = sy; cand[ncand].cz = cz; ncand++; }
+        ex = dx + ST_DX; ey = dy + ST_DY; ez = dz + 8;
+        if(aabs(ex) < DOCK_R && aabs(ey) < DOCK_R && aabs(ez) < DOCK_R) near_st = s;
+        if(proj(dx, dy, dz, &sx, &sy, &cz)) cand_add(s, 0, sx, sy, cz);
+        if(ad < 330 && proj(ex, ey, ez, &sx, &sy, &cz)) cand_add(s, 1, sx, sy, cz);
     }
     tgt = sv.el.jk == J_SEND ? sv.el.jd : nearest;
 }
@@ -145,6 +166,9 @@ static void edge_mark(INT16 dx, INT16 dy, INT16 dz, UINT8 above){        /* wher
     while(!inbox(dx) || !inbox(dy)){ dx >>= 1; dy >>= 1; dz >>= 1; }          /* (far away: the same direction, smaller) */
     ox = ((dx * vrx) >> 6) + ((dy * vry) >> 6);
     oy = ((dx * vux) >> 6) + ((dy * vuy) >> 6) + ((dz * vuz) >> 6);
+    { INT16 behind = ((dx * vfx) >> 6) + ((dy * vfy) >> 6) + ((dz * vfz) >> 6);
+      if(behind < 0 && aabs(ox) < -behind / 3 && aabs(oy) < -behind / 3){
+          spr(TS(ARW_L), 5, 52, PAL_MISC); spr(TS(ARW_R), 147, 52, PAL_MISC); return; } }
     if(aabs(ox) >= aabs(oy)) spr(ox > 0 ? TS(ARW_R) : TS(ARW_L), ox > 0 ? 148 : 4, 52, PAL_MISC);
     else spr(oy > 0 ? TS(ARW_U) : TS(ARW_D), 76, oy > 0 ? 6 : 100, PAL_MISC);
 }
@@ -152,6 +176,10 @@ static void target_mark(void){
     UINT8 s = tgt;
     INT16 dx = unit(star_px(s) << 4, shx), dy = unit(star_py(s) << 4, shy), dz = star_z(s) - (sz >> 4);
     tgt_d = aabs(dx) > aabs(dy) ? aabs(dx) + aabs(dy) / 2 : aabs(dy) + aabs(dx) / 2;
+    { INT16 tx = dx, ty = dy, tz = dz;
+      while(!inbox(tx) || !inbox(ty)){ tx >>= 1; ty >>= 1; tz >>= 1; }
+      tgt_rear = ((tx * vfx) >> 6) + ((ty * vfy) >> 6) + ((tz * vfz) >> 6) <= 0;
+    }
     edge_mark(dx, dy, dz, 1);
 }
 
@@ -241,7 +269,9 @@ static void list_worlds(void){
 void s3_flush(UINT8 frame) BANKED {                                             /* (in VBlank) the sprites, the background's turn, the twinkle */
     UINT8 i;
     shake_tick();
-    SCX_REG = (UINT8)(-(INT16)((((UINT16)(yaw >> 6)) * 63) >> 7) + shake_x); SCY_REG = (UINT8)(-(pit16 >> 7) + shake_y);   /* the stars turn as fast as the worlds do (80 pixels a radian) */
+    /* Exactly two 256px repeats per revolution: 81.5px/radian, near the 80px lens.
+       The old 63/128 ratio jumped 8px every time yaw wrapped through north. */
+    SCX_REG = (UINT8)(-(INT16)(yaw >> 7) + shake_x); SCY_REG = (UINT8)(-(pit16 >> 7) + shake_y);
     for(i = 0; i < dn; i++){ set_sprite_tile(i, dl_t[i]); set_sprite_prop(i, dl_p[i]); move_sprite(i, dl_x[i], dl_y[i]); }
     for(; i < prev_dn; i++) move_sprite(i, 0, 0);
     prev_dn = dn;
@@ -250,7 +280,7 @@ void s3_flush(UINT8 frame) BANKED {                                             
 
 void s3_render(UINT8 frame) BANKED {
     UINT8 q;
-    dn = 0; for(q = 0; q < 32; q++) ld[q] = 0;
+    dn = 0; pal_used = 0; for(q = 0; q < 32; q++) ld[q] = 0;
     spr(TS(CROSS), 76, 52, PAL_MISC);
     if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); } else target_mark();
     list_things(frame);
