@@ -121,7 +121,7 @@ assert "y0 = cy - rows * 8;" in s3
 assert "if(cols > 4 && rows > 1) y0 &=" in s3
 assert "scan();                         /* correct docking/boost state on the very first frame */" in fly
 assert "return 4;                   /* fifth distinct biome" in s3
-assert "tgt_rear" in s3 and "BEHIND!" in fly
+assert "tgt_rear" in s3 and "BEHIND!" in boss
 # Aim-assist shots are kept in a signed 16-bit fixed-point format.
 # Directly doing 400 * 90 overflows the GBC's 16-bit int and reversed shots.
 assert "while(m > 255){ dx /= 2; dy /= 2; dz /= 2; m = (m + 1) / 2; }" in fly
@@ -162,7 +162,7 @@ assert "void s3_boss_spawn(void) BANKED" in boss
 assert "void s3_boss_arrow(void) BANKED" in boss
 assert "void s3_boss_hud(void) BANKED" in boss
 assert "void s3_boss_reward(void) BANKED" in boss
-assert "s3_boss_hud(); return;" in fly
+assert "s3_boss_hud(); return;" in boss
 assert "s3_boss_reward();" in fly
 assert "story_boss_state = 0; story_boss_fade = 0; edge_on = 0;" in fly
 assert "static void story_boss_spawn(void)" not in fly
