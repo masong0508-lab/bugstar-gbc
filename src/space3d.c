@@ -198,6 +198,19 @@ static void target_mark(void){
     }
     edge_mark(dx, dy, dz, 1);
 }
+/* A distinct amber arrow marks the station beside the selected world.
+   Previously the white planet target marker left the actual docking port
+   nearly impossible to locate against the starfield in first-person flight.
+   One existing 8x16 arrow sprite, no textures, no extra actors, no heap. */
+static void station_beacon(void){
+    UINT8 s = near_st != 255 ? near_st : tgt;
+    INT16 dx = unit(star_px(s) << 4, shx) + ST_DX;
+    INT16 dy = unit(star_py(s) << 4, shy) + ST_DY;
+    INT16 dz = star_z(s) - (sz >> 4) + 8, sx, sy, cz;
+    if(aabs(dx) > 250 || aabs(dy) > 250 || aabs(dz) > 250) return;
+    if(proj(dx, dy, dz, &sx, &sy, &cz) && sx > 12 && sx < 148 && sy > 18 && sy < 106)
+        spr(TS(ARW_D), sx - 4, sy - (cz < 100 ? 28 : 18), PAL_LAS);
+}
 
 /* ---------------------------------------------------------------- scene */
 static void tiles3(void){
@@ -305,7 +318,8 @@ void s3_render(UINT8 frame) BANKED {
     UINT8 q;
     dn = 0; pal_used = 0; for(q = 0; q < 32; q++) ld[q] = 0;
     spr(TS(CROSS), 76, 52, PAL_MISC);
-    if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); } else target_mark();
+    if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); }
+    else { target_mark(); station_beacon(); }
     list_things(frame);
     if(!arena_on) list_worlds();
     list_dust();              /* never reserve scarce sprites ahead of planets */
