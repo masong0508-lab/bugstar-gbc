@@ -35,10 +35,10 @@ static unsigned char wram_host_bt[2 * 11 * 32];          /* (host tests: its own
 #define WRAM_KART_REV   (WRAM_FADE + 144)
 #define WRAM_KART_PAL   (WRAM_FADE + 160)
 #define WRAM_KART_END   (WRAM_FADE + 184)
+#define WRAM_DMAP  0xD820
 #if WRAM_KART_END > WRAM_DMAP
 #error Kart World staging overlaps the dungeon map
 #endif
-#define WRAM_DMAP  0xD820
 #define WRAM_STARS 0xDC20
 #define WRAM_MAKE2 0xDE20
 #define WRAM_TXT   0xDE20   /* transient text scratch (480 bytes; shares WRAM_MAKE2, which only the bug creator uses). Build a message, say it, done: never keep it across a call that can open the creator. */
