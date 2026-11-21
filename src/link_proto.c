@@ -87,7 +87,13 @@ int8_t gbc_link_receive(GbcLinkSession *s,const GbcLinkPacket *p,uint16_t now){
         }
         return 1;
     }
-    if(!s->connected)return 0; /* require a HELLO before READY/INPUT */
+    /* The responder may transmit READY immediately after HELLO. Accept
+     * that same-seed READY as an implicit HELLO acknowledgement; never
+     * promote an unsolicited INPUT to a newly connected peer. */
+    if(!s->connected){
+        if(p->kind!=GBL_READY)return 0;
+        s->connected=1;s->peer_ready=0;s->peer_active=0;
+    }
     s->peer_ready=(uint8_t)((p->flags&GBL_FLAG_READY)!=0u);
     s->peer_active=(uint8_t)((p->flags&GBL_FLAG_ACTIVE)!=0u);
     if(gbc_link_can_play(s))s->reconnecting=0;
