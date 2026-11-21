@@ -13,6 +13,10 @@ bolt = (root / "src/bolt.c").read_text()
 mem = (root / "src/bolt_data.h").read_text()
 planet = (root / "src/planet.c").read_text()
 boss = (root / "src/space3d_boss.c").read_text()
+feat = (root / "src/feat.c").read_text()
+dungeon = (root / "src/dungeon.c").read_text()
+dg_gen = (root / "src/dungeon_gen.c").read_text()
+feat_h = (root / "src/feat.h").read_text()
 
 
 def strings(section):
@@ -81,6 +85,39 @@ assert "KEEP LOOKING FOR THE FRIENDS WE MISSED." in bolt, (
 )
 assert "WAIT FOR ITS CORE TO GLOW" in bolt, "companion no longer tells the player how to win"
 assert "sv.cores < 8" in boss, "3D Technobeast must remain gated behind eight cores"
+
+assert "void  boss_evidence(UINT8 core) BANKED;" in feat_h, (
+    "the GBC clue reader must use the dedicated bank instead of filling bank 5"
+)
+clue_section = feat.split("void boss_evidence(UINT8 core) BANKED {", 1)[1].split(
+    "void dungeon_won(UINT8 kind)", 1
+)[0]
+m = re.search(r"static const char \*const ledger\[8\] = \{(.*?)\};", clue_section, re.S)
+assert m, "expected eight GBC Queen case files tied to recovered core count"
+ledger = strings(m.group(1))
+assert len(ledger) == 8
+assert all(0 < len(s) < 110 for s in ledger), (
+    "ledger dialogue must fit Bolt's existing 110-byte dialog buffer"
+)
+assert all("THE DAWN" not in s for s in ledger), (
+    "the Queen records must not spoil the eighth memory's identity reveal"
+)
+assert "boss_evidence(sv.cores);" in dungeon, (
+    "the queen's case file must play from a real gameplay chest pickup"
+)
+assert "boss_clue_seen = 1" in dungeon and "boss_clue_seen = 0" in dungeon, (
+    "Queen-floor evidence must trigger once each visit, not per ordinary chest"
+)
+assert "depth == floors && !hell && !pit && !boss_clue_seen && !world_freed(sv.star)" in dungeon, (
+    "evidence should belong to fresh story bosses, not endless-mode chests"
+)
+assert "depth == floors && !hell && nrooms > 1 && !world_freed(sv.star)" in dg_gen, (
+    "the first Queen floor must physically contain a discoverable clue chest"
+)
+assert "DM(x, y) = D_CHEST; placed = 1;" in dg_gen, (
+    "the case file must use existing solid chest tiles, not new image assets"
+)
+
 
 assert "I CAN FLY THIS SHIP, BUT I CAN'T REMEMBER MY LAST VOYAGE." in planet, (
     "GBC Bolt's opening lacks character motivation"
