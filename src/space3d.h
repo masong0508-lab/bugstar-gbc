@@ -7,6 +7,10 @@
    or SP_FLIP (the view was switched at a station: space_run starts the other view where the ship is). keep = 1: carry on from where the
    ship is (shx, shy) instead of starting beside the home world. */
 int space3d_run(UINT8 keep) BANKED;
+/* Exact cross-view continuity: convert the 8-way flat ship heading into the
+   256-step 3D yaw, and preserve which planet's altitude we are near. */
+void s3_from2d(UINT8 heading, UINT8 reference_star) BANKED;
+UINT8 s3_to2d(void) BANKED;
 /* The Arena (bank 19): a wave shooter in the 3D engine, unlocked at fame rank AVERAGE. Start it from EXTRAS (SYSTEM menu) while flying.
    It has its own intro, score and results, pays gold, keeps the best wave in the save. It ends with the screen off: the caller restarts the view (SP_FLIP). */
 void arena_run(void) BANKED;
