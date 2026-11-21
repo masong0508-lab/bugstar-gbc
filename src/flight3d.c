@@ -563,7 +563,7 @@ int space3d_run(UINT8 keep) BANKED {
     basis();
     scan();                         /* correct docking/boost state on the very first frame */
     gfx3();
-    if(!told3){ told3 = 1; space_say(SAY_HOW3); }
+    if(!told3){ told3 = 1; space_say(SAY_HOW3); say3("B+DOWN: BRAKE"); }
     if(sv.cores >= 8 && !(sv.story & ST_DONE) && !keep) space_say(SAY_BEAST3);
     for(;;){
         input_poll(); k = keys; frame++;
