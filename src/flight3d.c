@@ -119,6 +119,7 @@ static void story_boss_near(void){
 static UINT8 story_boss_finish(void){
     if(story_boss_state != 2 || --story_boss_fade) return 0;
     s3_boss_reward();
+    space_say(SAY_DAWN);
     return 1;
 }
 static UINT8 ar_wave, ar_left, ar_bombs, ar_gap, ar_pause, ar_boss;       /* the Arena: wave, pirates still to come, bombs, spawn gap, pause, the next one is the flagship */
