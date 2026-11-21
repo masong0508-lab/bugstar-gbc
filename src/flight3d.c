@@ -286,7 +286,7 @@ static void step_pirates(void){                                             /* t
         if(p->st >= 2){ if(++p->st > 24) p->st = 0; continue; }
         dx = unit(shx, p->x); dy = unit(shy, p->y); dz = (sz - p->z) >> 4;
         dist = aabs(dx) > aabs(dy) ? aabs(dx) + aabs(dy) / 2 : aabs(dy) + aabs(dx) / 2;
-        if(dist > 700 && !arena_on){ p->st = 0; continue; }                              /* lost interest */
+        if(dist > 700 && !arena_on && p->kind != 2){ p->st = 0; continue; } /* never despawn the required story boss */
         if(dist > 130) norm_step(dx, dy, dz, 21 + lvl3(), &ax, &ay, &az);
         else { norm_step(-dy, dx, dz / 2, 19, &ax, &ay, &az); if(p->t & 64){ ax = -ax; ay = -ay; } }     /* circle */
         p->x += ax; p->y += ay; p->z += az; p->t++;
@@ -432,6 +432,17 @@ static void ar_arrow(void){                                                 /* a
     }
     edge_on = best != 255;
     if(edge_on){ ed_x = unit(pir[best].x, shx); ed_y = unit(pir[best].y, shy); ed_z = (pir[best].z - sz) >> 4; }
+}
+/* The story pointer must stay on the Technobeast rather than any leftover
+   regular pirate that was flying nearby when the player reached the lair. */
+static void story_arrow(void){
+    UINT8 i; edge_on = 0;
+    for(i = 0; i < NP3; i++) if(pir[i].st == 1 && pir[i].kind == 2){
+        edge_on = 1;
+        ed_x = unit(pir[i].x, shx); ed_y = unit(pir[i].y, shy);
+        ed_z = (pir[i].z - sz) >> 4;
+        return;
+    }
 }
 static void ar_line(void){
     char b[24], *d = scat(b, "WAVE "); d = u16s(d, ar_wave); d = scat(d, " BOMB "); d = u16s(d, ar_bombs); d = scat(d, " +"); d = u16s(d, ar_gold); *d = 0;
@@ -630,8 +641,8 @@ int space3d_run(UINT8 keep) BANKED {
     objects_clear();
     basis();
     scan();                         /* correct docking/boost state on the very first frame */
-    story_boss_near();             /* the lair exists in both the 2D and the 3D galaxy */
     gfx3();
+    story_boss_near();             /* the lair exists in both the 2D and the 3D galaxy */
     if(!told3){ told3 = 1; space_say(SAY_HOW3); say3("B+DOWN: BRAKE"); }
     if(sv.cores >= 8 && !(sv.story & ST_DONE) && !keep) space_say(SAY_BEAST3);
     for(;;){
@@ -644,7 +655,7 @@ int space3d_run(UINT8 keep) BANKED {
         if(inv) inv--;
         if((k & J_A) && !cool && near_pl == 255 && near_st == 255) shoot(); /* A lands or docks first, shoots otherwise */
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); step_dust();
-        if(story_boss_state == 1) ar_arrow();
+        if(story_boss_state == 1) story_arrow();
         s3_render(frame);
         wait_vbl_done();
         s3_flush(frame);
