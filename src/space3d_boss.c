@@ -16,9 +16,12 @@
 void s3_boss_spawn(void) BANKED {
     UINT8 i; P3 *p;
     if(story_boss_state || sv.cores < 8 || (sv.story & ST_DONE)) return;
-    for(i = 0; i < NP3; i++) if(!pir[i].st) break;
-    if(i == NP3) i = NP3 - 1;      /* reserve a real actor slot for mandatory boss */
-    p = &pir[i];
+    /* A finale should begin clearly: retire straggling pirate actors and
+       their old volleys rather than mixing the mandatory boss with an
+       accidental swarm near the four-way galaxy junction. */
+    for(i = 0; i < NP3; i++) pir[i].st = 0;
+    for(i = 0; i < NO3; i++) orb[i].life = 0;
+    p = &pir[0];
     p->x = (UINT16)BEAST_X << 4; p->y = (UINT16)BEAST_Y << 4;
     p->z = 0; p->st = 1; p->hp = BEAST_HP; p->t = 0; p->kind = 2;
     story_boss_state = 1;
