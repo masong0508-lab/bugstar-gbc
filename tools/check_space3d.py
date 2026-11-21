@@ -69,6 +69,8 @@ assert "dock_lock = 50; vel = 0;" in fly
 assert "shx -= (vfx * 70)" not in fly
 assert "near_pl == 255 && near_st == 255) shoot();" in fly
 assert "if(near_st != 255 && !dock_lock)" in fly
+assert "fade_out(); DISPLAY_OFF; gfx3();" in fly, "3D must restore tiles after station UI"
+assert "fade_out(); DISPLAY_OFF; gfx();" in flat, "2D must restore tiles after station UI"
 
 # The same 40-sprite OAM allocation is retained; nearer worlds beat
 # far-away clutter and palettes no longer recolor active objects.
