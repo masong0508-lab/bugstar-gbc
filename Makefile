@@ -46,4 +46,7 @@ link-test:
 	gcc -std=c99 -O1 -Wall -Wextra -Werror -fsanitize=undefined \
 	  tests/link_proto_test.c src/link_proto.c -o build/link_proto_test
 	./build/link_proto_test
-.PHONY: all clean art bug font test link-test
+# Dedicated diagnostic ROM, NOT an enabled multiplayer option in the game.
+link-rom:
+	$(MAKE) DEFS="-DTEST_LINK" BUILD=build_link OUT=link.gbc
+.PHONY: all clean art bug font test link-test link-rom
