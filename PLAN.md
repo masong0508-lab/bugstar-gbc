@@ -1,5 +1,7 @@
 # BUGSTAR: GBA -> GBC de-port plan
 
+**Multiplayer (planned, not implemented):** see [MULTIPLAYER_PLAN.md](MULTIPLAYER_PLAN.md) for the two-GBC link-cable vertical slice, 3D co-op/duel, performance gates and hardware tests.
+
 The GBA game is ARM C with 240x160 mode-4 bitmaps, a 64-bit economy, textured 3D dungeons,
 Mode-7 karts and 2^155-cluster galaxies. None of that maps to an 8 MHz Sharp LR35902 with
 160x144, tile/palette graphics and 16-bit ints, so each step rebuilds a feature, not translates it.
