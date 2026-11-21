@@ -42,6 +42,7 @@ P3     pir[NP3];
 B3     bolt[NB3], orb[NO3];
 Pod3   pod[NPOD3];
 INT8   dust_x[NDUST], dust_y[NDUST]; UINT8 dust_z[NDUST];
+static UINT16 yaw_o; static INT16 pit_o;  /* previous view orientation for dust parallax */
 UINT8  dn, prev_dn;
 static UINT8 dl_t[40], dl_x[40], dl_y[40], dl_p[40];
 UINT8  pk3[4];                       /* the kind each planet palette (4..7) holds */
@@ -245,6 +246,30 @@ static void sky3(void){                                                     /* t
 void s3_dust_born(UINT8 i, UINT8 far) BANKED {
     do { dust_x[i] = (INT8)rnd(); dust_y[i] = (INT8)rnd(); } while(dust_x[i] > -14 && dust_x[i] < 14 && dust_y[i] > -14 && dust_y[i] < 14);
     dust_z[i] = far ? 255 - (rnd() & 31) : 30 + rnd() % 220;
+}
+/* Bank 18 owns the cosmetic star dust and its orientation history.
+   Previously the tight bank-19 flight code called back into bank 18 for
+   every dust rebirth; one local update is cheaper and frees ROM there. */
+void s3_dust_reset(void) BANKED {
+    UINT8 i;
+    for(i = 0; i < NDUST; i++) s3_dust_born(i, 0);
+    yaw_o = yaw; pit_o = pit16;
+}
+void s3_dust_step(void) BANKED {
+    UINT8 i, sp = (UINT8)(vel >> 2);
+    INT16 px = (INT16)(((INT16)(yaw - yaw_o) >> 2) * 63) >> 11;
+    INT16 py = (INT16)(pit16 - pit_o) >> 7;
+    yaw_o = yaw; pit_o = pit16;
+    if(sp < 3) sp = 3;
+    for(i = 0; i < NDUST; i++){
+        if(dust_z[i] <= 8 + sp){ s3_dust_born(i, 1); continue; }
+        dust_z[i] -= sp;
+        if(px || py){
+            INT16 x = dust_x[i] + ((px * dust_z[i]) >> 6), y = dust_y[i] + ((py * dust_z[i]) >> 6);
+            if(x < -120 || x > 120 || y < -120 || y > 120) s3_dust_born(i, 1);
+            else { dust_x[i] = (INT8)x; dust_y[i] = (INT8)y; }
+        }
+    }
 }
 static void list_things(UINT8 frame){
     UINT8 i;
