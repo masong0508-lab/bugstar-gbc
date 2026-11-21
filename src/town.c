@@ -246,6 +246,12 @@ static void q_load(void){
         qa = (UINT8)(256u - qb);
         Q_A = qa;
     }
+    /* Old town boards also advertised B90+ after the normal campaign ended.
+       Allow the existing contract to finish at the final campaign floor. */
+    if(qt == 2){
+        UINT8 last = 3 + (sv.zone > 3 ? 3 : sv.zone);
+        if(qa > last){ qa = last; Q_A = qa; }
+    }
 }
 static UINT8 q_done(UINT8 idx){
     if(qt == 1) return sv.star == qs && idx == qa;
