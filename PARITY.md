@@ -50,6 +50,7 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
   - Not done in BUG HIVE: the map is fixed at 32x32 with no flooding or cave-ins, no real hardware test.
 
 - **HUD** (this pass): bars glide to the real value, the heart bar blinks at low HP, numbers are four characters wide (K past 9999), STATUS pips shrink for long numbers. The level cap stays 999 (audited: every level multiplication fits 16 bits there; 9999 would not).
+- **GBC quest reliability (November 2026):** town exploration contracts now count all 256 planets without overflow, never request more unvisited planets than remain, and repair impossible goals from older saves without discarding their promised payout. Abandoning an active town quest requires pressing SELECT twice; completed quests cannot be dropped accidentally. The bounty office compares 16-bit kill, pirate, and mining totals correctly across rollover. Bolt's first memory no longer gives away his final name. Host tests compile the real quest/bounty C functions under UBSan before ROM packaging.
 - **Save safety** (this pass): every slot is written twice (a mirror at SRAM offset 4096 first, then the real copy); a torn write leaves one good copy and load falls back to the mirror. The host test covers it.
 - Saving: 3 slots, checksums, 6 difficulties, old-save conversion (versions 1 to 4).
 
