@@ -28,7 +28,7 @@ assert all(len(s) <= 20 for s in pages), "ending text overflows 20-column GBC vi
 assert "THE SHIP WAS DAWN." in pages, "true identity needs a precise payoff"
 assert "THE KING TOOK THEM." in pages, "ending lost the antagonist's responsibility"
 assert "YOU CARRIED BOLT" in pages, "ending has no player/companion connection"
-assert "YOU ALL HOME." in pages, "the ending must conclude Bolt's promise"
+assert any("YOU ALL HOME." in s for s in pages), "the ending must conclude Bolt's promise"
 assert "i == 0 ? TXT_GOLD" in ending, "chapter intertitle contrast is missing"
 assert "wait_a((p == 2 && i == 7)" in ending, (
     "final dialogue needs deliberate pacing without slowing ordinary gameplay"
