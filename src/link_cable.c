@@ -3,6 +3,7 @@
  * No allocation, SRAM writes, new framebuffers, or banked calls in the ISR.
  * Master: internal fast clock; guest: externally clocked fast serial.
  * Do not enter normal UI until linked emulator/device tests pass. */
+#ifdef TEST_LINK
 #include <gb/gb.h>
 #include <gb/cgb.h>
 #include "link_cable.h"
@@ -98,3 +99,5 @@ void gbc_cable_stop(void){
     link_on=0;sio_ready=sio_busy=0;rx_n=tx_i=0;
     gbc_link_init(&link_state,0,0,0);
 }
+
+#endif /* TEST_LINK: the retail/solo ROM has no cable or ISR overhead */
