@@ -133,6 +133,12 @@ int main(void){
     for(i=0;i<8192;i+=17){
         th=(UINT16)i; Q_N=1; q_offer(1,0,2); ASSERT(qt!=2);
     }
+    /* A previous build may have left an accepted impossible floor-B92
+       contract on the cartridge. Repair it without losing the reward. */
+    sv.zone=0; sv.deepest=2; Q_T=2; Q_A=92;
+    sv.rsv[0]=77; sv.rsv[1]=2; q_load();
+    ASSERT(qa==3 && Q_A==3 && qr==589 && !q_done(0));
+    sv.deepest=3; ASSERT(q_done(0));
     printf("GBC quest runtime: %u combinations, %u exploration jobs, impossible offers 0; PASS\n",
            inspected,land_jobs);
     return 0;
