@@ -47,6 +47,30 @@ void s3_boss_hud(void) BANKED {
     txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0);
 }
 
+/* Flight status is refreshed once every eight frames, not every scanline.
+   Bank it out of the near-full real-time cockpit code. */
+void s3_target_hud(void) BANKED {           /* keep actionable controls in view instead of truncating them after a long planet name */
+    char b[28], name[24], *d;
+    UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
+    if(story_boss_state){ s3_boss_hud(); return; }
+    if(near_pl != 255 || near_st != 255){
+        d = scat(b, near_pl != 255 ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
+        world_name(name, world_seed(s));
+        { char *n = name; while(*n && d < b + 20) *d++ = *n++; }
+        *d = 0;
+    } else if(tgt_rear){
+        d = scat(b, "BEHIND! "); d = u16s(d, tgt_d); *d = 0;
+    } else {
+        char *n;
+        world_name(name, world_seed(s));
+        d = b; n = name;
+        while(*n && d < b + 12) *d++ = *n++;  /* reserve room for the distance */
+        *d++ = ' '; d = u16s(d, tgt_d); *d = 0;
+    }
+    txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
+}
+
+
 void s3_boss_reward(void) BANKED {
     /* Exact parity with the classic 2D Technobeast ending, but the combat
        itself is played and rendered in the 3D cockpit. */
