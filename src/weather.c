@@ -28,7 +28,15 @@ static const UINT8 wx_pick[12][8] = {
 };
 static const char *const wx_nm[WX_N] = { "CLEAR", "RAIN", "A STORM", "SNOWFALL", "ASH FALL", "SPORES", "DUST STORM", "SHARDS", "FOG", "CONFETTI" };
 
-static UINT8 rnd(void){ wx_rs ^= wx_rs << 7; wx_rs ^= wx_rs >> 9; wx_rs ^= wx_rs << 8; return (UINT8)wx_rs; }
+/* Full-period xorshift8: 255 distinct nonzero states, no extra WRAM.
+   Previously >>9 and <<8 on UINT8 were compiled away/overflowed, causing
+   rain and ash particles to repeat near-identical positions. */
+static UINT8 rnd(void){
+    wx_rs ^= (UINT8)(wx_rs << 7);
+    wx_rs ^= (UINT8)(wx_rs >> 5);
+    wx_rs ^= (UINT8)(wx_rs << 3);
+    return wx_rs;
+}
 
 void weather_start(UINT8 wk, UINT8 star) BANKED {
     UINT32 h = world_seed(star) ^ ((UINT32)(sv.secs / 480UL) * 2654435761UL);
@@ -40,7 +48,7 @@ void weather_start(UINT8 wk, UINT8 star) BANKED {
     wx_type = wx_pick[wk % 12][(UINT8)(h >> 5) & 7];
 #endif
     wx_ns = wx_type == WX_FOG || wx_type == WX_CLEAR ? 0 : WX_NP;
-    wx_flash = 0; wx_thunder = 120; wx_rs = (UINT16)h | 1;
+    wx_flash = 0; wx_thunder = 120; wx_rs = (UINT8)h | 1;
     for(i = 0; i < WX_NP; i++){ px[i] = rnd() % 160; py[i] = rnd() % 124; pp[i] = rnd(); }
 }
 void weather_gfx(void) BANKED { set_sprite_data(WX_TILE0, 16, wx_tiles); }

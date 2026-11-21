@@ -57,7 +57,7 @@ static const char lore[8][3][19] = {
     { "CURIOUS ONES COME", "TO LOOK AT YOU. A", "PAT PAYS A BIT." },
     { "THE BANK PAYS 1%", "EVERY 5 MINUTES", "OF PLAY. SAVE UP." },
     { "THE TAILOR DYES", "YOUR SHELL. NEW", "COLOURS, SAME BUG." },
-    { "THE BESTIARY IN", "EXTRAS COUNTS EVERY", "KILL ON EVERY WORLD" } };
+    { "THE BESTIARY IN", "EXTRAS COUNTS ALL", "KILL ON ALL WORLDS" } };
 static void library(UINT8 tier){
     UINT8 lib = a_set(0, 0), v = lib ? lib - 1 : 0, cost = 6 + tier * 2, i; char b[24], *d; const char *m = "";
     for(;;){
