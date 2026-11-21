@@ -54,19 +54,7 @@ static void say3(const char *s){ txt_win(1); txt_line(0, 2, s, 20); txt_color(0,
 static void line3(void){           /* keep actionable controls in view instead of truncating them after a long planet name */
     char b[28], name[24], *d;
     UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
-    if(story_boss_state){
-        if(story_boss_state == 2) scat(b, "TECHNOBEAST FALLS!");
-        else {
-            UINT8 i, hp = 0, open = 0;
-            for(i = 0; i < NP3; i++) if(pir[i].st == 1 && pir[i].kind == 2){
-                hp = pir[i].hp; open = (pir[i].t & 31) < 18; break;
-            }
-            d = scat(b, open ? "CORE OPEN HP " : "ARMOR CLOSED HP ");
-            u16s(d, hp);
-        }
-        txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0);
-        return;
-    }
+    if(story_boss_state){ s3_boss_hud(); return; }
     if(near_pl != 255 || near_st != 255){
         d = scat(b, near_pl != 255 ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
         world_name(name, world_seed(s));
@@ -146,31 +134,15 @@ static P3 *pirate_spawn(UINT8 n){
    the same pirate actor and gun code: no new sprites, actors or save slots.
    0 dormant, 1 fighting, 2 exploding into the ending. */
 static UINT8 story_boss_fade;
-static void story_boss_spawn(void){
-    UINT8 i; P3 *p;
-    if(story_boss_state || sv.cores < 8 || (sv.story & ST_DONE)) return;
-    /* The protagonist may arrive with all 3 pirate slots occupied. Free the
-       last ordinary foe, not extra memory, for the mandatory story battle. */
-    for(i = 0; i < NP3; i++) if(!pir[i].st) break;
-    if(i == NP3) pir[NP3-1].st = 0;
-    p = pirate_spawn(2);
-    if(!p) return;
-    p->x = (UINT16)BEAST_X << 4; p->y = (UINT16)BEAST_Y << 4;
-    p->z = 0; p->hp = BEAST_HP; p->t = 0;
-    story_boss_state = 1; story_boss_fade = 0;
-    say3("TECHNOBEAST! FIRE!");
-}
 static void story_boss_near(void){
     if(story_boss_state || sv.cores < 8 || (sv.story & ST_DONE)) return;
     if(aabs(unit((UINT16)BEAST_X << 4, shx)) < 220 &&
        aabs(unit((UINT16)BEAST_Y << 4, shy)) < 220 &&
-       aabs(sz) < 2200) story_boss_spawn();
+       aabs(sz) < 2200){ s3_boss_spawn(); say3("TECHNOBEAST! FIRE!"); }
 }
 static UINT8 story_boss_finish(void){
     if(story_boss_state != 2 || --story_boss_fade) return 0;
-    sv.story |= ST_DONE;
-    sv.gold += 5000; fame_add(300); gain_xp(200);
-    space_say(SAY_DAWN);
+    s3_boss_reward();
     return 1;
 }
 static UINT8 ar_wave, ar_left, ar_bombs, ar_gap, ar_pause, ar_boss;       /* the Arena: wave, pirates still to come, bombs, spawn gap, pause, the next one is the flagship */
@@ -369,9 +341,10 @@ static UINT8 chart(void){                                                   /* S
     /* A normal warp must release the old boss lock; otherwise leaving the
        battle and returning later would never re-create the boss actor. */
     story_boss_state = 0; story_boss_fade = 0; edge_on = 0;
-    if(r == GAL_BEAST) story_boss_spawn();
+    if(r == GAL_BEAST) s3_boss_spawn();
     else warship_ambush();
     gfx3();
+    if(r == GAL_BEAST) say3("TECHNOBEAST! FIRE!");
     warp_report(&wr);
     if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");
     return 1;
@@ -438,15 +411,6 @@ static void ar_arrow(void){                                                 /* a
 }
 /* The story pointer must stay on the Technobeast rather than any leftover
    regular pirate that was flying nearby when the player reached the lair. */
-static void story_arrow(void){
-    UINT8 i; edge_on = 0;
-    for(i = 0; i < NP3; i++) if(pir[i].st == 1 && pir[i].kind == 2){
-        edge_on = 1;
-        ed_x = unit(pir[i].x, shx); ed_y = unit(pir[i].y, shy);
-        ed_z = (pir[i].z - sz) >> 4;
-        return;
-    }
-}
 static void ar_line(void){
     char b[24], *d = scat(b, "WAVE "); d = u16s(d, ar_wave); d = scat(d, " BOMB "); d = u16s(d, ar_bombs); d = scat(d, " +"); d = u16s(d, ar_gold); *d = 0;
     txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, TXT_WHITE); txt_win(0);
@@ -658,7 +622,7 @@ int space3d_run(UINT8 keep) BANKED {
         if(inv) inv--;
         if((k & J_A) && !cool && near_pl == 255 && near_st == 255) shoot(); /* A lands or docks first, shoots otherwise */
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); step_dust();
-        if(story_boss_state == 1) story_arrow();
+        if(story_boss_state == 1) s3_boss_arrow();
         s3_render(frame);
         wait_vbl_done();
         s3_flush(frame);
