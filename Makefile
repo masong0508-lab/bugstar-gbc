@@ -40,4 +40,10 @@ font:
 # Runs the save/menu logic on the PC against a fake SRAM (needs only gcc).
 test:
 	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/save_guard.c src/rumble.c src/econ.c src/menus.c src/util.c src/text.c src/textsoft.c src/font.c src/hud.c src/dialog.c src/sysmenu.c src/spell.c src/bug.c src/bugbuild.c src/bugparts.c src/traits.c -o host_test && ./host_test && echo "host tests: ALL OK"
-.PHONY: all clean art bug font test
+# Link packet/Ready parser on the host (no GBDK or emulator needed).
+link-test:
+	@mkdir -p build
+	gcc -std=c99 -O1 -Wall -Wextra -Werror -fsanitize=undefined \
+	  tests/link_proto_test.c src/link_proto.c -o build/link_proto_test
+	./build/link_proto_test
+.PHONY: all clean art bug font test link-test
