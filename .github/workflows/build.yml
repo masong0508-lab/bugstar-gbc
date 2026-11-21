@@ -37,6 +37,24 @@ jobs:
             sleep 4
           done
           /tmp/bugstar-pyboy/bin/python tools/smoke_gbc.py bugstar.gbc smoke/boot.png
+      - name: Two real linked GBC emulators exchange Ready over serial
+        timeout-minutes: 8
+        run: |
+          python3 -m venv /tmp/gbc-link-pyboy
+          for attempt in 1 2 3; do
+            if /tmp/gbc-link-pyboy/bin/pip install --quiet --retries 5 --timeout 45 "pyboy>=2.9,<3" pillow; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 4
+          done
+          /tmp/gbc-link-pyboy/bin/python tools/link_pair_smoke.py link.gbc smoke/link
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gbc-two-real-linked-emulators
+          path: smoke/link/*.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: gbc-real-emulator-capture
