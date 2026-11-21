@@ -24,7 +24,8 @@
 #define NDUST    8
 #define LAND_R   46                         /* units: 'A' lands / docks when this close */
 #define DOCK_R   40
-#define ST_DX    100                        /* the station sits this far east of its planet */
+#define ST_DX    40                         /* same coordinates as the 2D station: planet center +40 x, -8 y */
+#define ST_DY    (-8)
 #define PAL_BOSS 4                          /* the arena flagship's paint (planet palettes are free there) */
 #define NPOD3x   NPOD3
 typedef struct { UINT16 x, y; INT16 z; UINT8 hp, st, t, kind; } P3;          /* a pirate; st 0 none, 1 flying, 2.. blowing up */
@@ -37,7 +38,7 @@ extern P3     pir[NP3]; extern B3 bolt[NB3], orb[NO3]; extern Pod3 pod[NPOD3];
 extern INT8   dust_x[NDUST], dust_y[NDUST]; extern UINT8 dust_z[NDUST];
 extern UINT8  dn, prev_dn;
 extern UINT8  pk3[4];
-extern UINT8  near_pl, near_st, tgt; extern INT16 tgt_d;
+extern UINT8  near_pl, near_st, tgt, tgt_rear; extern INT16 tgt_d;
 extern UINT8  arena_on, edge_on; extern INT16 ed_x, ed_y, ed_z;
 static INT16 unit(UINT16 a, UINT16 b){ return (INT16)(a - b) >> 4; }       /* a - b, 1/16 units -> units, the short way round */
 static INT16 aabs(INT16 v){ return v < 0 ? -v : v; }
@@ -50,4 +51,6 @@ void s3_scan(void) BANKED;                  /* the worlds near the ship: near_pl
 void s3_render(UINT8 frame) BANKED;         /* the sprite list: cross, marks, things, worlds nearest first */
 void s3_flush(UINT8 frame) BANKED;          /* (in VBlank) write the list, turn the star background */
 void s3_load(void) BANKED;                  /* tiles, palettes, the star background (LCD off) */
+void s3_from2d(UINT8 heading, UINT8 reference_star) BANKED;  /* preserve facing and local planet height when changing views */
+UINT8 s3_to2d(void) BANKED;                  /* quantize 3D nose direction to the 8-way top-down ship */
 #endif
