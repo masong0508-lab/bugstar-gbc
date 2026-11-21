@@ -56,14 +56,20 @@ void dg_make_floor(void) BANKED {
     memset(mon, 0, sizeof mon);                                    /* monsters: in every room but the first */
     for(i = 0, t = 0; t < 40 && i < NMON; t++){
         Room *r = &rooms[1 + rndn(nrooms - 1)]; Mon *m = &mon[i];
-        UINT8 k = rndn(depth + 1 > 4 ? 4 : depth + 1);
+        /* New enemy families begin on floor 2; all twelve can appear from
+           floor 3 (and in deep endless caves). Keep the actor cap at ten. */
+        UINT8 k = rndn((depth >= 3 || hell) ? K_QUEEN : depth >= 2 ? K_SHADE : 4);
         x = r->x + rndn(r->w); y = r->y + rndn(r->h);
         if(DM(x, y) != D_FLOOR && DM(x, y) != D_FLOOR2) continue;
         m->x = ((UINT16)x << 4) + 8; m->y = ((UINT16)y << 4) + 12; m->kind = k; m->alive = 1;
-        m->hp = (k == K_BEETLE ? 8 : k == K_WASP ? 3 : k == K_SLIME ? 5 : 4) + depth * 2 + sv.zone * 3;
-        if(evt == 5) m->hp += m->hp / 2;
-        if(hell) m->hp = hell_hp(m->hp);
-        m->hp = bst_hp(m->hp, k, kind);
+        { UINT16 hp = ((k & 3) == K_BEETLE ? 8 : (k & 3) == K_WASP ? 3 : (k & 3) == K_SLIME ? 5 : 4) + (UINT16)depth * 2 + (UINT16)sv.zone * 3;
+          if(k >= K_CRAWLER) hp += k == K_GOLEM ? 10 : k == K_REAPER ? 8 : 3;
+          if(evt == 5) hp += hp / 2;
+          if(hp > 250) hp = 250;                 /* prevent overflow in deep hell caves */
+          m->hp = (UINT8)hp;
+          if(hell) m->hp = hell_hp(m->hp);
+          m->hp = bst_hp(m->hp, k, kind);
+        }
         i++;
         if(i >= (UINT8)(4 + depth * 2 + (evt == 3 ? 3 : 0) - (evt == 6 ? 3 : 0))) break;
     }
