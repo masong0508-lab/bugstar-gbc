@@ -147,6 +147,9 @@ for target in ((400,0,0),(-480,0,0),(0,450,0),(250,-420,120),(-500,-350,200)):
 assert "galaxy_run(cell, sv.cores >= 8 && !(sv.story & ST_DONE))" in fly
 assert "r == GAL_BEAST ? 2100 : 1500" in fly
 assert "p->hp = BEAST_HP" in boss
+assert "for(i = 0; i < NP3; i++) pir[i].st = 0;" in boss
+assert "for(i = 0; i < NO3; i++) orb[i].life = 0;" in boss
+assert "p = &pir[0];" in boss
 assert "p->x = (UINT16)BEAST_X << 4" in boss
 assert "p->kind == 2 && (p->t & 31) >= 18" in fly
 assert "story_boss_state = 2; story_boss_fade = 80;" in fly
