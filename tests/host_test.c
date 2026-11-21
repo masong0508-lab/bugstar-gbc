@@ -253,8 +253,9 @@ int main(void){
       CHECK(sm_run(q1) == SYS_RESUME);
       CHECK(sq_wx[0] == SM_WX && stub_wx == 7 && stub_wy == HUD_Y && stub_win == 1 && wmap[0][0] == T_HEART && wrow_is(0, 11, "LV 1"));
       CHECK(sq_snap[0][0][0] == T_BOX_TL && sq_snap[0][0][11] == T_BOX_TR && sq_snap[0][14][0] == T_BOX_BL && sq_snap[0][14][11] == T_BOX_BR);
-      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "STATUS") && sq_is(0, 5, 2, "SAVE") && sq_is(0, 6, 2, "OPTIONS") && sq_is(0, 7, 2, "MIRROR") && sq_is(0, 8, 2, "SKILLS") && sq_is(0, 9, 2, "EXTRAS") && sq_is(0, 10, 2, "FEATS") && sq_is(0, 11, 2, "GUIDE") && sq_is(0, 12, 2, "TO TITLE"));
+      CHECK(sq_is(0, 1, 1, "SYSTEM") && sq_is(0, 3, 2, "RESUME") && sq_is(0, 4, 2, "STATUS") && sq_is(0, 5, 2, "SAVE") && sq_is(0, 6, 2, "OPTIONS") && sq_is(0, 7, 2, "MY BUG") && sq_is(0, 8, 2, "SKILLS") && sq_is(0, 9, 2, "EXTRAS") && sq_is(0, 10, 2, "FEATS") && sq_is(0, 11, 2, "GUIDE") && sq_is(0, 12, 2, "TO TITLE"));
       CHECK(sq_snap[0][3][1] == T_CURSOR && sq_snap[0][4][1] == ' ');
+      CHECK(sq_is(0, SM_H - 2, 1, "B: PLAY ON"));  /* system help is drawn in the overlay */
       CHECK(wamap[0][0] == TXT_WHITE);
     }
     { /* no HUD: window hides afterwards. START resumes too */
