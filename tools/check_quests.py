@@ -44,7 +44,7 @@ typedef uint8_t UINT8;
 typedef uint16_t UINT16;
 typedef uint32_t UINT32;
 typedef struct { UINT8 rsv[8], cargo[8]; } Elite;
-static struct { UINT8 friends, deepest, star, rsv[4]; Elite el; } sv;
+static struct { UINT8 friends, deepest, zone, star, rsv[4]; Elite el; } sv;
 static struct { UINT8 seen[32], pit; } ex;
 static UINT16 th;
 static UINT8 qt, qa, qb, qs;
@@ -113,6 +113,26 @@ int main(void){
     /* Once all worlds are visited the board must offer a meaningful job. */
     visited(256);
     for(i=0;i<65536;i+=37){ th=(UINT16)i; Q_N=0; q_offer(0,0,4); ASSERT(qt!=7); }
+    /* Normal campaign dungeon depth is 3..6. Town boards must not
+       require endless-mode floors just because a player cleared B6. */
+    visited(10); sv.zone=0; sv.deepest=3;
+    for(i=0;i<8192;i+=17){
+        th=(UINT16)i; Q_N=1; q_offer(1,0,2); ASSERT(qt!=2);
+    }
+    sv.zone=0; sv.deepest=2;
+    for(i=0;i<8192;i+=17){
+        th=(UINT16)i; Q_N=1; q_offer(1,0,2);
+        if(qt==2) ASSERT(qa==3);
+    }
+    sv.zone=3; sv.deepest=5;
+    for(i=0;i<8192;i+=17){
+        th=(UINT16)i; Q_N=1; q_offer(1,0,2);
+        if(qt==2) ASSERT(qa==6);
+    }
+    sv.zone=3; sv.deepest=6;
+    for(i=0;i<8192;i+=17){
+        th=(UINT16)i; Q_N=1; q_offer(1,0,2); ASSERT(qt!=2);
+    }
     printf("GBC quest runtime: %u combinations, %u exploration jobs, impossible offers 0; PASS\n",
            inspected,land_jobs);
     return 0;
