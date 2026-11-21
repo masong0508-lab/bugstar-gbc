@@ -55,6 +55,8 @@ link-rom:
 	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_proto.o src/link_proto.c
 	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_cable.o src/link_cable.c
 	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/font.o src/font.c
-	$(LCC) $(FLAGS) -Wl-m -o link.gbc build_link/link_diag.o build_link/link_proto.o build_link/link_cable.o build_link/font.o
+	# The retail image reserves WRAM by naming _hvs/_hv_map/etc in game
+	# object files. Standalone link test must omit those undefined symbols.
+	$(LCC) $(filter-out -Wl-g_%,$(FLAGS)) -Wl-m -o link.gbc build_link/link_diag.o build_link/link_proto.o build_link/link_cable.o build_link/font.o
 	python3 tools/check_banks.py link.map
 .PHONY: all clean art bug font test link-test link-rom
