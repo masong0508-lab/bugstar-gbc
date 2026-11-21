@@ -43,6 +43,7 @@
 #include "wild.h"
 
 static UINT8 msg_t, told3, lab_t;           /* the message timer, the how-to-fly talk (once), frames since the target line was drawn */
+UINT8 story_boss_state;                       /* global to the 3D sprite renderer and early HUD */
 #define basis s3_basis
 #define dust_born s3_dust_born
 static UINT16 yaw_o; static INT16 pit_o;                                    /* the heading last frame (dust swings with turns) */
@@ -144,7 +145,6 @@ static P3 *pirate_spawn(UINT8 n){
 /* The actual story Technobeast is separate from Arena flagships, but uses
    the same pirate actor and gun code: no new sprites, actors or save slots.
    0 dormant, 1 fighting, 2 exploding into the ending. */
-UINT8 story_boss_state;
 static UINT8 story_boss_fade;
 static void story_boss_spawn(void){
     UINT8 i; P3 *p;
