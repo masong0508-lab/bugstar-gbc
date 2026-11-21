@@ -49,7 +49,10 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 ## Approximated
 - Dungeons are top-down 32x32 tile maps; the GBA has textured first-person 3D dungeons.
 - The galaxy is 256 worlds from a 32-bit seed; the GBA's is 2^155 clusters.
-- Monsters: 4 base kinds plus per-world variants; the GBA has 66 planet monsters with BOOM/SPLIT tricks.
+- Monsters: **12 regular combat families** (4 classic and 8 new sprite/AI species) plus the queens. Twelve biomes give **96 additional named variants** (world name + CRAWLER / GOLEM / MOTH / SPORE / SHADE / STINGER / CRAB / REAPER) alongside the original 60 named species and queens. The GBA, PC and Android gameplay family now has **90 planet monster species**, including 24 new region-specific enemies. GBC does not yet have the same 90 independent combat sprites.
+  - **Actual GBC behaviors:** crawlers skitter then rush, golems lumber with extra HP, moths weave, spores split, shades vanish before approaching, stingers telegraph a burst, crabs sidestep, and reapers warn before dashing. Queens summon varied broods and deeper floors introduce rarer monsters; later city-pit waves use more families.
+  - **Memory constraints:** eight two-frame 8x8 silhouettes add only 32 tiles (512 bytes of uncompressed ROM art), loaded into VRAM bank 1 once per dungeon scene. The ten-monster actor limit and 60 existing saved kill counters are unchanged; variant kills credit their parent family. No new allocations in the frame loop. Bestiary adds one page per biome and grows from 14 to 26 pages.
+  - **Checks:** `python3 tools/check_monsters.py` checks art uniqueness, both animation frames, reserved VRAM tiles, AI cases and SRAM safety; the regular GBDK CI also runs host tests, checks ROM bank/stack budgets, and builds `bugstar.gbc`.
 - Weird worlds: 16 types x 9 strengths; the GBA has 40 kinds and 1000 traits. Bolt's trait remarks are matched to the nearest.
 - Pause screen: the GBC has the SYSTEM overlay (RESUME, STATUS, SAVE, OPTIONS, MIRROR, SKILLS, EXTRAS, FEATS, GUIDE), not the GBA's nine-page pause screen.
 - Bolt is the ship in the GBC game's lines; the GBA now has him as a small droid that rolls after you. Same remarks, ship wording left alone.
