@@ -46,7 +46,15 @@ link-test:
 	gcc -std=c99 -O1 -Wall -Wextra -Werror -fsanitize=undefined \
 	  tests/link_proto_test.c src/link_proto.c -o build/link_proto_test
 	./build/link_proto_test
-# Dedicated diagnostic ROM, NOT an enabled multiplayer option in the game.
+# Diagnostic ROM links only the tiny cable path + font, NEVER the campaign.
+# The full source wildcard previously pushed bank 0 over its 16-KiB ceiling.
+# Keep it test-only, separate objects and zero default ROM/WRAM overhead.
 link-rom:
-	$(MAKE) DEFS="-DTEST_LINK" BUILD=build_link OUT=link.gbc
+	@mkdir -p build_link
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_diag.o src/link_diag.c
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_proto.o src/link_proto.c
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_cable.o src/link_cable.c
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/font.o src/font.c
+	$(LCC) $(FLAGS) -Wl-m -o link.gbc build_link/link_diag.o build_link/link_proto.o build_link/link_cable.o build_link/font.o
+	python3 tools/check_banks.py link.map
 .PHONY: all clean art bug font test link-test link-rom
