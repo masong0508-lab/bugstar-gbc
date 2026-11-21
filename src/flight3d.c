@@ -61,8 +61,11 @@ static void line3(void){           /* keep actionable controls in view instead o
     } else if(tgt_rear){
         d = scat(b, "BEHIND! "); d = u16s(d, tgt_d); *d = 0;
     } else {
-        d = world_name(b, world_seed(s)); *d++ = ' ';
-        d = u16s(d, tgt_d); *d = 0;
+        char *n;
+        world_name(name, world_seed(s));
+        d = b; n = name;
+        while(*n && d < b + 12) *d++ = *n++;  /* reserve room for the distance */
+        *d++ = ' '; d = u16s(d, tgt_d); *d = 0;
     }
     txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
 }
@@ -556,6 +559,7 @@ int space3d_run(UINT8 keep) BANKED {
     vel = 24; inv = 0; tgt = sv.star; cool = 0; turn_h = 0; spawn_t = 200; regen = 0; dock_lock = 0;
     objects_clear();
     basis();
+    scan();                         /* correct docking/boost state on the very first frame */
     gfx3();
     if(!told3){ told3 = 1; space_say(SAY_HOW3); }
     if(sv.cores >= 8 && !(sv.story & ST_DONE) && !keep) space_say(SAY_BEAST3);
