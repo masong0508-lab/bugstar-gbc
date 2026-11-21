@@ -1,6 +1,6 @@
 # BUGSTAR GBC: multiplayer link-cable implementation plan
 
-Status: **L0 packet/Ready state code is on an implementation branch; real serial link and gameplay are not yet implemented**. Companion to
+Status: **L0 link protocol host tests pass; real serial cable and full co-op gameplay remain experimental**. A dedicated standalone link-test ROM now compiles only `link_diag.c`, `link_proto.c`, `link_cable.c` and the banked font. It deliberately avoids linking the whole campaign into the 16-KiB home bank and avoids changing retail single-player saves/UI. Companion to
 [BUGSTAR multiplayer plan](https://github.com/masong0508-lab/bugstar/blob/main/MULTIPLAYER_PLAN.md).
 This document applies to the real Game Boy Color ROM in this repository,
 not an imaginary Internet-enabled GBC. Keep `PARITY.md` accurate.
