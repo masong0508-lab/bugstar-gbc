@@ -19,7 +19,7 @@ jobs:
       - name: Build
         run: make -j2 GBDK_HOME=/opt/gbdk
       - name: Build dedicated two-console link-cable diagnostic ROM
-        run: make -j2 GBDK_HOME=/opt/gbdk DEFS="-DTEST_LINK" BUILD=build_link OUT=link.gbc
+        run: make link-rom GBDK_HOME=/opt/gbdk
       - name: Validate diagnostic ROM header
         run: python3 tools/check_rom_header.py link.gbc
       - name: Validate final ROM image and GBC cartridge checksums
