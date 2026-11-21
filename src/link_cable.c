@@ -61,7 +61,7 @@ void gbc_cable_start(uint8_t role,uint8_t mode,uint32_t seed){
     }
 }
 void gbc_cable_step(uint16_t tick){
-    uint8_t b,got=0;
+    uint8_t b=0,got=0; /* always initialized before IRQ handoff */
     if(!link_on)return;
     gbc_link_timeout(&link_state,tick);
     /* Atomic handoff: the ISR only stores one byte and two flags. */
