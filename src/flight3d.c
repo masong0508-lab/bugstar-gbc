@@ -50,12 +50,20 @@ static UINT16 yaw_o; static INT16 pit_o;                                    /* t
 
 /* ---------------------------------------------------------------- messages on the window's third row */
 static void say3(const char *s){ txt_win(1); txt_line(0, 2, s, 20); txt_color(0, 2, 20, 1, TXT_GOLD); txt_win(0); msg_t = 90; }
-static void line3(void){                                                    /* "<target> <distance>   A: LAND" */
-    char b[24], *d;
+static void line3(void){           /* keep actionable controls in view instead of truncating them after a long planet name */
+    char b[28], name[24], *d;
     UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
-    d = world_name(b, world_seed(s)); *d++ = ' ';
-    if(near_pl != 255) d = scat(d, "A:LAND"); else if(near_st != 255) d = scat(d, "A:DOCK STN"); else d = u16s(d, tgt_d);
-    *d = 0;
+    if(near_pl != 255 || near_st != 255){
+        d = scat(b, near_pl != 255 ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
+        world_name(name, world_seed(s));
+        { char *n = name; while(*n && d < b + 20) *d++ = *n++; }
+        *d = 0;
+    } else if(tgt_rear){
+        d = scat(b, "BEHIND! "); d = u16s(d, tgt_d); *d = 0;
+    } else {
+        d = world_name(b, world_seed(s)); *d++ = ' ';
+        d = u16s(d, tgt_d); *d = 0;
+    }
     txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
 }
 
@@ -132,7 +140,7 @@ static void pod_drop(P3 *p){
 }
 
 /* ---------------------------------------------------------------- the flight (many small functions: one big one makes SDCC crawl) */
-static UINT8 cool, turn_h, spawn_t, regen;
+static UINT8 cool, turn_h, spawn_t, regen, dock_lock;  /* prevent repeat station menus without teleporting */
 static const UINT8 gun_cool3[6] = { 16, 13, 11, 9, 8, 7 };
 
 static void fly(UINT8 k, UINT8 frame){
@@ -140,14 +148,16 @@ static void fly(UINT8 k, UINT8 frame){
     if(k & J_LEFT){ if(turn_h < 20) turn_h++; yaw += 280 + turn_h * 12; }                 /* (yaw grows from south through east to north: counter-clockwise on the map, so LEFT adds) */
     else if(k & J_RIGHT){ if(turn_h < 20) turn_h++; yaw -= 280 + turn_h * 12; }
     else turn_h = 0;
-    if(k & J_UP){ if(pit16 < 40 * 256) pit16 += 200; }
-    else if(k & J_DOWN){ if(pit16 > -40 * 256) pit16 -= 200; }
+    if(k & J_UP){ if(pit16 < 40 * 256) pit16 += 200; if(pit16 > 40 * 256) pit16 = 40 * 256; }
+    else if(k & J_DOWN){ if(pit16 > -40 * 256) pit16 -= 200; if(pit16 < -40 * 256) pit16 = -40 * 256; }
     else if(!(frame & 3)){ if(pit16 > 100) pit16 -= 100; else if(pit16 < -100) pit16 += 100; else pit16 = 0; }
     basis();
     if(arena_on){ vel = 0; return; }                                       /* the Arena: the ship hovers */
     want = (k & J_B) ? 56 + 6 * UPG(UP_TURBO) : 24 + 2 * UPG(UP_ENGINE);
-    if(near_pl != 255 || near_st != 255) want = 14;                        /* gentle near a world: easy to dock */
-    if(vel < want) vel += 2; else if(vel > want) vel -= 3;
+    /* B is turbo in open space, precision brake near a planet or station. */
+    if(near_pl != 255 || near_st != 255) want = (k & J_B) ? 0 : 12;
+    if(vel < want){ vel += 2; if(vel > want) vel = want; }
+    else if(vel > want){ vel -= 3; if(vel < want) vel = want; }
     shx += (vfx * vel) >> 6; shy += (vfy * vel) >> 6; sz += (vfz * vel) >> 6;
     if(sz > 3000) sz = 3000;
     if(sz < -3000) sz = -3000;
@@ -543,7 +553,7 @@ int space3d_run(UINT8 keep) BANKED {
 #ifdef TEST_DOCK
     shx = (star_px(sv.star) + ST_DX - 30) << 4; shy = (star_py(sv.star) + 30) << 4; sz = (star_z(sv.star) + 8) * 16; yaw = 0x5200; told3 = 1;     /* (test builds: just short of the station) */
 #endif
-    vel = 24; inv = 0; tgt = sv.star; cool = 0; turn_h = 0; spawn_t = 200; regen = 0;
+    vel = 24; inv = 0; tgt = sv.star; cool = 0; turn_h = 0; spawn_t = 200; regen = 0; dock_lock = 0;
     objects_clear();
     basis();
     gfx3();
@@ -553,9 +563,10 @@ int space3d_run(UINT8 keep) BANKED {
         input_poll(); k = keys; frame++;
         fly(k, frame);
         scan();
+        if(dock_lock) dock_lock--;
         if(cool) cool--;
         if(inv) inv--;
-        if((k & J_A) && !cool) shoot();
+        if((k & J_A) && !cool && near_pl == 255 && near_st == 255) shoot(); /* A lands or docks first, shoots otherwise */
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); step_dust();
         s3_render(frame);
         wait_vbl_done();
@@ -567,10 +578,11 @@ int space3d_run(UINT8 keep) BANKED {
         if(!sv.hp){ wrecked(); break; }
         if(HIT(J_A)){
             if(near_pl != 255){ land(near_pl); break; }
-            if(near_st != 255){
+            if(near_st != 255 && !dock_lock){
                 if(elite_dock(near_st)){ out = SP_FLIP; break; }
-                hud_back(); inv = 60;
-                shx -= (vfx * 70) >> 2; shy -= (vfy * 70) >> 2; vel = 24;     /* back away so A does not dock again at once */
+                hud_back(); inv = 60; dock_lock = 50; vel = 0;
+                /* Keep the ship where it docked: the old exit jumped 70 units
+                   backwards and caused a disorienting perspective change. */
                 objects_clear();
                 continue;
             }
