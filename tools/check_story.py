@@ -92,7 +92,7 @@ assert "void  boss_evidence(UINT8 core) BANKED;" in feat_h, (
 clue_section = feat.split("void boss_evidence(UINT8 core) BANKED {", 1)[1].split(
     "void dungeon_won(UINT8 kind)", 1
 )[0]
-m = re.search(r"static const char \*const ledger\[8\] = \{(.*?)\};", clue_section, re.S)
+m = re.search(r"static const char \*const ledger\[8\]\s*=\s*\{(.*?)\};", clue_section, re.S)
 assert m, "expected eight GBC Queen case files tied to recovered core count"
 ledger = strings(m.group(1))
 assert len(ledger) == 8
