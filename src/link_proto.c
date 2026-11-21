@@ -1,5 +1,6 @@
 /* Game Boy Color two-device link packet and Ready state. No transport wait,
  * malloc, VBlank drawing, campaign saves or other port assumptions. */
+#if !defined(__SDCC) || defined(TEST_LINK)
 #include "link_proto.h"
 #include <string.h>
 static uint8_t gbl_crc(const uint8_t *p,uint8_t n){
@@ -99,3 +100,5 @@ uint8_t gbc_link_can_play(const GbcLinkSession *s){
     return (uint8_t)(gbc_link_both_confirmed(s) &&
                      s->local_active && s->peer_active);
 }
+
+#endif /* TEST_LINK on cartridge; always available for host unit tests */
