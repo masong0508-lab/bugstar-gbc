@@ -46,7 +46,7 @@ for heading in range(8):
 assert "s3_from2d(dir, ref);" in flat
 assert "dir = s3_to2d();" in flat
 assert "if(!was3 && V3_ON)" in flat
-assert "sz = star_z(reference_star) << 4;" in s3
+assert "sz = star_z(reference_star) * 16;" in s3
 assert "void s3_from2d" in api and "UINT8 s3_to2d" in api
 
 # B is never locked to turbo while inside the landing/docking zone.
