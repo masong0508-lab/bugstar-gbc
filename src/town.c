@@ -263,7 +263,7 @@ static void q_text(char *l1, char *l2){
     else { char g[12]; good_label(qa, g); d = u16s(scat(l1, "BRING "), qb); d = scat(d, " "); scat(d, g); scat(l2, "FROM YOUR HOLD"); }
 }
 static void quest(UINT8 star, UINT8 idx, UINT8 tier){
-    char l1[22], l2[22], b[24], *d; const char *m = 0; UINT8 have, ok;
+    char l1[22], l2[22], b[24], *d; const char *m = 0; UINT8 have, ok, drop_armed = 0;
     for(;;){
         have = Q_T; if(have) q_load(); else q_offer(star, idx, tier);
         l1[0] = 0; l2[0] = 0; q_text(l1, l2); ok = have && q_done(idx);
@@ -272,20 +272,23 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
         line(6, l1, TXT_WHITE); line(7, l2, TXT_WHITE);
         d = u16s(scat(b, "REWARD "), qr); scat(d, " GOLD"); line(10, b, TXT_GOLD);
         line(12, m ? m : (ok ? "IT IS DONE!" : have ? (qt == 1 ? "FIND THAT TOWN" : "NOT DONE YET") : ""), ok ? TXT_GOLD : TXT_GREY);
-        line(15, have ? (ok ? "A: CLAIM  B: BACK" : "SEL: DROP  B: BACK") : "A: TAKE  B: BACK", TXT_GREY);
+        line(15, have ? (ok ? "A: CLAIM  B: BACK" : drop_armed ? "SEL AGAIN: DROP" : "SEL: DROP  B: BACK") : "A: TAKE  B: BACK", TXT_GREY);
         m = 0;
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
-            if(HIT(J_A) && !have){ Q_T = qt; Q_A = qa; Q_B = qb; Q_S = qs; sv.rsv[0] = (UINT8)qr; sv.rsv[1] = (UINT8)(qr >> 8); sfx(SFX_OK); m = "GOOD LUCK, BUG!"; break; }
-            if(HIT(J_A) && ok){
+            if(HIT(J_A) && !have){ Q_T = qt; Q_A = qa; Q_B = qb; Q_S = qs; sv.rsv[0] = (UINT8)qr; sv.rsv[1] = (UINT8)(qr >> 8); drop_armed = 0; sfx(SFX_OK); m = "GOOD LUCK, BUG!"; break; }
+            if(HIT(J_A) && ok){ drop_armed = 0;
                 UINT16 g = LUCKY(qr);
                 if(qt == 4) sv.el.cargo[qa] -= qb;
                 bounty_tick();
                 sv.gold += g; fame_add(3 + tier * 2); unlocks_update(); gain_xp(5 + (qr > 400 ? 40 : qr / 10));
                 Q_T = 0; Q_N++; sfx(SFX_QUEST); m = "THANK YOU! PAID."; break;
             }
-            if(HIT(J_SELECT) && have){ Q_T = 0; sfx(SFX_BACK); m = "QUEST DROPPED"; break; }
+            if(HIT(J_SELECT) && have){
+                if(!drop_armed){ drop_armed = 1; m = "SELECT AGAIN TO DROP"; sfx(SFX_BACK); break; }
+                Q_T = 0; drop_armed = 0; sfx(SFX_BACK); m = "QUEST DROPPED"; break;
+            }
         }
     }
 }
