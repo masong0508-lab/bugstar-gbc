@@ -157,7 +157,7 @@ static const char *const bolt_trait[40] = {
 };
 static const char *const bolt_mem[32] = {
     "I WAS A SHIP.",
-    "I WAS CALLED THE DAWN.",
+    "A NAME WAS PAINTED ON MY HULL.",
     "I REMEMBER THE DARK, AND THE STARS,",
     "AND SOMEONE SMALL WHO SANG.",
     "I CARRIED SEEDS.",
