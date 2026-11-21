@@ -366,6 +366,9 @@ static UINT8 chart(void){                                                   /* S
     }
     yaw = 0x8000; pit16 = 0; vel = 24; inv = 0;
     objects_clear(); basis();
+    /* A normal warp must release the old boss lock; otherwise leaving the
+       battle and returning later would never re-create the boss actor. */
+    story_boss_state = 0; story_boss_fade = 0; edge_on = 0;
     if(r == GAL_BEAST) story_boss_spawn();
     else warship_ambush();
     gfx3();
