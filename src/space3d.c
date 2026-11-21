@@ -258,11 +258,16 @@ static void list_things(UINT8 frame){
         if(o->life && inbox(dx) && inbox(dy) && proj(dx, dy, (o->z - sz) >> 4, &sx, &sy, &cz)) spr(T_ORB, sx - 4, sy - 4, PAL_ORB);
     }
     for(i = 0; i < NP3; i++){ P3 *p = &pir[i];
+        UINT8 pal;
         dx = unit(p->x, shx); dy = unit(p->y, shy);
         if(!p->st || !inbox(dx) || !inbox(dy) || !proj(dx, dy, (p->z - sz) >> 4, &sx, &sy, &cz)) continue;
+        /* The story beast flashes when its core is open. Keep its two
+           palettes below slot 4: slot 4+ belongs to nearby planets, and
+           sharing it made the boss randomly change colour during fights. */
+        pal = p->kind == 2 ? ((p->t & 31) < 18 ? PAL_LAS : PAL_ORB) : p->kind ? PAL_BOSS : PAL_PIR;
         if(p->st >= 2){ if(cz < 200) blit(T_BOOM + (p->st > 12 ? 4 : 0), 2, 1, sx, sy, PAL_ORB); else dot(TS(DOT3), sx, sy, PAL_ORB); }
-        else if(cz < 170) blit(T_PIR + ((frame >> 3) & 1) * 4, 2, 1, sx, sy, p->kind ? PAL_BOSS : PAL_PIR);
-        else dot(TS(DOT2), sx, sy, p->kind ? PAL_BOSS : PAL_PIR);
+        else if(cz < 170) blit(T_PIR + ((frame >> 3) & 1) * 4, 2, 1, sx, sy, pal);
+        else dot(TS(DOT2), sx, sy, pal);
     }
     for(i = 0; i < NPOD3; i++){ Pod3 *q = &pod[i];
         dx = unit(q->x, shx); dy = unit(q->y, shy);
@@ -324,6 +329,7 @@ void s3_render(UINT8 frame) BANKED {
     dn = 0; pal_used = 0; for(q = 0; q < 32; q++) ld[q] = 0;
     spr(TS(CROSS), 76, 52, PAL_MISC);
     if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); }
+    else if(story_boss_state && edge_on) edge_mark(ed_x, ed_y, ed_z, 0);
     else { target_mark(); station_beacon(); }
     list_things(frame);
     if(!arena_on) list_worlds();
