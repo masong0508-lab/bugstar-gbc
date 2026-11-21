@@ -51,8 +51,8 @@ def _player(rom, out_dir, primary, shared, barrier, messages):
                     linked = True
                 if "BOTH READY" in status:
                     both_ready = True
-                    if linked:
-                        break
+            # Never leave this loop before the other process: both must keep
+            # clocking the serial link and reaching the shared frame barrier.
         # Force a final rendered frame before taking screenshots.
         pyboy.tick(1, True, False)
         path = out_dir / f"{role}-link.png"
