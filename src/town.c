@@ -285,7 +285,8 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
                 sv.gold += g; fame_add(3 + tier * 2); unlocks_update(); gain_xp(5 + (qr > 400 ? 40 : qr / 10));
                 Q_T = 0; Q_N++; sfx(SFX_QUEST); m = "THANK YOU! PAID."; break;
             }
-            if(HIT(J_SELECT) && have){
+            if(HIT(J_A) && have && !ok && drop_armed){ drop_armed = 0; m = "QUEST STILL ACTIVE"; break; }
+            if(HIT(J_SELECT) && have && !ok){
                 if(!drop_armed){ drop_armed = 1; m = "SELECT AGAIN TO DROP"; sfx(SFX_BACK); break; }
                 Q_T = 0; drop_armed = 0; sfx(SFX_BACK); m = "QUEST DROPPED"; break;
             }
