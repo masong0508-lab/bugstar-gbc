@@ -438,7 +438,7 @@ int planet_run(void) BANKED {                                    /* returns PL_T
     scat(d, " PRESS A AT THE SHIP TO SAVE OR TAKE OFF.");
     if(!(sv.story & ST_INTRO)){
         sv.story |= ST_INTRO;
-        dlg_say("BOLT", "HI, I AM BOLT, YOUR SHIP. I LOST MY MEMORY. EVERY WORLD HAS A QUEEN DEEP DOWN, AND EACH ONE HOLDS ONE OF MY 8 DATA CORES. PLEASE GET THEM BACK!");
+        dlg_say("BOLT", "I'M BOLT. I CAN FLY THIS SHIP, BUT I CAN'T REMEMBER MY LAST VOYAGE. THE QUEENS KEEP EIGHT PIECES OF MY MEMORY BEHIND THE DUNGEON DOORS. LET'S FIND YOUR FRIENDS WHILE WE FIND OUT WHO I WAS.");
     }
     dlg_say("BOLT", msg);
     weird_land(wv);
