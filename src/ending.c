@@ -17,7 +17,7 @@ static const char *const page[3][9] = {
       "BURNING.", "" },
     { "BOLT REMEMBERS.", "THE SHIP WAS DAWN.", "", "IT CARRIED SEEDS",
       "AND A SMALL CREW", "ACROSS THE STARS.", "",
-      "THE KING TOOK THEM.", "NOT THE PROMISE." },
+      "THE KING TOOK THEM.", "TO WARM HIS NEST." },
     { "THE SMALLEST BUG", "FIXED ITS LIGHTS.", "", "YOU CARRIED BOLT",
       "BACK TO THAT NAME.", "", "\"NOW LET ME CARRY",
       "YOU ALL HOME.\"", "" } };
@@ -38,8 +38,15 @@ void ending_run(void) BANKED {
         for(i = 0; i < 9; i++){
             /* Each act gets its own gold intertitle. Longer holds emphasize
                the first revelation and the last promise, but A/START skips. */
-            line(4 + i, page[p][i], i == 0 ? TXT_GOLD : TXT_WHITE);
-            if(page[p][i][0]) wait_a((p == 2 && i == 7) ? 70 : i == 0 ? 50 : 30);
+            /* The rescue count is real saved progress. A completed boss
+               battle must not claim every captive was brought back. The
+               inserted line uses the empty slot in act three: no extra
+               page, buffer or additional persistent state required. */
+            const char *spoken = (p == 2 && i == 2) ?
+                (sv.friends ? "SOME FRIENDS MADE IT" : "FRIENDS STILL WAIT") :
+                page[p][i];
+            line(4 + i, spoken, i == 0 ? TXT_GOLD : TXT_WHITE);
+            if(spoken[0]) wait_a((p == 2 && i == 7) ? 70 : i == 0 ? 50 : 30);
         }
         txt_put(18, 16, S_ARROW_DN);
         for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_START)) break; }
