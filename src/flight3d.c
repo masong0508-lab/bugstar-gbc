@@ -128,6 +128,39 @@ static P3 *pirate_spawn(UINT8 n){
     }
     return 0;
 }
+/* The actual story Technobeast is separate from Arena flagships, but uses
+   the same pirate actor and gun code: no new sprites, actors or save slots.
+   0 dormant, 1 fighting, 2 exploding into the ending. */
+UINT8 story_boss_state;
+static UINT8 story_boss_fade;
+static void story_boss_spawn(void){
+    UINT8 i; P3 *p;
+    if(story_boss_state || sv.cores < 8 || (sv.story & ST_DONE)) return;
+    /* The protagonist may arrive with all 3 pirate slots occupied. Free the
+       last ordinary foe, not extra memory, for the mandatory story battle. */
+    for(i = 0; i < NP3; i++) if(!pir[i].st) break;
+    if(i == NP3) pir[NP3-1].st = 0;
+    p = pirate_spawn(2);
+    if(!p) return;
+    p->x = (UINT16)BEAST_X << 4; p->y = (UINT16)BEAST_Y << 4;
+    p->z = 0; p->hp = BEAST_HP; p->t = 0;
+    story_boss_state = 1; story_boss_fade = 0;
+    spawn_t = 250;
+    say3("TECHNOBEAST! FIRE!");
+}
+static void story_boss_near(void){
+    if(story_boss_state || sv.cores < 8 || (sv.story & ST_DONE)) return;
+    if(aabs(unit((UINT16)BEAST_X << 4, shx)) < 220 &&
+       aabs(unit((UINT16)BEAST_Y << 4, shy)) < 220 &&
+       aabs(sz) < 2200) story_boss_spawn();
+}
+static UINT8 story_boss_finish(void){
+    if(story_boss_state != 2 || --story_boss_fade) return 0;
+    sv.story |= ST_DONE;
+    sv.gold += 5000; fame_add(300); gain_xp(200);
+    space_say(SAY_DAWN);
+    return 1;
+}
 static UINT8 ar_wave, ar_left, ar_bombs, ar_gap, ar_pause, ar_boss;       /* the Arena: wave, pirates still to come, bombs, spawn gap, pause, the next one is the flagship */
 static UINT16 ar_gold, ar_kills;
 static UINT8 lvl3(void){ UINT8 l = arena_on ? ar_wave : sv.zone; return l > 8 ? 8 : l; }   /* how hard the pirates are */
@@ -204,7 +237,9 @@ static void shoot(void){                                                    /* a
 }
 static void pirate_hit(P3 *p, UINT8 dmg){
     if(p->hp > dmg){ p->hp -= dmg; shake(3); return; }
-    p->st = 2; sfx(SFX_BOOM); shake(8); pod_drop(p);
+    p->st = 2; sfx(SFX_BOOM); shake(p->kind == 2 ? 20 : 8);
+    if(p->kind == 2){ story_boss_state = 2; story_boss_fade = 80; say3("TECHNOBEAST DEFEATED!"); return; }
+    pod_drop(p);
     if(arena_on){ ar_kills++; ar_gold += p->kind ? 80 + 15 * ar_wave : 12 + 4 * ar_wave; elite_kill(1); }
     else { loot_odd(); if(elite_kill(1)) say3("JOB DONE! DOCK TO GET PAID"); }
 }
@@ -274,6 +309,7 @@ static void step_pods(void){                                                /* f
 }
 static void step_spawn(void){                                               /* new pirates now and then (not at a world or station) */
     UINT8 i, alive = 0, maxp = 1 + (sv.zone > 3 ? 1 : 0) + (sv.level > 10 ? 1 : 0);
+    if(story_boss_state){ return; }        /* no random reinforcements during the finale */
     if(spawn_t){ spawn_t--; return; }
     for(i = 0; i < NP3; i++) if(pir[i].st) alive++;
     if(alive < maxp && near_st == 255 && near_pl == 255) pirate_spawn(0);
@@ -299,16 +335,22 @@ static UINT8 chart(void){                                                   /* S
     UINT16 r; UINT8 cell = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8));
     WarpResult wr;
     HIDE_SPRITES;
-    r = galaxy_run(cell, 0);
+    r = galaxy_run(cell, sv.cores >= 8 && !(sv.story & ST_DONE));
     SHOW_SPRITES;
     hud_back();
     if(r == GAL_NONE) return 0;
     fade_out(); DISPLAY_OFF; hud_hide();
-    warp_run(1500, &wr);
+    warp_run(r == GAL_BEAST ? 2100 : 1500, &wr);
     fade_out(); DISPLAY_OFF;
-    shx = star_px((UINT8)r) << 4; shy = (star_py((UINT8)r) + 120) << 4; sz = star_z((UINT8)r) * 16; yaw = 0x8000; pit16 = 0; vel = 24; inv = 0;
+    if(r == GAL_BEAST){
+        shx = (UINT16)BEAST_X << 4; shy = (UINT16)(BEAST_Y + 150) << 4; sz = 0;
+    } else {
+        shx = star_px((UINT8)r) << 4; shy = (star_py((UINT8)r) + 120) << 4; sz = star_z((UINT8)r) * 16;
+    }
+    yaw = 0x8000; pit16 = 0; vel = 24; inv = 0;
     objects_clear(); basis();
-    warship_ambush();
+    if(r == GAL_BEAST) story_boss_spawn();
+    else warship_ambush();
     gfx3();
     warp_report(&wr);
     if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");
@@ -567,9 +609,11 @@ int space3d_run(UINT8 keep) BANKED {
     shx = (star_px(sv.star) + ST_DX - 30) << 4; shy = (star_py(sv.star) + 30) << 4; sz = (star_z(sv.star) + 8) * 16; yaw = 0x5200; told3 = 1;     /* (test builds: just short of the station) */
 #endif
     vel = 24; inv = 0; tgt = sv.star; cool = 0; turn_h = 0; spawn_t = 200; regen = 0; dock_lock = 0;
+    story_boss_state = 0; story_boss_fade = 0;
     objects_clear();
     basis();
     scan();                         /* correct docking/boost state on the very first frame */
+    story_boss_near();             /* the lair exists in both the 2D and the 3D galaxy */
     gfx3();
     if(!told3){ told3 = 1; space_say(SAY_HOW3); say3("B+DOWN: BRAKE"); }
     if(sv.cores >= 8 && !(sv.story & ST_DONE) && !keep) space_say(SAY_BEAST3);
@@ -577,11 +621,13 @@ int space3d_run(UINT8 keep) BANKED {
         input_poll(); k = keys; frame++;
         fly(k, frame);
         scan();
+        story_boss_near();
         if(dock_lock) dock_lock--;
         if(cool) cool--;
         if(inv) inv--;
         if((k & J_A) && !cool && near_pl == 255 && near_st == 255) shoot(); /* A lands or docks first, shoots otherwise */
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); step_dust();
+        if(story_boss_state == 1) ar_arrow();
         s3_render(frame);
         wait_vbl_done();
         s3_flush(frame);
@@ -590,6 +636,7 @@ int space3d_run(UINT8 keep) BANKED {
         hud_update();
         if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
         if(!sv.hp){ wrecked(); break; }
+        if(story_boss_finish()){ out = SP_END; break; }
         if(HIT(J_A)){
             if(near_pl != 255){ land(near_pl); break; }
             if(near_st != 255 && !dock_lock){
