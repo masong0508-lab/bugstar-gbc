@@ -106,10 +106,15 @@ static void hurt3(UINT8 dmg){
 }
 
 /* ---------------------------------------------------------------- pirates */
-static void norm_step(INT16 dx, INT16 dy, INT16 dz, UINT8 speed, INT16 *ox, INT16 *oy, INT16 *oz){   /* a step of `speed` (1/16 unit) along (dx, dy, dz) */
+static void norm_step(INT16 dx, INT16 dy, INT16 dz, UINT8 speed, INT16 *ox, INT16 *oy, INT16 *oz){
     INT16 m = aabs(dx), t;
     t = aabs(dy); if(t > m) m = t; t = aabs(dz); if(t > m) m = t;
     if(m < 1){ *ox = *oy = *oz = 0; return; }
+    /* SDCC's GBC int is only 16 bits. A distant target at 400 units times
+       a 90-unit laser velocity overflowed the signed multiply and sent
+       assisted shots BACKWARDS! Normalize to <=255 before multiplying.
+       Keeps all subsequent divisions 16-bit, including pirate orbit AI. */
+    while(m > 255){ dx /= 2; dy /= 2; dz /= 2; m = (m + 1) / 2; }
     *ox = (dx * speed) / m; *oy = (dy * speed) / m; *oz = (dz * speed) / m;
 }
 static P3 *pirate_spawn(UINT8 n){
