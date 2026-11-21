@@ -166,6 +166,17 @@ assert "s3_boss_hud(); return;" in fly
 assert "s3_boss_reward();" in fly
 assert "story_boss_state = 0; story_boss_fade = 0; edge_on = 0;" in fly
 assert "static void story_boss_spawn(void)" not in fly
+# The CPU's most frequently drawn cosmetic particles stay in bank 18:
+# moving them here also fixes bank 19's real 16-KB overflow without
+# allocating new RAM or adding another bank switch for each dust rebirth.
+assert "#pragma bank 18" in s3
+assert "void s3_dust_step(void) BANKED" in s3
+assert "void s3_dust_reset(void) BANKED" in s3
+assert "s3_dust_reset();" in fly
+assert fly.count("s3_dust_step();") == 2  # space and arena
+assert "static void step_dust(void)" not in fly
+assert "yaw_o = yaw; pit_o = pit16;" in s3
+
 # At a 3D Beast-map jump the ship is 150 units south and initially faces
 # north; 150 is inside the 195-unit aim-assist limit, unlike old far locks.
 assert 24 < 150 < 195
