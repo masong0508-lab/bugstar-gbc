@@ -204,31 +204,62 @@ void town_pit_reward(UINT8 res, UINT8 tier) BANKED {
 #define Q_N sv.el.rsv[6]
 #define Q_R (sv.rsv[0] | ((UINT16)sv.rsv[1] << 8))
 static UINT8 qt, qa, qb, qs; static UINT16 qr;
-static UINT8 seen_n(void){ UINT8 i, c = 0, b; for(i = 0; i < 32; i++) for(b = ex.seen[i]; b; b &= b - 1) c++; return c; }   /* worlds landed on */
+/* 256 worlds are visitable. An 8-bit count wrapped 256 to zero and stranded
+   the final delivery; keep the count wide while the saved starting count
+   (Q_B) still uses one byte for all achievable contracts. */
+static UINT16 seen_n(void){ UINT8 i, b; UINT16 c = 0; for(i = 0; i < 32; i++) for(b = ex.seen[i]; b; b &= b - 1) c++; return c; }
 static void q_offer(UINT8 star, UINT8 idx, UINT8 tier){
-    UINT16 r = th ^ ((UINT16)Q_N * 0x3D5u); UINT8 t; r ^= r >> 6; r *= 0x2D3Bu; r ^= r >> 5;
+    UINT16 r = th ^ ((UINT16)Q_N * 0x3D5u);
+    UINT16 unseen = 256u - seen_n();
+    UINT8 maxfloor = 3 + (sv.zone > 3 ? 3 : sv.zone);
+    UINT8 t; r ^= r >> 6; r *= 0x2D3Bu; r ^= r >> 5;
     t = 1 + (UINT8)(r % 8); qs = star; qb = 0;
+    if(t == 2 && sv.deepest >= maxfloor) t = 5; /* normal campaign capped; don't silently require an endless dungeon */
     if(t == 3 && sv.friends >= 250) t = 1;
     if(t == 6 && EX_FISHN > 240) t = 5;
-    if(t == 8 && ex.pit >= 9) t = 7;
+    if(t == 8 && ex.pit >= 9) t = unseen ? 7 : 5;
+    if(t == 7 && !unseen) t = 5; /* every world visited: offer a hunt, not an impossible landing */
     qt = t;
     if(t == 1){ qa = (idx + 1 + ((r >> 3) & 1)) % 3; qr = 40 + 25 * (UINT16)tier + (r & 15); }
-    else if(t == 2){ qa = sv.deepest < 90 ? sv.deepest + 2 : 92; qr = 50 + 8 * (UINT16)qa + 20 * (UINT16)tier; }
+    else if(t == 2){
+        qa = sv.deepest + 2;
+        if(qa > maxfloor) qa = maxfloor;
+        qr = 50 + 8 * (UINT16)qa + 20 * (UINT16)tier;
+    }
     else if(t == 3){ qa = sv.friends + 1; qr = 90 + 40 * (UINT16)tier; }
     else if(t == 5){ qa = 6 + 3 * tier + (UINT8)((r >> 4) & 3); qs = (UINT8)EX_KILLS; qr = 30 + 8 * (UINT16)qa; }              /* squash monsters */
     else if(t == 6){ qa = 2 + (UINT8)((r >> 4) & 3); qs = EX_FISHN; qr = 30 + 18 * (UINT16)qa; }                                  /* catch fish */
-    else if(t == 7){ qa = 1 + (UINT8)((r >> 4) & 1) + (tier > 2); qb = seen_n(); qr = 60 + 45 * (UINT16)qa; }                    /* land on new worlds */
+    else if(t == 7){
+        qa = 1 + (UINT8)((r >> 4) & 1) + (tier > 2);
+        if(qa > unseen) qa = (UINT8)unseen;  /* never request the 257th world */
+        qb = (UINT8)seen_n();
+        qr = 60 + 45 * (UINT16)qa;
+    }                    /* land on new worlds */
     else if(t == 8){ qa = ex.pit + 2; qr = 50 + 18 * (UINT16)qa + 15 * (UINT16)tier; }                                           /* reach a pit wave */
     else { qa = (UINT8)((r >> 4) & 7); qb = 2 + tier; qr = econ_base(qa) * (UINT16)qb * 3 / 2 + 25; }
 }
-static void q_load(void){ qt = Q_T; qa = Q_A; qb = Q_B; qs = Q_S; qr = Q_R; }
+static void q_load(void){
+    qt = Q_T; qa = Q_A; qb = Q_B; qs = Q_S; qr = Q_R;
+    /* Repair old saved contracts that requested more worlds than exist. The
+       completed visits still count, and the agreed reward is unchanged. */
+    if(qt == 7 && (UINT16)qb + qa > 256u){
+        qa = (UINT8)(256u - qb);
+        Q_A = qa;
+    }
+    /* Old town boards also advertised B90+ after the normal campaign ended.
+       Allow the existing contract to finish at the final campaign floor. */
+    if(qt == 2){
+        UINT8 last = 3 + (sv.zone > 3 ? 3 : sv.zone);
+        if(qa > last){ qa = last; Q_A = qa; }
+    }
+}
 static UINT8 q_done(UINT8 idx){
     if(qt == 1) return sv.star == qs && idx == qa;
     if(qt == 2) return sv.deepest >= qa;
     if(qt == 3) return sv.friends >= qa;
     if(qt == 5) return (UINT8)((UINT8)EX_KILLS - qs) >= qa && (UINT8)((UINT8)EX_KILLS - qs) < 200;
     if(qt == 6) return EX_FISHN >= (UINT8)(qs + qa) && EX_FISHN >= qs;
-    if(qt == 7) return seen_n() >= qb + qa;
+    if(qt == 7) return seen_n() >= (UINT16)qb + qa;
     if(qt == 8) return ex.pit >= qa;
     return sv.el.cargo[qa] >= qb;
 }
@@ -244,7 +275,7 @@ static void q_text(char *l1, char *l2){
     else { char g[12]; good_label(qa, g); d = u16s(scat(l1, "BRING "), qb); d = scat(d, " "); scat(d, g); scat(l2, "FROM YOUR HOLD"); }
 }
 static void quest(UINT8 star, UINT8 idx, UINT8 tier){
-    char l1[22], l2[22], b[24], *d; const char *m = 0; UINT8 have, ok;
+    char l1[22], l2[22], b[24], *d; const char *m = 0; UINT8 have, ok, drop_armed = 0;
     for(;;){
         have = Q_T; if(have) q_load(); else q_offer(star, idx, tier);
         l1[0] = 0; l2[0] = 0; q_text(l1, l2); ok = have && q_done(idx);
@@ -253,20 +284,24 @@ static void quest(UINT8 star, UINT8 idx, UINT8 tier){
         line(6, l1, TXT_WHITE); line(7, l2, TXT_WHITE);
         d = u16s(scat(b, "REWARD "), qr); scat(d, " GOLD"); line(10, b, TXT_GOLD);
         line(12, m ? m : (ok ? "IT IS DONE!" : have ? (qt == 1 ? "FIND THAT TOWN" : "NOT DONE YET") : ""), ok ? TXT_GOLD : TXT_GREY);
-        line(15, have ? (ok ? "A: CLAIM  B: BACK" : "SEL: DROP  B: BACK") : "A: TAKE  B: BACK", TXT_GREY);
+        line(15, have ? (ok ? "A: CLAIM  B: BACK" : drop_armed ? "SEL AGAIN: DROP" : "SEL: DROP  B: BACK") : "A: TAKE  B: BACK", TXT_GREY);
         m = 0;
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
-            if(HIT(J_A) && !have){ Q_T = qt; Q_A = qa; Q_B = qb; Q_S = qs; sv.rsv[0] = (UINT8)qr; sv.rsv[1] = (UINT8)(qr >> 8); sfx(SFX_OK); m = "GOOD LUCK, BUG!"; break; }
-            if(HIT(J_A) && ok){
+            if(HIT(J_A) && !have){ Q_T = qt; Q_A = qa; Q_B = qb; Q_S = qs; sv.rsv[0] = (UINT8)qr; sv.rsv[1] = (UINT8)(qr >> 8); drop_armed = 0; sfx(SFX_OK); m = "GOOD LUCK, BUG!"; break; }
+            if(HIT(J_A) && ok){ drop_armed = 0;
                 UINT16 g = LUCKY(qr);
                 if(qt == 4) sv.el.cargo[qa] -= qb;
                 bounty_tick();
                 sv.gold += g; fame_add(3 + tier * 2); unlocks_update(); gain_xp(5 + (qr > 400 ? 40 : qr / 10));
                 Q_T = 0; Q_N++; sfx(SFX_QUEST); m = "THANK YOU! PAID."; break;
             }
-            if(HIT(J_SELECT) && have){ Q_T = 0; sfx(SFX_BACK); m = "QUEST DROPPED"; break; }
+            if(HIT(J_A) && have && !ok && drop_armed){ drop_armed = 0; m = "QUEST STILL ACTIVE"; break; }
+            if(HIT(J_SELECT) && have && !ok){
+                if(!drop_armed){ drop_armed = 1; m = "SELECT AGAIN TO DROP"; sfx(SFX_BACK); break; }
+                Q_T = 0; drop_armed = 0; sfx(SFX_BACK); m = "QUEST DROPPED"; break;
+            }
         }
     }
 }
