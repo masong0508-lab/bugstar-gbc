@@ -53,7 +53,16 @@ static UINT16 cnt(UINT8 t, const XA *x){                          /* the counter
     }
 }
 static UINT16 w16(const UINT8 *p){ return p[0] | ((UINT16)p[1] << 8); }
-static UINT8 bj_done(const XA *x){ return x->bt && cnt(x->bt, x) >= w16(x->bq) + x->bn; }
+/* Kill, pirate and mining totals are 16-bit lifetime counters. Their
+   natural wrap must not award a fresh job immediately, or strand one that
+   crosses 65535. The other counters do not wrap during a playable contract. */
+static UINT8 bj_done(const XA *x){
+    UINT16 now, base;
+    if(!x->bt) return 0;
+    now = cnt(x->bt, x); base = w16(x->bq);
+    if(now < base && x->bt != 1 && x->bt != 5 && x->bt != 6) return 0;
+    return (UINT16)(now - base) >= x->bn;
+}
 static UINT16 bj_pay(XA *x){                                      /* pays and clears the job in x (the caller saves) */
     UINT16 g = w16(x->bg);
     sv.gold += g; fame_add(4); gain_xp(6 + sv.level); x->bt = 0; if(x->bdone < 255) x->bdone++;

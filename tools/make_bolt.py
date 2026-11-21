@@ -12,6 +12,12 @@ def emit(name, items, shape=None):
     items = [clean(s) for s in items]
     out.append('static const char *const %s[%d] = {\n' % (name, len(items)) + ',\n'.join('    "%s"' % s for s in items) + '\n};\n')
 for n in ('bolt_idle', 'bolt_zone', 'bolt_cls', 'bolt_trait'): emit(n, arr(n))
-mem = arr('bolt_mem'); emit('bolt_mem', mem)   # 8 x 4 lines, row major
+mem = arr('bolt_mem')
+# Earlier source revisions revealed Bolt's real name in memory ONE, but the
+# ending depends on that name being the LAST recovered clue. Keep imported
+# assets spoiler-safe even if an older GBA source is supplied.
+if mem[1] == 'I WAS CALLED THE DAWN.':
+    mem[1] = 'A NAME WAS PAINTED ON MY HULL.'
+emit('bolt_mem', mem)   # 8 x 4 lines, row major
 open(sys.argv[2], 'w').write(''.join(out))
 print({n: len(arr(n)) for n in ('bolt_idle', 'bolt_zone', 'bolt_cls', 'bolt_trait', 'bolt_mem')})
