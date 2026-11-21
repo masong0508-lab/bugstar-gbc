@@ -180,7 +180,10 @@ static P3 *assist_target(void){                                             /* t
         dx = unit(p->x, shx); dy = unit(p->y, shy); dz = (p->z - sz) >> 4;
         if(!inbox(dx) || !inbox(dy)) continue;
         cz = ((dx * vfx) >> 6) + ((dy * vfy) >> 6) + ((dz * vfz) >> 6);
-        if(cz < 24 || cz > 400) continue;
+        /* Blended lasers fly ~100/16 units for 34 frames: ~210 units.
+           Don't pull shots off their nose toward a pirate at 400 units
+           that the projectile can never reach before expiring. */
+        if(cz < 24 || cz > 195) continue;
         cx = ((dx * vrx) >> 6) + ((dy * vry) >> 6);
         cy = ((dx * vux) >> 6) + ((dy * vuy) >> 6) + ((dz * vuz) >> 6);
         if(aabs(cx) > cz / 4 || aabs(cy) > cz / 4) continue;
