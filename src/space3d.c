@@ -252,6 +252,13 @@ static void list_things(UINT8 frame){
             if(cz < 160) spr(T_POD, sx - 4, sy - 8, PAL_LAS); else dot(TS(DOT2), sx, sy, PAL_LAS);
         }
     }
+}
+/* Cosmetic dust is the least important thing in the sprite budget. Draw it
+   AFTER worlds, docking beacons, pirates and their shots, so fast flight
+   never makes the destination vanish into tiny star specks. */
+static void list_dust(void){
+    UINT8 i;
+    INT16 sx, sy;
     for(i = 0; i < NDUST; i++){
         sx = 80 + ((INT16)dust_x[i] * 64) / dust_z[i]; sy = 60 + ((INT16)dust_y[i] * 64) / dust_z[i];
         if(sx < 2 || sx > 156 || sy < 2 || sy > 116){ s3_dust_born(i, 1); continue; }
@@ -301,6 +308,7 @@ void s3_render(UINT8 frame) BANKED {
     if(arena_on){ if(edge_on) edge_mark(ed_x, ed_y, ed_z, 0); } else target_mark();
     list_things(frame);
     if(!arena_on) list_worlds();
+    list_dust();              /* never reserve scarce sprites ahead of planets */
 }
 void s3_load(void) BANKED {
     UINT8 i;
