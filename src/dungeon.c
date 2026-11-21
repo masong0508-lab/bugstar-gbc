@@ -42,7 +42,8 @@ UINT8  hell, pit;
 static UINT8  pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
 static const UINT8 qbrood[12] = { K_CRAWLER, K_GOLEM, K_MOTH, K_SPORE, K_SHADE, K_STINGER, K_CRAB, K_REAPER, K_MOTH, K_REAPER, K_SPORE, K_STINGER };   /* what each kind of queen calls */
 UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
-static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
+static UINT8  stop;
+static UINT8 boss_clue_seen; /* per-floor; no added SRAM field */                                             /* hit-stop: frames the action holds still after a good bite */
 UINT16 bx, by, rng; static UINT16 cam_x, cam_y;
 UINT8 dn_x = 255, dn_y;   /* the way down (metatile), for the STAIRS HINT in the HUD; 255 = none on this floor */
 static UINT8  left_mt, top_mt;
@@ -256,6 +257,11 @@ static void do_bite(void){
     { UINT8 tx = (UINT8)((UINT16)hx >> 4), ty = (UINT8)((UINT16)(hy + 6) >> 4);    /* biting a chest or a cage opens it */
       if(tx < DW && ty < DW){
           if(DM(tx, ty) == D_CHEST){ UINT16 g = 20 + depth * 10 + rndn(20); char b[32], *d; set_mt(tx, ty, D_OPEN); g = LUCKY(g); sv.gold += g + loot_clover(g); sfx(SFX_COIN);
+              /* Opening a real Queen-floor chest reveals the King's records;
+                 the original treasure still rolls normally. */
+              if(depth == floors && !hell && !pit && !boss_clue_seen && !world_freed(sv.star)){
+                  boss_clue_seen = 1; boss_evidence(sv.cores);
+              }
               { char lb[40]; lb[0] = 0; if(loot_chest(depth, lb)){ dlg_say(0, lb); } else
               if(rndn(3) == 0 && sv.potions < 9){ sv.potions++; dlg_say(0, "GOLD AND A POTION! (B+SELECT DRINKS IT)"); }
               else { d = scat(b, "THE CHEST HOLDS "); d = u16s(d, g); scat(d, " GOLD"); dlg_say(0, b); } } }
@@ -381,7 +387,7 @@ static UINT8 pit_tick(void){                                        /* the next 
 static int play_floor(void){                                       /* returns DG_* when this floor is left */
     UINT8 k, ox, oy, was_on = 1;
     { UINT8 i; for(i = 0; i < NFX; i++) fxs[i].t = 0; }
-    fade_out(); DISPLAY_OFF; dg_make_floor(); enter_gfx(); hud_init(); music(depth == floors || pit ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
+    boss_clue_seen = 0; fade_out(); DISPLAY_OFF; dg_make_floor(); enter_gfx(); hud_init(); music(depth == floors || pit ? MUS_BOSS : MUS_DUNGEON_K(kind)); bugspr_load(&sv.look); SHOW_BKG; SHOW_SPRITES;
     show_bug(); fade_in();
     if(depth == floors && !pit) banner(BN_QUEEN);
     if(depth > sv.deepest) sv.deepest = depth;

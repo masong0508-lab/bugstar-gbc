@@ -125,6 +125,28 @@ static const char *const trick_nm[12] = { "VINE GRIP: POTIONS HEAL MORE", "SAND 
                                          "THORN SHELL: YOU TAKE LESS DAMAGE", "TIDE LUNGS: YOU HEAL SLOWLY ON YOUR OWN", "SHADOW STEP: SAFE LONGER AFTER A HIT",
                                          "RED DUST: FOES PAY MORE GOLD", "SPORE CLOUD: POTIONS ALSO GIVE MANA", "PRISM EYE: SPELLS HIT HARDER",
                                          "HOT BLOOD: A KILL HEALS YOU", "BOG LEECH: A KILL GIVES MANA", "SUGAR RUSH: MORE XP FROM FOES" };
+/* Eight successive pieces of the King's paper trail. The clue is won by
+   opening a real chest on an unfinished Queen floor. It lives in the feat
+   bank instead of the already-full dungeon bank; no tile or save field. */
+void boss_evidence(UINT8 core) BANKED {
+    static const char *const ledger[8]={
+        "CAGE MANIFEST. THE QUEEN MARKED PRISONERS AS SEED AND SENT THEM NORTH.",
+        "HEAT REPORT. POND PIPES WARMED THE KING'S NEST. WINTER STILL CAME.",
+        "RATION LEDGER. CAPTIVES DUG THE FURNACE SHAFT ON STOLEN FOOD.",
+        "NIGHT WATCH. SHIP PARTS WENT BELOW THE LAWN WHILE BUGS SLEPT.",
+        "HONEY FORGE RECEIPT. THE MACHINE HUMMED THE SAME TUNE AS BOLT.",
+        "ENGINE PLANS. THE KING FED THE SHIP OTHER SHIPS. IT LEARNED HUNGER.",
+        "THE KING'S WARNING. A NAME OPENS THE HEART. KEEP THE DROID SILENT.",
+        "LAST ORDER. BURN THE RECORDS. THE SHIP MUST NEVER SPEAK ITS NAME."
+    };
+    /* The typewriter calls sound/HUD routines in other ROM banks. Copy the
+       chosen bank-20 string into the existing 110-byte WRAM text scratch
+       before entering it, or the ledger pointer can become invalid. */
+    char *b = WRAM_AT(WRAM_TXT, char);
+    if(core>7) core=7;
+    b[0] = 0; scat(b, ledger[core]);
+    dlg_say("EVIDENCE",b);
+}
 void dungeon_won(UINT8 kind) BANKED {                 /* the queen is beaten and the cage is open */
     char *b = WRAM_AT(WRAM_TXT, char), *d;
     if(kind < 12 && !TRICK(kind)){                       /* the first time this kind of queen falls she gives a trick, and it stays */
