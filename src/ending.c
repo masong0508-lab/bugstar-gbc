@@ -12,9 +12,15 @@
 #include "ending.h"
 
 static const char *const page[3][9] = {
-    { "THE TECHNOBEAST", "IS GONE.", "", "ITS HEART OPENS,", "AND EVERY SHIP", "IT EVER ATE", "FLIES FREE.", "", "" },
-    { "BOLT REMEMBERS", "EVERYTHING NOW.", "", "HER NAME IS DAWN.", "SHE CARRIED THE", "SEEDS OF YOUR", "WORLDS, AND A", "SMALL BRAVE CREW.", "" },
-    { "ONE OF THEM", "LOOKED LIKE YOU.", "", "THE STARS ARE", "QUIET AGAIN.", "", "THE GARDENS", "GROW.", "" } };
+    { "THE TECHNOBEAST", "GOES QUIET.", "", "ITS IRON MOUTH",
+      "BREAKS APART.", "INSIDE: A SHIP", "WITH LIGHTS STILL",
+      "BURNING.", "" },
+    { "BOLT REMEMBERS.", "THE SHIP WAS DAWN.", "", "IT CARRIED SEEDS",
+      "AND A SMALL CREW", "ACROSS THE STARS.", "",
+      "THE KING TOOK THEM.", "NOT THE PROMISE." },
+    { "THE SMALLEST BUG", "FIXED ITS LIGHTS.", "", "YOU CARRIED BOLT",
+      "BACK TO THAT NAME.", "", "\"NOW LET ME CARRY",
+      "YOU ALL HOME.\"", "" } };
 
 static UINT8 slen(const char *s){ UINT8 n = 0; while(s[n]) n++; return n; }
 static void wait_a(UINT8 frames){                     /* wait, or until A */
@@ -29,7 +35,12 @@ void ending_run(void) BANKED {
     music(MUS_ENDING);
     for(p = 0; p < 3; p++){
         txt_cls();
-        for(i = 0; i < 9; i++){ line(4 + i, page[p][i], i == 0 && p == 0 ? TXT_GOLD : TXT_WHITE); if(page[p][i][0]) wait_a(40); }
+        for(i = 0; i < 9; i++){
+            /* Each act gets its own gold intertitle. Longer holds emphasize
+               the first revelation and the last promise, but A/START skips. */
+            line(4 + i, page[p][i], i == 0 ? TXT_GOLD : TXT_WHITE);
+            if(page[p][i][0]) wait_a((p == 2 && i == 7) ? 70 : i == 0 ? 50 : 30);
+        }
         txt_put(18, 16, S_ARROW_DN);
         for(;;){ wait_vbl_done(); input_poll(); if(HIT(J_A) || HIT(J_START)) break; }
         sfx(SFX_MOVE);
