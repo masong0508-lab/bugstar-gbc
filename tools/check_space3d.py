@@ -25,6 +25,36 @@ assert re.search(r"#define ST_DY\s+\(-8\)", st)
 assert "ex = dx + ST_DX; ey = dy + ST_DY" in s3
 assert "aabs(ey) < DOCK_R" in s3
 assert "proj(ex, ey, ez" in s3
+
+# Planet landing and station docking volumes overlap in 3D. Selecting the
+# first valid one used to make the port menu impossible to reach at the
+# station's exact centre. Select the physically closer object instead.
+assert "if(ad < best_pl)" not in s3 or "near_pl = s;" in s3
+assert "ad < best_pl){ best_pl = ad; near_pl = s;" in s3
+assert "if(ds < best_st){ best_st = ds; near_st = s; }" in s3
+assert "if(best_st <= best_pl) near_pl = 255;" in s3
+assert "else near_st = 255;" in s3
+
+def chosen_action(x, y, z=0):
+    # Ship offset from planet, station = (+40, -8, +8) relative to planet.
+    land = max(abs(x), abs(y), abs(z)) < 46
+    dock = max(abs(x - 40), abs(y + 8), abs(z - 8)) < 40
+    planet_d = abs(x) + abs(y) + abs(z)
+    dock_d = abs(x-40) + abs(y+8) + abs(z-8)
+    if land and dock:
+        return "dock" if dock_d <= planet_d else "land"
+    return "dock" if dock else "land" if land else "none"
+assert chosen_action(0,0,0) == "land"
+assert chosen_action(40,-8,8) == "dock"
+assert chosen_action(40,-8,0) == "dock"
+assert chosen_action(31,-8,8) == "dock"
+assert chosen_action(10,0,0) == "land"
+assert chosen_action(90,0,0) == "none"
+for x in range(-15,70):
+    for y in range(-15,16):
+        a=chosen_action(x,y,0)
+        assert a in ("dock", "land", "none")
+
 assert "((q & 15) + 3) << 4" in flat
 assert "((q >> 4) << 4) + 8" in flat
 
