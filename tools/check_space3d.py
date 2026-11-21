@@ -13,6 +13,7 @@ st = read("src/space3d_int.h")
 s3 = read("src/space3d.c")
 fly = read("src/flight3d.c")
 boss = read("src/space3d_boss.c")
+warp = read("src/warp.c")
 flat = read("src/space.c")
 api = read("src/space3d.h")
 
@@ -158,6 +159,10 @@ assert all(t in boss for t in ("sv.gold += 5000;", "fame_add(300);", "gain_xp(20
 assert "space_say(SAY_DAWN);" in fly
 assert "space_say(SAY_DAWN);" not in boss
 assert "if(story_boss_finish()){ out = SP_END; break; }" in fly
+assert "THE TECHNOBEAST LIVES IN THE FLAT VIEW" not in warp
+assert "THE TECHNOBEAST IS HERE IN 3D TOO" in warp
+assert "B AND DOWN BRAKES" in warp
+assert "THE AMBER MARK SHOWS A STATION" in warp
 assert "if(dist > 700 && !arena_on && p->kind != 2)" in fly
 assert "if(story_boss_state == 1) s3_boss_arrow();" in fly
 assert "p->kind == 2 ? ((p->t & 31) < 18 ? PAL_LAS : PAL_ORB)" in s3
