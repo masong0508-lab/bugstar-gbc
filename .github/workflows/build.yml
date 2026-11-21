@@ -18,5 +18,16 @@ jobs:
         run: make -j2 GBDK_HOME=/opt/gbdk
       - name: Validate final ROM image and GBC cartridge checksums
         run: python3 tools/check_rom_header.py bugstar.gbc
+      - name: Headless GBC emulator boot and title-button smoke test
+        continue-on-error: true
+        run: |
+          python3 -m venv /tmp/bugstar-pyboy
+          /tmp/bugstar-pyboy/bin/pip install --quiet "pyboy>=2.0,<3.0"
+          /tmp/bugstar-pyboy/bin/python tools/smoke_gbc.py bugstar.gbc smoke/boot.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gbc-real-emulator-capture
+          path: smoke/boot.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with: { name: bugstar-gbc, path: bugstar.gbc }
