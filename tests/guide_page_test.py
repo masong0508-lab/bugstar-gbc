@@ -24,4 +24,7 @@ for label in ("HEART: YOUR HEALTH","IN SPACE, STAR BAR","MEANS SHIP SHIELDS.",
 # The guide dots use x=1..GUIDE_N. At 18, all dots remain in the
 # 20-tile-wide (160px) GBC view, with no new sprite allocations.
 assert len(pages)<20
+guide=Path("src/guide.c").read_text()
+assert "UINT8 p = sys_space ? 13 : 0" in guide
+assert "INSTRUMENTS" in titles and pages[13][0]=="INSTRUMENTS"
 print("GBC HUD help: 18 indexed pages, 20-column text, instrument meanings PASS")
