@@ -11,11 +11,17 @@ jobs:
         run: python3 tools/check_monsters.py
       - name: Host tests (save system + menus)
         run: make test
+      - name: Validate actual GBC link packet codec and both Ready confirmations
+        run: make link-test
       - name: Install GBDK-2020
         run: |
           curl -sL https://github.com/gbdk-2020/gbdk-2020/releases/latest/download/gbdk-linux64.tar.gz | tar xz -C /opt
       - name: Build
         run: make -j2 GBDK_HOME=/opt/gbdk
+      - name: Build dedicated two-console link-cable diagnostic ROM
+        run: make link-rom GBDK_HOME=/opt/gbdk
+      - name: Validate diagnostic ROM header
+        run: python3 tools/check_rom_header.py link.gbc
       - name: Validate final ROM image and GBC cartridge checksums
         run: python3 tools/check_rom_header.py bugstar.gbc
       - name: Headless GBC emulator boot and title-button smoke test
@@ -31,6 +37,24 @@ jobs:
             sleep 4
           done
           /tmp/bugstar-pyboy/bin/python tools/smoke_gbc.py bugstar.gbc smoke/boot.png
+      - name: Two real linked GBC emulators exchange Ready over serial
+        timeout-minutes: 8
+        run: |
+          python3 -m venv /tmp/gbc-link-pyboy
+          for attempt in 1 2 3; do
+            if /tmp/gbc-link-pyboy/bin/pip install --quiet --retries 5 --timeout 45 "pyboy>=2.9,<3" pillow; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then exit 1; fi
+            sleep 4
+          done
+          /tmp/gbc-link-pyboy/bin/python tools/link_pair_smoke.py link.gbc smoke/link
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gbc-two-real-linked-emulators
+          path: smoke/link/*.png
+          if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with:
           name: gbc-real-emulator-capture
@@ -38,3 +62,5 @@ jobs:
           if-no-files-found: ignore
       - uses: actions/upload-artifact@v4
         with: { name: bugstar-gbc, path: bugstar.gbc }
+      - uses: actions/upload-artifact@v4
+        with: { name: gbc-link-diagnostic-unverified-hardware, path: link.gbc }

@@ -40,4 +40,23 @@ font:
 # Runs the save/menu logic on the PC against a fake SRAM (needs only gcc).
 test:
 	gcc -std=gnu99 -O0 -w -fno-builtin -Itests/stub -Isrc '-DSRAM=(sram_buf+stub_bank*8192)' '-DRAM_ON()=' '-DRAM_OFF()=' '-DRAM_BANK(b)=(stub_bank=(b))' -include tests/pre.h tests/host_test.c src/input.c src/save.c src/save_guard.c src/rumble.c src/econ.c src/menus.c src/util.c src/text.c src/textsoft.c src/font.c src/hud.c src/dialog.c src/sysmenu.c src/spell.c src/bug.c src/bugbuild.c src/bugparts.c src/traits.c -o host_test && ./host_test && echo "host tests: ALL OK"
-.PHONY: all clean art bug font test
+# Link packet/Ready parser on the host (no GBDK or emulator needed).
+link-test:
+	@mkdir -p build
+	gcc -std=c99 -O1 -Wall -Wextra -Werror -fsanitize=undefined \
+	  tests/link_proto_test.c src/link_proto.c -o build/link_proto_test
+	./build/link_proto_test
+# Diagnostic ROM links only the tiny cable path + font, NEVER the campaign.
+# The full source wildcard previously pushed bank 0 over its 16-KiB ceiling.
+# Keep it test-only, separate objects and zero default ROM/WRAM overhead.
+link-rom:
+	@mkdir -p build_link
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_diag.o src/link_diag.c
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_proto.o src/link_proto.c
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/link_cable.o src/link_cable.c
+	$(LCC) $(FLAGS) -DTEST_LINK -c -o build_link/font.o src/font.c
+	# The retail image reserves WRAM by naming _hvs/_hv_map/etc in game
+	# object files. Standalone link test must omit those undefined symbols.
+	$(LCC) $(filter-out -Wl-g_%,$(FLAGS)) -Wl-m -o link.gbc build_link/link_diag.o build_link/link_proto.o build_link/link_cable.o build_link/font.o
+	python3 tools/check_banks.py link.map
+.PHONY: all clean art bug font test link-test link-rom

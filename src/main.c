@@ -25,6 +25,9 @@
 #include "dungeon.h"
 #include "kart.h"
 #include "space3d.h"
+#ifdef TEST_LINK
+#include "link_test.h"
+#endif
 #include "space.h"
 #include "ending.h"
 #include "town.h"
@@ -51,6 +54,11 @@ void main(void){
     save_init();
     sound_init(); dlg_set_blip(sfx_type);
     DISPLAY_ON;
+#ifdef TEST_LINK
+    DISPLAY_OFF; txt_init(); DISPLAY_ON;
+    gbc_link_test_run();
+    for(;;)wait_vbl_done();
+#endif
 #ifdef TEST_MAKE
     DISPLAY_OFF; txt_init(); DISPLAY_ON; { BugLook l; char nm[9]; bug_default(&l); strcpy(nm, "PIP"); bugmake_run(&l, nm, 1); }
     for(;;) wait_vbl_done();
