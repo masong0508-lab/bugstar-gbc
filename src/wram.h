@@ -26,6 +26,18 @@ static unsigned char wram_host_bt[2 * 11 * 32];          /* (host tests: its own
 #define WRAM_BPX   0xD000
 #define WRAM_MAKE  0xD720   /* the bug creator's scratch (bigbug.c, bugmake.c): shares the fades' copies, which are never in use while it runs */
 #define WRAM_FADE  0xD720
+/* Kart World reuses the 256-byte fade palette scratch only while racing.
+   The fade driver is idle between kart_race's road_start/road_stop.
+   Store temporary scanline values (144 bytes), reverse curves (16 bytes),
+   and palette words (24 bytes) here. The STAT ISR still reads its separate
+   road_scx[] in always-mapped C000 memory, never switchable WRAM. */
+#define WRAM_KART_TAB   WRAM_FADE
+#define WRAM_KART_REV   (WRAM_FADE + 144)
+#define WRAM_KART_PAL   (WRAM_FADE + 160)
+#define WRAM_KART_END   (WRAM_FADE + 184)
+#if WRAM_KART_END > WRAM_DMAP
+#error Kart World staging overlaps the dungeon map
+#endif
 #define WRAM_DMAP  0xD820
 #define WRAM_STARS 0xDC20
 #define WRAM_MAKE2 0xDE20
