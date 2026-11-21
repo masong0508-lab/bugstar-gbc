@@ -142,7 +142,7 @@ static void cand_add(UINT8 s, UINT8 st, INT16 x, INT16 y, INT16 z){
 }
 void s3_scan(void) BANKED {                                                     /* every star near the ship: what to draw, what is in reach, the nearest */
     UINT8 cx = (UINT8)(((shx >> 4) >> 8) & 15), cy = (UINT8)(((shy >> 4) >> 8) & 15), i, j, nearest = 0;
-    INT16 best = 32000, sx, sy, cz;
+    INT16 best = 32000, best_pl = 32000, best_st = 32000, sx, sy, cz;
     ncand = 0; near_pl = near_st = 255;
     for(j = 0; j < 5; j++) for(i = 0; i < 5; i++){
         UINT8 s = (UINT8)((((cy + j - 2) & 15) << 4) | ((cx + i - 2) & 15));
@@ -150,11 +150,22 @@ void s3_scan(void) BANKED {                                                     
         if(!inbox(dx) || !inbox(dy)) continue;
         ad = aabs(dx) + aabs(dy) + aabs(dz);
         if(ad < best){ best = ad; nearest = s; }
-        if(aabs(dx) < LAND_R && aabs(dy) < LAND_R && aabs(dz) < LAND_R) near_pl = s;
+        if(aabs(dx) < LAND_R && aabs(dy) < LAND_R && aabs(dz) < LAND_R && ad < best_pl){ best_pl = ad; near_pl = s; }
         ex = dx + ST_DX; ey = dy + ST_DY; ez = dz + 8;
-        if(aabs(ex) < DOCK_R && aabs(ey) < DOCK_R && aabs(ez) < DOCK_R) near_st = s;
+        if(aabs(ex) < DOCK_R && aabs(ey) < DOCK_R && aabs(ez) < DOCK_R){
+            INT16 ds = aabs(ex) + aabs(ey) + aabs(ez);
+            if(ds < best_st){ best_st = ds; near_st = s; }
+        }
         if(proj(dx, dy, dz, &sx, &sy, &cz)) cand_add(s, 0, sx, sy, cz);
         if(ad < 330 && proj(ex, ey, ez, &sx, &sy, &cz)) cand_add(s, 1, sx, sy, cz);
+    }
+    /* Planet and station interaction boxes overlap. At the 3D station's
+       exact centre the old A check always landed on the planet instead.
+       Choose whichever *physical object* is nearer, then expose only that
+       action. Also avoid one star later in scan order stealing the prompt. */
+    if(near_pl != 255 && near_st != 255){
+        if(best_st <= best_pl) near_pl = 255;
+        else near_st = 255;
     }
     tgt = sv.el.jk == J_SEND ? sv.el.jd : nearest;
 }
