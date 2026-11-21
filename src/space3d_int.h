@@ -60,5 +60,7 @@ void s3_boss_spawn(void) BANKED;
 void s3_boss_arrow(void) BANKED;
 void s3_boss_hud(void) BANKED;
 void s3_target_hud(void) BANKED;       /* shared navigation/port/boss line every eight frames */
+void s3_land(UINT8 s) BANKED;           /* infrequent landing message, autosave */
+void s3_wrecked(void) BANKED;           /* infrequent ship-wreck dialogue */
 void s3_boss_reward(void) BANKED;
 #endif
