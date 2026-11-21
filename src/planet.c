@@ -96,6 +96,12 @@ static UINT8 town_cell(UINT8 t, UINT8 dx, UINT8 dy, UINT8 x, UINT8 y){
     if(t >= 2 && (dx == 0 || dy == 0 || dx == w - 1 || dy == w - 1)) return MT_WALL;
     if(dx == c || (t && dy == c) || (t >= 3 && (dx == (c >> 1) || dx == c + (c >> 1) || dy == (c >> 1) || dy == c + (c >> 1)))) return MT_SAND;
     if(dy >= w - (t ? 2 : 1)) return (h & 15) ? MT_GRASS : MT_FLOWERS;     /* the lawn in front */
+    /* Four-by-four lots share a seeded neighbourhood identity. Larger towns
+       retain roads and gates, but acquire coherent park/garden districts.
+       No extra map allocation or per-frame simulation is required. */
+    if(t >= 2 && dx > 0 && dx < w - 1 && dy > 0 && dy < w - 1 &&
+       (HASH((UINT8)(x >> 2), (UINT8)(y >> 2), sa1, sb2) & 7) == 0)
+        return (h & 3) ? MT_GRASS : MT_FLOWERS;
     if((h & 3) == 0) return (h & 16) ? MT_FLOWERS : MT_GRASS;              /* a gap between the houses */
     return ((h & 0x60) == 0x60) ? MT_STALL : MT_HOUSE;
 }
