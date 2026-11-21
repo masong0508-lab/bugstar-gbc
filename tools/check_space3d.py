@@ -121,5 +121,24 @@ assert "if(cols > 4 && rows > 1) y0 &=" in s3
 assert "scan();                         /* correct docking/boost state on the very first frame */" in fly
 assert "return 4;                   /* fifth distinct biome" in s3
 assert "tgt_rear" in s3 and "BEHIND!" in fly
+# Aim-assist shots are kept in a signed 16-bit fixed-point format.
+# Directly doing 400 * 90 overflows the GBC's 16-bit int and reversed shots.
+assert "while(m > 255){ dx /= 2; dy /= 2; dz /= 2; m = (m + 1) / 2; }" in fly
+def normalized(dx, dy, dz, speed):
+    m = max(abs(dx), abs(dy), abs(dz))
+    if not m:
+        return 0, 0, 0
+    while m > 255:
+        dx = int(dx / 2); dy = int(dy / 2); dz = int(dz / 2)
+        m = (m + 1) // 2
+    assert max(abs(dx), abs(dy), abs(dz)) * speed <= 32767
+    return tuple(int(c * speed / m) for c in (dx,dy,dz))
+for target in ((400,0,0),(-480,0,0),(0,450,0),(250,-420,120),(-500,-350,200)):
+    v = normalized(*target,90)
+    assert any(v)
+    for k in range(3):
+        if target[k]: assert (v[k] >= 0) == (target[k] >= 0) or v[k] == 0
+        assert abs(v[k]) <= 90
+
 assert "s3_render(frame);" in fly and "s3_flush(frame);" in fly
 print("GBC 3D space: seamless yaw, 2D/3D station parity, 8-way heading, brake, dock and sprite-budget checks passed")
