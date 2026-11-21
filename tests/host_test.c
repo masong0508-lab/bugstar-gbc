@@ -19,6 +19,17 @@ UINT8 bugmake_run(BugLook *look, char *name, UINT8 first){ return 0; }
 void skills_run(void){ }
 void status_run(void){ }
 void guide_run(void){ }
+/* The cartridge implementation of sm_hint lives in guide.c (bank 22).
+ * Host menu tests don't link the guide/art driver, so mirror only its text. */
+void sm_hint(UINT8 sel){
+    static const char *const hint[10] = {
+        "B: PLAY ON", "HP AND XP", "KEEPS GAME", "SETTINGS", "NAME, LOOK",
+        "PERKS", "MINI GAMES", "BADGES", "HOW TO", "TITLE"
+    };
+    if(sel >= 10) sel = 0;
+    txt_line(1, SM_H - 2, hint[sel], SM_W - 2);
+    txt_color(1, SM_H - 2, SM_W - 2, 1, TXT_GREY);
+}
 UINT8 extras_run(UINT8 in_space){ return 0; }                                          /* (and the skills page) */   /* (the creator needs the Game Boy screen: the host tests only link the menu) */
 UINT8 stub_div, stub_vbk, _cpu, stub_win, stub_wy, stub_wx; int stub_bank;
 UINT8 dg_depth;
