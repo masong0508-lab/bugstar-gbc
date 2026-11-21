@@ -7,6 +7,8 @@
 #include "save.h"
 #include "text.h"
 #include "hud.h"
+#include "sound.h"
+#include "dialog.h"
 #include "menus.h"
 #include "econ.h"
 #include "space3d_int.h"
@@ -69,6 +71,25 @@ void s3_target_hud(void) BANKED {           /* keep actionable controls in view 
     }
     txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
 }
+
+
+/* Slow-path world landing and defeat messages belong with the other UI
+   events, not in the scarce real-time GBC flight ROM bank. */
+void s3_wrecked(void) BANKED {
+    UINT8 n; char b[96], *d;
+    for(n = 0; n < 40; n++) move_sprite(n, 0, 0);
+    sv.gold -= sv.gold / 4; sv.hp = hud_hpmax(sv.level) / 2; if(!sv.hp) sv.hp = 1;
+    d = scat(b, "OUCH! THE PIRATES WRECKED THE SHIP. I LIMPED BACK TO "); d = world_name(d, world_seed(sv.star)); scat(d, ". SOME GOLD FELL OUT.");
+    dlg_say("BOLT", b);
+}
+void s3_land(UINT8 s) BANKED {
+    char b[64], *d;
+    sv.star = s;
+    d = scat(b, "LANDING ON "); d = world_name(d, world_seed(s)); d = scat(d, ", A "); d = scat(d, kind_name[star_k[s]]); scat(d, " WORLD.");
+    sfx(SFX_STAIRS); dlg_say("BOLT", b);
+    if(opt.autosave) slot_write(cur_slot);
+}
+
 
 
 void s3_boss_reward(void) BANKED {
