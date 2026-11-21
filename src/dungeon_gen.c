@@ -53,6 +53,20 @@ void dg_make_floor(void) BANKED {
         if(evt == 1 || rndn(3) == 0){ x = r->x + 1 + rndn(r->w - 2); y = r->y + 1 + rndn(r->h - 2); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_CHEST; }
         if(rndn(5) == 0){ x = r->x + rndn(r->w); y = r->y + rndn(r->h); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_POTION; }
     }
+    /* The queen's first defeat must be preceded by a discoverable record.
+       Put a real chest on a dry interior tile in room 1, never the final
+       cage/queen cell. Existing D_CHEST visuals and bite collision are reused:
+       no extra tiles, actors, per-frame cost or save-format changes. */
+    if(depth == floors && !hell && nrooms > 1 && !world_freed(sv.star)){
+        Room *r = &rooms[1]; UINT8 placed = 0;
+        for(y = r->y + 1; y + 1 < r->y + r->h && !placed; y++){
+            for(x = r->x + 1; x + 1 < r->x + r->w; x++){
+                if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2){
+                    DM(x, y) = D_CHEST; placed = 1; break;
+                }
+            }
+        }
+    }
     memset(mon, 0, sizeof mon);                                    /* monsters: in every room but the first */
     for(i = 0, t = 0; t < 40 && i < NMON; t++){
         Room *r = &rooms[1 + rndn(nrooms - 1)]; Mon *m = &mon[i];
