@@ -28,6 +28,10 @@ def _player(rom, out_dir, primary, shared, barrier, messages):
                       serial_shared_memory=shared,
                       serial_interrupt_based=True)
         pyboy.set_emulation_speed(0)
+        # Only synchronize initial launch. PyBoy's SerialSharedMemory
+        # already blocks/synchronizes both emulators at transfer boundaries;
+        # an extra barrier per frame deadlocked a faster game process.
+        barrier.wait(timeout=20)
         linked = False
         both_ready = False
         last = ""
@@ -40,9 +44,6 @@ def _player(rom, out_dir, primary, shared, barrier, messages):
             if t == 240:
                 pyboy.button("a", 6)
             pyboy.tick(1, t % 8 == 0, False)
-            # Both emulators advance in near lock-step without racing through
-            # unrelated hundreds of frames while the peer is scheduling.
-            barrier.wait(timeout=15)
             if t % 12 == 0 and t > 110:
                 line = _text(pyboy, 4)
                 status = _text(pyboy, 10)
@@ -62,6 +63,11 @@ def _player(rom, out_dir, primary, shared, barrier, messages):
         messages.put((role, False, False, "", traceback.format_exc()))
     finally:
         if pyboy is not None:
+            try:
+                debug_path = out_dir / f"{role}-last.png"
+                pyboy.screen.image.save(debug_path)
+            except Exception:
+                pass
             pyboy.stop(save=False)
 
 
@@ -74,8 +80,8 @@ def run():
         raise SystemExit(f"missing link diagnostic ROM: {args.rom}")
     args.out.mkdir(parents=True, exist_ok=True)
 
-    # Uses the same supported PyBoy shared serial buffer implementation
-    # as PyBoy's official two-console Pokemon link demonstration.
+    # Uses PyBoy's process-safe serial buffer as the only ongoing
+    # synchronizer, matching its official two-console cable example.
     from pyboy.core.serial import SerialSharedMemoryBuffer
     shared = SerialSharedMemoryBuffer()
     context = mp.get_context("fork")
