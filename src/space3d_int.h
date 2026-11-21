@@ -53,4 +53,9 @@ void s3_flush(UINT8 frame) BANKED;          /* (in VBlank) write the list, turn 
 void s3_load(void) BANKED;                  /* tiles, palettes, the star background (LCD off) */
 void s3_from2d(UINT8 heading, UINT8 reference_star) BANKED;  /* preserve facing and local planet height when changing views */
 UINT8 s3_to2d(void) BANKED;                  /* quantize 3D nose direction to the 8-way top-down ship */
+/* Bank 53: optional story finale, kept out of the real-time flight bank. */
+void s3_boss_spawn(void) BANKED;
+void s3_boss_arrow(void) BANKED;
+void s3_boss_hud(void) BANKED;
+void s3_boss_reward(void) BANKED;
 #endif
