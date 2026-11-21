@@ -175,6 +175,14 @@ assert "void s3_dust_reset(void) BANKED" in s3
 assert "s3_dust_reset();" in fly
 assert fly.count("s3_dust_step();") == 2  # space and arena
 assert "static void step_dust(void)" not in fly
+assert "void s3_target_hud(void) BANKED" in boss
+assert "void s3_land(UINT8 s) BANKED" in boss
+assert "void s3_wrecked(void) BANKED" in boss
+assert "s3_target_hud();" in fly
+assert "s3_land(near_pl);" in fly and "s3_wrecked();" in fly
+assert "static void line3(void)" not in fly
+assert "static void wrecked(void)" not in fly
+assert "static void land(UINT8 s)" not in fly
 assert "yaw_o = yaw; pit_o = pit16;" in s3
 
 # At a 3D Beast-map jump the ship is 150 units south and initially faces
