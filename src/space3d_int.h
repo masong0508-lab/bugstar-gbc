@@ -46,6 +46,8 @@ static UINT8 inbox(INT16 v){ return v > -500 && v < 500; }
 static INT16 star_z(UINT8 s){ return (INT16)((star_j[s] * 7 + s * 13) & 127) - 64; }      /* a world's height, units */
 /* bank 18 (space3d.c) */
 void s3_dust_born(UINT8 i, UINT8 far) BANKED;   /* a new speck of dust */
+void s3_dust_reset(void) BANKED;              /* prime particles and parallax orientation once per scene */
+void s3_dust_step(void) BANKED;               /* stars stream, with one same-bank call per frame */
 void s3_basis(void) BANKED;                 /* the ship's three axes from yaw and pitch */
 void s3_scan(void) BANKED;                  /* the worlds near the ship: near_pl, near_st, tgt */
 void s3_render(UINT8 frame) BANKED;         /* the sprite list: cross, marks, things, worlds nearest first */
