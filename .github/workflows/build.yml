@@ -11,6 +11,8 @@ jobs:
         run: python3 tools/check_monsters.py
       - name: Test real GBC quest code for 256-world softlocks and story spoilers
         run: python3 tools/check_quests.py
+      - name: Test bounty jobs for kill, ore and pirate counter wrap
+        run: python3 tools/check_bounties.py
       - name: Host tests (save system + menus)
         run: make test
       - name: Install GBDK-2020
