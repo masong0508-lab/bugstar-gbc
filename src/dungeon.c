@@ -30,6 +30,7 @@
 #include "wild.h"
 
 #include "dungeon_int.h"
+#include "dungeon_extra.h"
 
 Room   rooms[NROOM]; UINT8 nrooms;
 Mon    mon[NMON];
@@ -39,7 +40,7 @@ static Fx     fxs[NFX];
 UINT8  depth, floors, kind; static UINT8 inv, atk, face, frame, step;
 UINT8  hell, pit;
 static UINT8  pit_wave, pit_tier;                          /* the city pit: one big room, waves of monsters */
-static const UINT8 qbrood[12] = { K_SPIDER, K_BEETLE, K_WASP, K_SLIME, K_SPIDER, K_WASP, K_SPIDER, K_SLIME, K_WASP, K_BEETLE, K_SLIME, K_WASP };   /* what each kind of queen calls */
+static const UINT8 qbrood[12] = { K_CRAWLER, K_GOLEM, K_MOTH, K_SPORE, K_SHADE, K_STINGER, K_CRAB, K_REAPER, K_MOTH, K_REAPER, K_SPORE, K_STINGER };   /* what each kind of queen calls */
 UINT8  evt, lab;                                         /* this floor's event (spell.h); lab: this floor is a maze */
 static UINT8  stop;                                             /* hit-stop: frames the action holds still after a good bite */
 UINT16 bx, by, rng; static UINT16 cam_x, cam_y;
@@ -111,7 +112,7 @@ static void show_mons(void){                                       /* every mons
         sx = (INT16)m->x - (INT16)cam_x - (big ? 8 : 4); sy = (INT16)m->y - (INT16)cam_y - (big ? 22 : 10);
         if(sx < -32 || sx > 168 || sy < -32 || sy > 136) continue;
         if(o + cols * rows > 36) break;                              /* (keep a few for bursts and numbers) */
-        base = MON_TILE0 + (big ? MON_T_QUEEN(m->frame) : MON_T_SMALL(m->kind, m->frame)); pal = big ? 0 : m->kind;
+        base = MON_TILE0 + (big ? MON_T_QUEEN(m->frame) : m->kind < K_CRAWLER ? MON_T_SMALL(m->kind, m->frame) : DG_EXTRA_TILE(m->kind, m->frame)); pal = big ? 0 : DG_BASE_FAMILY(m->kind);
         for(k = 0; k < cols * rows; k++){
             set_sprite_tile(o, base + k * 2); set_sprite_prop(o, pal | 0x08);
             move_sprite(o, (UINT8)(sx + (k % cols) * 8 + 8), (UINT8)(sy + (k / cols) * 16 + 16)); o++;
@@ -170,6 +171,7 @@ static void enter_gfx(void){                                       /* everything
     for(i = 0; i < 40; i++) move_sprite(i, 0, 0);
     VBK_REG = VBK_BANK_1;
     dungeon_tiles_load(MON_TILE0);
+    dg_extra_load(MON_TILE0);                 /* eight extra two-frame monsters, loaded just once per scene */
     VBK_REG = VBK_BANK_0;
     pet_load();
     txt_pal_reset();
@@ -210,7 +212,7 @@ static UINT8 bite_power(void){ return CLAMP8(tr_bite((UINT16)2 + sv.level + (sv.
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
 static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
-static void kill_pay(Mon *m){ UINT16 lg = LUCKY(3 + m->kind * 2 + depth) * gmul(); UINT8 lx = 3 + m->kind + depth; kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(m->kind, depth); bst_kill(m->kind, kind, depth); }
+static void kill_pay(Mon *m){ UINT8 f = DG_BASE_FAMILY(m->kind); UINT16 lg = LUCKY(3 + f * 2 + depth + (m->kind >= K_CRAWLER ? 2 : 0)) * gmul(); UINT8 lx = 3 + f + depth + (m->kind >= K_CRAWLER ? 2 : 0); kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(f, depth); bst_kill(m->kind, kind, depth); }
 static void spell_hit(Mon *m, UINT8 p){                            /* a spell hurts a monster (it never finishes the queen) */
     if(m->kind == K_QUEEN && p >= m->hp) p = m->hp - 1;
     if(p > m->hp) p = (UINT8)m->hp;
@@ -246,8 +248,8 @@ static void do_bite(void){
             m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5); stop = 6;
             fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
             if(m->kind == K_QUEEN){ fx_add(m->x - 12, m->y - 10, 255, 0); fx_add(m->x + 4, m->y - 11, 255, 3); fx_add(m->x - 4, m->y + 2, 255, 2); }   /* she goes up big */
-            if(m->kind == K_SLIME && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(K_SLIME, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(K_SLIME, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
-            if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); bst_kill(4, kind, depth); }
+            if((m->kind == K_SLIME || m->kind == K_SPORE) && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(m->kind, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(m->kind, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
+            if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); bst_kill(K_QUEEN, kind, depth); }
             else { kill_pay(m); }
         }
     }
@@ -268,7 +270,7 @@ static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16
     for(i = 0; i < NMON - 1; i++) if(!mon[i].alive){
         Mon *m = &mon[i]; memset(m, 0, sizeof *m);
         m->kind = kind; m->x = x; m->y = y; m->hp = hp; m->st = st; m->alive = 1; m->flash = 8;
-        fx_add(x - 8, y - 10, 255, kind);
+        fx_add(x - 8, y - 10, 255, DG_BASE_FAMILY(kind));
         return;
     }
 }
@@ -302,6 +304,7 @@ static void mon_step(void){
         }
         sp = m->kind == K_WASP ? 3 : m->kind == K_SLIME ? 0 : m->kind == K_QUEEN ? 1 : 1;   /* steps per 2 frames */
         if(m->kind == K_SLIME) sp = (step & 1); else if(m->kind == K_QUEEN) sp = (step & 1) ? 1 : 0; else if(m->kind == K_BEETLE) sp = (step & 3) ? 1 : 0; else if(m->kind == K_SPIDER) sp = (step & 1) ? 2 : 1;
+        else if(m->kind >= K_CRAWLER && m->kind < K_QUEEN) sp = dg_extra_motion(m, &dx, &dy, step);
         for(n = 0; n < sp; n++){
             if(dx > 3 && !blocked(m->x + 1, m->y, r)) m->x++; else if(dx < -3 && !blocked(m->x - 1, m->y, r)) m->x--;
             if(dy > 3 && !blocked(m->x, m->y + 1, r)) m->y++; else if(dy < -3 && !blocked(m->x, m->y - 1, r)) m->y--;
@@ -309,7 +312,7 @@ static void mon_step(void){
         if(!(step & 7)) m->frame ^= 1;
 contact:
         { INT16 ax = dx < 0 ? -dx : dx, ay = dy < 0 ? -dy : dy, reach = m->kind == K_QUEEN ? 22 : 11;
-          if(ax < reach && ay < reach - 2 && !inv){ UINT8 dmg = 1 + depth / 2 + sv.zone + (m->kind == K_BEETLE) + (m->kind == K_QUEEN) * (2 + sv.zone) + bst_dmg(m->kind, kind);
+          if(ax < reach && ay < reach - 2 && !inv){ UINT8 dmg = 1 + depth / 2 + sv.zone + (m->kind == K_BEETLE || m->kind == K_GOLEM || m->kind == K_CRAB) + (m->kind == K_QUEEN) * (2 + sv.zone) + bst_dmg(m->kind, kind);
               hurt(dmg, dx > 0 ? 2 : dx < 0 ? -2 : 0, dy > 0 ? 2 : dy < 0 ? -2 : 0); } }
     }
 }
@@ -368,8 +371,8 @@ static UINT8 pit_tick(void){                                        /* the next 
     pit_wave++;
     n = 2 + pit_wave / 2; if(n > 8) n = 8;
     for(i = 0; i < n; i++){
-        UINT8 k = rndn(1 + pit_wave / 3 > 4 ? 4 : 1 + pit_wave / 3), x = (i & 1) ? 22 : 9, y = 11 + (i >> 1) * 2;
-        UINT16 hp = (k == K_BEETLE ? 8 : k == K_WASP ? 3 : k == K_SLIME ? 5 : 4) + pit_wave + pit_tier + sv.level / 2;
+        UINT8 kinds = pit_wave >= 7 ? K_QUEEN : pit_wave >= 3 ? K_SHADE : 4, k = rndn(kinds), x = (i & 1) ? 22 : 9, y = 11 + (i >> 1) * 2;
+        UINT16 hp = ((k & 3) == K_BEETLE ? 8 : (k & 3) == K_WASP ? 3 : (k & 3) == K_SLIME ? 5 : 4) + pit_wave + pit_tier + sv.level / 2 + (k >= K_CRAWLER ? 4 : 0);
         mon_spawn(k, ((UINT16)x << 4) + 8, ((UINT16)y << 4) + 12, hp > 250 ? 250 : (UINT8)hp, 0, ((UINT16)16 << 4) + 8, ((UINT16)16 << 4));
     }
     sfx(SFX_HISS); shake(6); return 0;
