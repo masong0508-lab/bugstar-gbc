@@ -15,6 +15,8 @@ ROOT = Path(__file__).resolve().parents[1]
 town = (ROOT / "src/town.c").read_text()
 data = (ROOT / "src/bolt_data.h").read_text()
 generator = (ROOT / "tools/make_bolt.py").read_text()
+assert "SELECT AGAIN TO DROP" in town, "town quest abandonment must require confirmation"
+assert "if(HIT(J_SELECT) && have && !ok)" in town, "a completed job must not be accidentally dropped"
 
 
 def function(signature):
