@@ -246,7 +246,11 @@ static int space2d(void) {
     space_tables();
     o1 = (UINT8)sv.seed; o2 = (UINT8)(sv.seed >> 24); rng = (UINT16)sv.seed | 1;
     if(!keep_pos){ shx = star_px(sv.star) << 4; shy = (star_py(sv.star) - 36) << 4; }
-    vx = 0; vy = -24; dir = 0;
+    if(!keep_pos){ vx = 0; vy = -24; dir = 0; }
+    else {                         /* the same ship, seen from above: face and drift the way its 3D nose did */
+        dir = s3_to2d();
+        vx = (INT16)thr_x[dir] * 8; vy = (INT16)thr_y[dir] * 8;
+    }
 #ifdef TEST_DOCK
     shx = (((UINT16)(sv.star & 15) << 8) + (((star_j[sv.star] & 15) + 3) << 4) + 8) << 4; shy = (((UINT16)(sv.star >> 4) << 8) + ((star_j[sv.star] >> 4) << 4) + 28) << 4;   /* (test builds: right at the station) */
     told = 1;
@@ -388,12 +392,20 @@ void space_tables(void) BANKED {                                 /* where every 
 }
 void space3_pals(void) BANKED { set_bkg_palette(3, 1, sp_space_pal); set_sprite_palette(0, 6, sp_spr_pal); }
 void space_kind_pal(UINT8 slot, UINT8 kind) BANKED { set_sprite_palette(slot, 1, &sp_kind_pal[kind * 4]); }
-int space_run(void) BANKED {                                     /* the 2D or the 3D view, whichever this save has switched on */
+int space_run(void) BANKED {             /* 2D/3D changes keep the same position, orientation and station geometry */
     int r;
+    UINT8 was3;
     keep_pos = 0;
     for(;;){
-        r = V3_ON ? space3d_run(keep_pos) : space2d();
+        was3 = V3_ON;
+        r = was3 ? space3d_run(keep_pos) : space2d();
         if(r != SP_FLIP) return r;
         keep_pos = 1;
+        if(!was3 && V3_ON){
+            UINT8 ref = near_station();
+            if(ref == 255) ref = over_star();
+            if(ref == 255) ref = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8));
+            s3_from2d(dir, ref);
+        }
     }
 }
