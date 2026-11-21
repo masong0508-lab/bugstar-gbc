@@ -15,6 +15,8 @@ jobs:
         run: python3 tools/check_monsters.py
       - name: Test real GBC quest code for 256-world softlocks and story spoilers
         run: python3 tools/check_quests.py
+      - name: Validate GBC memory continuity and paced 20-column ending
+        run: python3 tools/check_story.py
       - name: Test bounty jobs for kill, ore and pirate counter wrap
         run: python3 tools/check_bounties.py
       - name: Host tests (save system + menus)

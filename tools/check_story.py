@@ -1,0 +1,72 @@
+#!/usr/bin/env python3
+"""Guard GBC's 20-column narrative, restored memories and Technobeast finale.
+
+This is a source-level content/continuity test. Actual GBDK compilation and
+PyBoy render coverage are separate checks in the cartridge workflow.
+"""
+from pathlib import Path
+import re
+
+root = Path(__file__).resolve().parents[1]
+ending = (root / "src/ending.c").read_text()
+bolt = (root / "src/bolt.c").read_text()
+mem = (root / "src/bolt_data.h").read_text()
+planet = (root / "src/planet.c").read_text()
+boss = (root / "src/space3d_boss.c").read_text()
+
+
+def strings(section):
+    return [s.replace(r'\"', '"') for s in re.findall(r'"((?:\\.|[^"\\])*)"', section)]
+
+
+ending_page = ending.split("static const char *const page[3][9] = {", 1)[1].split(
+    "static UINT8 slen(", 1
+)[0]
+pages = strings(ending_page)
+assert len(pages) == 27, "the three nine-line ending panels changed unexpectedly"
+assert all(len(s) <= 20 for s in pages), "ending text overflows 20-column GBC viewport"
+assert "THE SHIP WAS DAWN." in pages, "true identity needs a precise payoff"
+assert "THE KING TOOK THEM." in pages, "ending lost the antagonist's responsibility"
+assert "YOU CARRIED BOLT" in pages, "ending has no player/companion connection"
+assert any("YOU ALL HOME." in s for s in pages), "the ending must conclude Bolt's promise"
+assert "i == 0 ? TXT_GOLD" in ending, "chapter intertitle contrast is missing"
+assert "wait_a((p == 2 && i == 7)" in ending, (
+    "final dialogue needs deliberate pacing without slowing ordinary gameplay"
+)
+assert "HIT(J_A) || HIT(J_START)" in ending, "ending cannot be skipped with either confirm"
+
+m = re.search(r"static const char \*const bolt_mem\[32\] = \{(.*?)\};", mem, re.S)
+assert m, "missing generated 8 x 4 memory table"
+memory_lines = strings(m.group(1))
+assert len(memory_lines) == 32
+assert all(0 < len(s) <= 54 for s in memory_lines)
+assert "A NAME WAS PAINTED ON MY HULL." in memory_lines[:4], (
+    "memory one must establish the lost name without giving it away"
+)
+assert all("THE DAWN" not in s for s in memory_lines[:28]), (
+    "GBC must not identify Bolt before the eighth core"
+)
+assert "THE KING CUT OPEN MY HEART." in memory_lines, (
+    "GBC memory arcs must explain how the Technobeast was created"
+)
+assert "MY NAME HAS COME BACK AT LAST." in memory_lines[28:], (
+    "GBC memory eight must pay off the mystery"
+)
+zone = re.search(r"static const char \*const bolt_zone\[12\] = \{(.*?)\};", mem, re.S)
+assert zone, "GBC zone dialogue table is missing"
+assert "THE DAWN" not in zone.group(1), (
+    "GBC anthill dialogue must not reveal the eighth-core identity too early"
+)
+
+
+assert "if(cores < 8)" in bolt and "else if(!(sv.story & ST_DONE))" in bolt
+assert 'say("I REMEMBER MY NAME. THE DAWN.' in bolt
+assert "WAIT FOR ITS CORE TO GLOW" in bolt, "companion no longer tells the player how to win"
+assert "sv.cores < 8" in boss, "3D Technobeast must remain gated behind eight cores"
+
+assert "I CAN FLY THIS SHIP, BUT I CAN'T REMEMBER MY LAST VOYAGE." in planet, (
+    "GBC Bolt's opening lacks character motivation"
+)
+assert "LET'S FIND YOUR FRIENDS" in planet, "GBC opening has lost its rescue stakes"
+
+print("GBC story: 20-column cinematic pacing, 8 memories, Dawn reveal, boss gate PASS")

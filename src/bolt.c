@@ -37,7 +37,8 @@ void bolt_talk(void) BANKED {
         dlg_say("BOLT", b);
         if(cores){ k = cores - 1; d = scat(b, "I REMEMBER: "); d = scat(d, bolt_mem[k * 4]); d = scat(d, " "); scat(d, bolt_mem[k * 4 + 1]); dlg_say("BOLT", b); }
     } else if(!(sv.story & ST_DONE)){
-        say("I KNOW MY NAME. THE DAWN. FIND THE TECHNOBEAST: THE ARROW IN SPACE POINTS TO IT.", b);
+        say("I REMEMBER MY NAME. THE DAWN. THE KING LOCKED THE REST OF MY HEART IN THE TECHNOBEAST.", b);
+        say("FOLLOW THE ARROW IN SPACE. WAIT FOR ITS CORE TO GLOW, THEN FIRE. WE CAN GO HOME.", b);
     } else say("THE GALAXY IS OPEN. GO ANYWHERE.", b);
     /* a remark about where you are */
     k = 0;
