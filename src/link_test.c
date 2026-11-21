@@ -1,6 +1,7 @@
 /* Physical/emulator link handshake diagnostic; not an advertised
  * multiplayer mode. Two ROM instances select A=clock host, B=guest.
  * Check connected/Ready/Active, cable unplug and leave without saving. */
+#ifdef TEST_LINK
 #include <gb/gb.h>
 #include "link_test.h"
 #include "link_cable.h"
@@ -47,3 +48,5 @@ void gbc_link_test_run(void){
         gbc_cable_stop();
     }
 }
+
+#endif /* TEST_LINK only */
