@@ -107,6 +107,15 @@ assert "fade_out(); DISPLAY_OFF; gfx();" in flat, "2D must restore tiles after s
 assert "static Cand cand[16]" in s3
 assert "if(i >= 15)" in s3 and "if(z >= far) return;" in s3
 assert "pal_used |= 1 << i" in s3
+# Threats and the destination must win over cosmetic dust in the 40-sprite
+# scene and ten-sprites-per-scanline GBC limits.
+render = s3[s3.index("void s3_render("):s3.index("void s3_load(", s3.index("void s3_render("))]
+assert render.index("list_things(frame);") < render.index("list_worlds();") < render.index("list_dust();")
+assert "static void station_beacon(void)" in s3
+assert "else { target_mark(); station_beacon(); }" in render
+assert "spr(TS(ARW_D), sx - 4" in s3
+assert "PAL_LAS" in s3[s3.index("static void station_beacon"):s3.index("/* ---------------------------------------------------------------- scene")]
+
 assert "y0 = cy - rows * 8;" in s3
 assert "if(cols > 4 && rows > 1) y0 &=" in s3
 assert "scan();                         /* correct docking/boost state on the very first frame */" in fly
