@@ -11,6 +11,9 @@
   cargo are full, the same pickup grants a small gold salvage credit.
   Markers use distinct existing palettes in each view and all displays
   show the amount actually awarded.
+- Reward calculations live in existing combat bank 10 as a banked helper,
+  so the resource-limited 3D cockpit bank 19 does not duplicate award code;
+  bank switch occurs only on a rare collected pickup, never in rendering.
 - `tools/check_salvage.py` executes the production shared GBC reward logic
   under ASan/UBSan across 160,000 constrained pickup scenarios and checks
   both 2D and 3D spawn, collision and marker code. Cartridge/header and ROM

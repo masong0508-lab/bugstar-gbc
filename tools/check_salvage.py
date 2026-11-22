@@ -17,6 +17,9 @@ flat=get("space_foe.c")
 flight=get("flight3d.c")
 draw=get("space3d.c")
 assert "#define NPOD 2" in flat and "#define NPOD3    2" in get("space3d_int.h")
+assert "UINT8 salvage_take(UINT8 good, UINT8 n, UINT8 *got) BANKED;" in salv
+assert "UINT8 salvage_take(UINT8 good, UINT8 n, UINT8 *got) BANKED {" in flat
+assert "static UINT8 salvage_take(" not in salv, "do not duplicate award logic in cockpit bank"
 assert "UINT8 g, life;" in flat and "UINT8 life, g;" in get("space3d_int.h")
 for s in (flat,flight,draw):
     assert '#include "salvage.h"' in s
@@ -36,7 +39,7 @@ def body(source, signature):
         k+=1
     return source[i:k]
 
-pick=body(salv,"static UINT8 salvage_take(")
+pick=body(flat,"UINT8 salvage_take(")
 decl=salv[salv.index("#define SALV_FUEL"):salv.index("/* Return the kind")]
 harness=r"""
 #include <stdint.h>
@@ -44,6 +47,7 @@ harness=r"""
 #include <stdlib.h>
 #include <string.h>
 typedef uint8_t UINT8;
+#define BANKED
 typedef uint16_t UINT16;
 typedef uint32_t UINT32;
 typedef struct {

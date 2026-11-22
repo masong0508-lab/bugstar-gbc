@@ -94,6 +94,40 @@ static void spawn(void){
     }
 }
 
+UINT8 salvage_take(UINT8 good, UINT8 n, UINT8 *got) BANKED {
+    UINT8 cap, room;
+    if(good==SALV_FUEL){
+        cap=TANK_CAP();
+        if(sv.el.fuel<cap){
+            room=cap-sv.el.fuel; *got=room<6?room:6;
+            sv.el.fuel+=*got; return SALV_GAS;
+        }
+        *got=15; sv.gold+=15; return SALV_GOLD;
+    }
+    if(good==SALV_REPAIR){
+        UINT16 mx=hud_hpmax(sv.level);
+        if(sv.hp<mx){
+            UINT16 deficit=mx-sv.hp;
+            *got=deficit<12?(UINT8)deficit:12;
+            sv.hp+=*got; return SALV_HP;
+        }
+        mx=hud_mpmax(sv.level);
+        if(sv.mp<mx){
+            UINT16 deficit=mx-sv.mp;
+            *got=deficit<10?(UINT8)deficit:10;
+            sv.mp+=*got; return SALV_MP;
+        }
+        *got=15; sv.gold+=15; return SALV_GOLD;
+    }
+    if(good<8){
+        cap=HOLD_CAP(); room=cap>econ_load()?cap-econ_load():0;
+        if(room){
+            if(n>room) n=room;
+            *got=n; sv.el.cargo[good]+=n; return SALV_GOODS;
+        }
+    }
+    *got=10; sv.gold+=10; return SALV_GOLD;
+}
 static void pod_drop(UINT16 x, UINT16 y, UINT8 kind){
     UINT8 i;
     if(b_on || (rnd() & 127) >= 52) return;                         /* about 4 in 10 */
