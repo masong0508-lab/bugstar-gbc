@@ -78,7 +78,7 @@ static INT16  vel[1 + NRIV], lx[1 + NRIV];     /* speed (1/256 m a frame) and th
 static const INT8 *brow;                         /* the bend of every pair of road lines for the curve you are on: read straight from the ROM table */
 #define bend_at(i) (brow[(i) >> 1])
 #define tab WRAM_AT(WRAM_KART_TAB, UINT8) /* scratch, 144 scanlines; not an array for sizeof */
-static UINT8  stripe, sky_x;
+static UINT8  stripe;
 UINT16 tot_t, best_run; static UINT16 stripe_acc, lap_t, frame;
 static INT16  head;
 static UINT8  lapn, bump_cd;
@@ -88,7 +88,10 @@ typedef struct { UINT16 m; INT16 lane; UINT16 life; UINT8 owner, f; INT8 tg; } S
 typedef struct { UINT16 m; INT16 lane; UINT16 life; } Oil;
 static Shell  shl;
 static Oil    oil[3];
-static UINT8  hold, boost_t, drift_t, got, stun[1 + NRIV], shield_t, gh_on; static UINT16 ghv;
+static UINT8  hold, boost_t, drift_t, got, stun[1 + NRIV], gh_on;
+/* SHIELD lasts 420 simulation ticks: a byte truncated it to 164. The extra
+   byte replaces the unused sky_x copy, keeping fixed WRAM unchanged. */
+static UINT16 shield_t, ghv;
 static UINT16 aicd[1 + NRIV], rs = 0xACE1;
 /* what is kept on the cartridge (after the Extra block of this slot): best trial times, the best cup */
 KSave ks;
@@ -393,7 +396,7 @@ static void scene(void){
     if(cur < -30) cur = -30; if(cur > 29) cur = 29;
     brow = &kt_bv[(UINT8)(cur + 30) * 40U];
     tf_row = brow; tf_tp = &tab[HZ]; tf_sh = sh; tf_sd = sh_d; tab_fill();
-    memset(tab, 0, 16); memset(&tab[16], sky_x = (UINT8)(head >> 4), HZ - 16);
+    memset(tab, 0, 16); memset(&tab[16], (UINT8)(head >> 4), HZ - 16);
     for(k = 1; k <= NRIV; k++){                                             /* the rivals ahead of you, bigger as they near */
         INT16 dz = (INT16)(tm[k] - tm[0]);
         UINT8 y, o = 3 * (k - 1) + 3;
