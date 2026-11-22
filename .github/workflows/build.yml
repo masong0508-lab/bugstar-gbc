@@ -9,6 +9,8 @@ jobs:
         run: python3 tools/check_kart_wram.py
       - name: Test kart shield lifetime, collision protection and item timers
         run: python3 tools/check_kart_items.py
+      - name: Test kart directional control, turbo caps and off-road recovery
+        run: python3 tools/check_kart_control.py
       - name: Verify weather RNG, town text bounds, and errands under UBSan
         run: python3 tools/check_weather_towns.py
       - name: Check 3D cockpit, space docking and perspective continuity
