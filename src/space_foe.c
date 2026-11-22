@@ -16,6 +16,7 @@
 #include "menus.h"
 #include "text.h"
 #include "fleet.h"
+#include "salvage.h"
 void toast(const char *t1, const char *t2) {              /* two lines over the HUD for a moment (from the foes, bank 10) */
     shown = LABEL_TOAST; toast_t = 110;
     txt_win(1);
@@ -93,23 +94,70 @@ static void spawn(void){
     }
 }
 
+UINT8 salvage_take(UINT8 good, UINT8 n, UINT8 *got) BANKED {
+    UINT8 cap, room;
+    if(good==SALV_FUEL){
+        cap=TANK_CAP();
+        if(sv.el.fuel<cap){
+            room=cap-sv.el.fuel; *got=room<6?room:6;
+            sv.el.fuel+=*got; return SALV_GAS;
+        }
+        *got=15; sv.gold+=15; return SALV_GOLD;
+    }
+    if(good==SALV_REPAIR){
+        UINT16 mx=hud_hpmax(sv.level);
+        if(sv.hp<mx){
+            UINT16 deficit=mx-sv.hp;
+            *got=deficit<12?(UINT8)deficit:12;
+            sv.hp+=*got; return SALV_HP;
+        }
+        mx=hud_mpmax(sv.level);
+        if(sv.mp<mx){
+            UINT16 deficit=mx-sv.mp;
+            *got=deficit<10?(UINT8)deficit:10;
+            sv.mp+=*got; return SALV_MP;
+        }
+        *got=15; sv.gold+=15; return SALV_GOLD;
+    }
+    if(good<8){
+        cap=HOLD_CAP(); room=cap>econ_load()?cap-econ_load():0;
+        if(room){
+            if(n>room) n=room;
+            *got=n; sv.el.cargo[good]+=n; return SALV_GOODS;
+        }
+    }
+    *got=10; sv.gold+=10; return SALV_GOLD;
+}
 static void pod_drop(UINT16 x, UINT16 y, UINT8 kind){
     UINT8 i;
     if(b_on || (rnd() & 127) >= 52) return;                         /* about 4 in 10 */
-    for(i = 0; i < NPOD; i++) if(!pod[i].life){ pod[i].x = x; pod[i].y = y; pod[i].g = pod_goods[kind > 2 ? 0 : kind][rnd() & 3]; pod[i].life = 255; return; }
+    for(i = 0; i < NPOD; i++) if(!pod[i].life){
+        UINT8 r=rnd()&15;
+        pod[i].x=x; pod[i].y=y;
+        pod[i].g = r==0 ? SALV_FUEL : r==1 ? SALV_REPAIR : pod_goods[kind > 2 ? 0 : kind][rnd() & 3];
+        pod[i].life=255; return; }
 }
 static void pods_step(UINT8 frame){
     UINT8 i;
-    for(i = 0; i < NPOD; i++){ Pod *p = &pod[i]; INT16 dx, dy;
+    for(i=0;i<NPOD;i++){ Pod *p=&pod[i]; INT16 dx,dy;
         if(!p->life) continue;
-        if(!(frame & 3)) p->life--;
-        dx = wrapd(shx >> 4, p->x); dy = wrapd(shy >> 4, p->y);
-        if(dx > -12 && dx < 12 && dy > -12 && dy < 12){
-            UINT8 n = 1 + (rnd() % 3), room = HOLD_CAP() > econ_load() ? HOLD_CAP() - econ_load() : 0;
-            if(!room){ if(!(frame & 31)) toast("THE HOLD IS FULL", "SELL SOMETHING FIRST"); continue; }
-            if(n > room) n = room;
-            sv.el.cargo[p->g] += n; p->life = 0; sfx(SFX_PICK);
-            { char b[20], *d = u16s(b, n); d = scat(d, " "); good_label(p->g, d); toast(b, "ADDED TO THE HOLD"); }
+        if(!(frame&3)) p->life--;
+        dx=wrapd(shx>>4,p->x); dy=wrapd(shy>>4,p->y);
+        if(dx>-12 && dx<12 && dy>-12 && dy<12){
+            UINT8 amount=1+(rnd()%3), got=0, what=salvage_take(p->g,amount,&got);
+            p->life=0; sfx(SFX_PICK);
+            if(what==SALV_GOODS){
+                char b[20], *d=u16s(b,got);
+                d=scat(d," "); good_label(p->g,d);
+                toast(b,"ADDED TO THE HOLD");
+            } else {
+                char b[20], *d=b;
+                if(what==SALV_GAS){ d=scat(d,"FUEL +"); d=u16s(d,got); toast("FUEL CELL",b); }
+                else if(what==SALV_HP){ d=scat(d,"HP +"); d=u16s(d,got); toast("REPAIR KIT",b); }
+                else if(what==SALV_MP){ d=scat(d,"MANA +"); d=u16s(d,got); toast("REPAIR KIT",b); }
+                else { d=scat(d,"GOLD +"); d=u16s(d,got); toast("SUPPLY FULL",b); }
+                (void)d;
+            }
         }
     }
 }
@@ -267,8 +315,14 @@ void foes_draw(UINT8 frame) BANKED {
           if(half) spr8(OAM_PIR + i * 2, t, wrapd(p->x, cam_x), wrapd(p->y, cam_y)); else spr16(OAM_PIR + i * 2, t, wrapd(p->x, cam_x), wrapd(p->y, cam_y)); }
     }
     if(b_on) beast_show(frame);
-    else for(i = 0; i < NPOD; i++){ Pod *p = &pod[i]; INT16 x = wrapd(p->x, cam_x), y = wrapd(p->y, cam_y);
-        if(!p->life || (p->life < 60 && (frame & 4)) || x < -4 || x > 164 || y < -4 || y > 132) move_sprite(12 + i, 0, 0); else move_sprite(12 + i, (UINT8)(x + 4), (UINT8)(y + 12)); }
+    else for(i = 0; i < NPOD; i++){ Pod *p=&pod[i]; INT16 x=wrapd(p->x,cam_x), y=wrapd(p->y,cam_y);
+        if(!p->life || (p->life<60 && (frame&4)) || x<-4 || x>164 || y<-4 || y>132)
+            move_sprite(12+i,0,0);
+        else {
+            UINT8 pal=p->g==SALV_FUEL?5:p->g==SALV_REPAIR?6:2;
+            set_sprite_prop(12+i,pal|0x08);
+            move_sprite(12+i,(UINT8)(x+4),(UINT8)(y+12));
+        } }
     for(i = 0; i < NORB; i++){
         INT16 x = wrapd(orb[i].x, cam_x), y = wrapd(orb[i].y, cam_y);
         if(i >= 2 && b_on) break;
