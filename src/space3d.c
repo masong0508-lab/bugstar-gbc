@@ -49,7 +49,8 @@ UINT8  pk3[4];                       /* the kind each planet palette (4..7) hold
 static UINT8 pal_used;                /* palette slots already claimed by the nearest visible worlds this frame */
 UINT8  arena_on, edge_on; INT16 ed_x, ed_y, ed_z;
 static Cand cand[16]; static UINT8 ncand;
-UINT8 near_pl, near_st, tgt, tgt_rear;
+UINT16 near_pl, near_st;
+UINT8 tgt, tgt_rear;
 INT16 tgt_d;
 /* Switching the same physical ship between flat and cockpit space must not
    teleport the station, reset the heading or invent a different altitude. */
@@ -144,7 +145,7 @@ static void cand_add(UINT8 s, UINT8 st, INT16 x, INT16 y, INT16 z){
 void s3_scan(void) BANKED {                                                     /* every star near the ship: what to draw, what is in reach, the nearest */
     UINT8 cx = (UINT8)(((shx >> 4) >> 8) & 15), cy = (UINT8)(((shy >> 4) >> 8) & 15), i, j, nearest = 0;
     INT16 best = 32000, best_pl = 32000, best_st = 32000, sx, sy, cz;
-    ncand = 0; near_pl = near_st = 255;
+    ncand = 0; near_pl = near_st = STAR_NONE;
     for(j = 0; j < 5; j++) for(i = 0; i < 5; i++){
         UINT8 s = (UINT8)((((cy + j - 2) & 15) << 4) | ((cx + i - 2) & 15));
         INT16 dx = unit(star_px(s) << 4, shx), dy = unit(star_py(s) << 4, shy), dz = star_z(s) - (sz >> 4), ad, ex, ey, ez;
@@ -164,9 +165,9 @@ void s3_scan(void) BANKED {                                                     
        exact centre the old A check always landed on the planet instead.
        Choose whichever *physical object* is nearer, then expose only that
        action. Also avoid one star later in scan order stealing the prompt. */
-    if(near_pl != 255 && near_st != 255){
-        if(best_st <= best_pl) near_pl = 255;
-        else near_st = 255;
+    if(near_pl != STAR_NONE && near_st != STAR_NONE){
+        if(best_st <= best_pl) near_pl = STAR_NONE;
+        else near_st = STAR_NONE;
     }
     tgt = sv.el.jk == J_SEND ? sv.el.jd : nearest;
 }
@@ -209,7 +210,7 @@ static void target_mark(void){
    nearly impossible to locate against the starfield in first-person flight.
    One existing 8x16 arrow sprite, no textures, no extra actors, no heap. */
 static void station_beacon(void){
-    UINT8 s = near_st != 255 ? near_st : tgt;
+    UINT8 s = near_st != STAR_NONE ? near_st : tgt;
     INT16 dx = unit(star_px(s) << 4, shx) + ST_DX;
     INT16 dy = unit(star_py(s) << 4, shy) + ST_DY;
     INT16 dz = star_z(s) - (sz >> 4) + 8, sx, sy, cz;
@@ -343,6 +344,9 @@ static void list_worlds(void){
 }
 void s3_flush(UINT8 frame) BANKED {                                             /* (in VBlank) the sprites, the background's turn, the twinkle */
     UINT8 i;
+    /* Dialogue restores the ordinary two-row HUD at Y=128. The cockpit's
+       controls/destination need its third row visible again after return. */
+    hud_pos(HUD3_Y);
     shake_tick();
     /* Exactly two 256px repeats per revolution: 81.5px/radian, near the 80px lens.
        The old 63/128 ratio jumped 8px every time yaw wrapped through north. */

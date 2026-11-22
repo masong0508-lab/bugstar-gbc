@@ -17,7 +17,7 @@
 #include "text.h"
 #include "fleet.h"
 void toast(const char *t1, const char *t2) {              /* two lines over the HUD for a moment (from the foes, bank 10) */
-    shown = 252; toast_t = 110;
+    shown = LABEL_TOAST; toast_t = 110;
     txt_win(1);
     txt_line(0, 0, " ", 1); txt_line(1, 0, t1, 19); txt_color(0, 0, 20, 1, TXT_GOLD);
     txt_line(0, 1, " ", 1); txt_line(1, 1, t2, 19); txt_color(0, 1, 20, 1, TXT_WHITE);
@@ -164,7 +164,7 @@ UINT8 foes_hit(Laser *l) BANKED {
             sfx(SFX_HIT);
             { UINT8 ld = 1 + (UPG(UP_LASER) + 1) / 2 + FL_GUN(); p->hp = p->hp > ld ? p->hp - ld : 0; }
             if(!p->hp){ boom(p); sfx(SFX_BOOM); blast(p->x, p->y, p->kind == PK_MINE);
-                { UINT16 sg = SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); UINT8 sx = (p->kind == PK_MINE ? 4 : 2) + sv.zone; sv.gold += sg + loot_clover(sg); gain_xp(sx + loot_xp(sx)); } shown = 253;   /* (a level-up message covers the window: put it back) */
+                { UINT16 sg = SP_GOLD((p->kind == PK_MINE ? 12 : p->kind == PK_DART ? 6 : 5) + sv.zone * 3); UINT8 sx = (p->kind == PK_MINE ? 4 : 2) + sv.zone; sv.gold += sg + loot_clover(sg); gain_xp(sx + loot_xp(sx)); } shown = LABEL_REDRAW;   /* (a level-up message covers the window: put it back) */
                 pod_drop(p->x, p->y, p->kind); loot_odd(); if(elite_kill(p->kind)) toast("JOB COMPLETE!", "DOCK TO GET PAID"); }
             return 1;
         }
@@ -179,7 +179,7 @@ static UINT8 beast_step(void){                                   /* 1 when it ha
     dx = wrapd(shx >> 4, b_x); dy = wrapd(shy >> 4, b_y);
     if(!b_fight && dx > -200 && dx < 200 && dy > -180 && dy < 180){
         b_fight = 1; music(MUS_BOSS);
-        if(!(sv.story & ST_BEAST)){ sv.story |= ST_BEAST; banner(BN_BEAST); space_say(SAY_BEAST); shown = 253; }
+        if(!(sv.story & ST_BEAST)){ sv.story |= ST_BEAST; banner(BN_BEAST); space_say(SAY_BEAST); shown = LABEL_REDRAW; }
     } else if(b_fight && (dx > 320 || dx < -320 || dy > 320 || dy < -320)){ b_fight = 0; music(MUS_SPACE); }
     if(b_flash) b_flash--;
     if(b_dead){
