@@ -1,5 +1,22 @@
 # PARITY: BUGSTAR GBA vs BUGSTAR GBC
 
+## Space salvage parity — 22 November 2026
+
+- Both flat (2D) and cockpit (3D) pirate fights can drop fuel cells or field
+  repair kits alongside their existing random trade goods. A pickup is
+  triggered by flying into the existing crate sprite; no new OAM sprites,
+  WRAM arrays, save fields, or extra projectile slots are allocated.
+- Fuel cells restore up to 6 units of jump fuel, repair kits restore up to
+  12 HP or (if healthy) 10 MP used as the ship's shield. When resources or
+  cargo are full, the same pickup grants a small gold salvage credit.
+  Markers use distinct existing palettes in each view and all displays
+  show the amount actually awarded.
+- `tools/check_salvage.py` executes the production shared GBC reward logic
+  under ASan/UBSan across 160,000 constrained pickup scenarios and checks
+  both 2D and 3D spawn, collision and marker code. Cartridge/header and ROM
+  bank/stack checks must pass before publishing this port.
+
+
 Reference: the GBA game (github masong0508-lab/bugstar), commit 440c557 (1 Nov 2026). This file says what the GBC port
 matches, what it only approximates, what is not ported yet, and what the Game Boy Color cannot do. It was made by reading the
 GBA README/ROADMAP and grepping this source; "not verified in play" marks lines I did not run in an emulator.

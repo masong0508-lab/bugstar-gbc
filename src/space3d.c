@@ -31,6 +31,7 @@
 #include "space3d_art.h"
 #include "space3d.h"
 #include "space3d_int.h"
+#include "salvage.h"
 
 
 INT16  sz;                           /* the ship's height, 1/16 unit */
@@ -302,7 +303,8 @@ static void list_things(UINT8 frame){
         if(!q->life) continue;
         dx = unit(q->x, shx); dy = unit(q->y, shy);
         if(inbox(dx) && inbox(dy) && proj(dx, dy, (q->z - sz) >> 4, &sx, &sy, &cz)){
-            if(cz < 160) spr(T_POD, sx - 4, sy - 8, PAL_LAS); else dot(TS(DOT2), sx, sy, PAL_LAS);
+            UINT8 pal=q->g==SALV_FUEL?PAL_MISC:q->g==SALV_REPAIR?PAL_ORB:PAL_LAS;
+            if(cz < 160) spr(T_POD, sx - 4, sy - 8, pal); else dot(TS(DOT2), sx, sy, pal);
         }
     }
 }

@@ -28,6 +28,7 @@
 #include "warp.h"
 #include "econ.h"
 #include "loot.h"
+#include "salvage.h"
 #include "elite.h"
 #include "xtra.h"
 #include "space_int.h"
@@ -138,7 +139,11 @@ static void orb_fire(P3 *p, INT8 sp){
 static void pod_drop(P3 *p){
     UINT8 i;
     if((rnd() & 127) >= 60) return;                                        /* about half */
-    for(i = 0; i < NPOD3; i++) if(!pod[i].life){ pod[i].x = p->x; pod[i].y = p->y; pod[i].z = p->z; pod[i].g = rnd() & 7; pod[i].life = 250; return; }
+    for(i = 0; i < NPOD3; i++) if(!pod[i].life){
+        UINT8 r=rnd()&15;
+        pod[i].x=p->x; pod[i].y=p->y; pod[i].z=p->z;
+        pod[i].g=r==0?SALV_FUEL:r==1?SALV_REPAIR:(rnd()&7);
+        pod[i].life=250; return; }
 }
 
 /* ---------------------------------------------------------------- the flight (many small functions: one big one makes SDCC crawl) */
@@ -253,23 +258,26 @@ static void step_orbs(void){
         if(aabs(dx) < 11 && aabs(dy) < 11 && aabs(dz) < 11){ o->life = 0; hurt3(2 + lvl3() / 2); }
     }
 }
-static void step_pods(void){                                                /* fly into a crate */
+static void step_pods(void){
     UINT8 i;
-    for(i = 0; i < NPOD3; i++){ Pod3 *q = &pod[i];
-        INT16 dx, dy, dz, r = 22 + 6 * UPG(UP_MAGNET);
+    for(i=0;i<NPOD3;i++){ Pod3 *q=&pod[i];
+        INT16 dx,dy,dz,r=22+6*UPG(UP_MAGNET);
         if(!q->life) continue;
         q->life--;
-        dx = unit(q->x, shx); dy = unit(q->y, shy); dz = (q->z - sz) >> 4;
-        if(aabs(dx) < r && aabs(dy) < r && aabs(dz) < r){
-            UINT8 n = 1 + (rnd() % 3), room = HOLD_CAP() > econ_load() ? HOLD_CAP() - econ_load() : 0;
-            q->life = 0;
-            if(!room) say3("THE HOLD IS FULL");
-            else {
-                char b[24], *d;
-                if(n > room) n = room;
-                sv.el.cargo[q->g] += n; sfx(SFX_PICK);
-                d = u16s(b, n); d = scat(d, " "); good_label(q->g, d); while(*d) d++;
-                scat(d, " ADDED"); say3(b);
+        dx=unit(q->x,shx); dy=unit(q->y,shy); dz=(q->z-sz)>>4;
+        if(aabs(dx)<r && aabs(dy)<r && aabs(dz)<r){
+            UINT8 n=1+(rnd()%3), got=0, what=salvage_take(q->g,n,&got);
+            char b[24], *d=b;
+            q->life=0; sfx(SFX_PICK);
+            if(what==SALV_GOODS){
+                d=u16s(b,got); d=scat(d," "); good_label(q->g,d);
+                while(*d) d++; scat(d," ADDED"); say3(b);
+            } else {
+                if(what==SALV_GAS) d=scat(d,"FUEL +");
+                else if(what==SALV_HP) d=scat(d,"HULL +");
+                else if(what==SALV_MP) d=scat(d,"MANA +");
+                else d=scat(d,"SALVAGED ");
+                u16s(d,got); say3(b);
             }
         }
     }
