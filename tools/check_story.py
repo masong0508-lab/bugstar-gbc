@@ -76,14 +76,23 @@ assert "THE DAWN" not in zone.group(1), (
 
 
 assert "if(cores < 8)" in bolt and "else if(!(sv.story & ST_DONE))" in bolt
-assert 'say("I REMEMBER MY NAME. THE DAWN.' in bolt
-assert "I AM DAWN. BUT YOU CAN STILL CALL ME BOLT." in bolt, (
+assert 'say("ALL EIGHT CORES ARE HOME. MY NAME IS DAWN.' in bolt
+assert "I AM DAWN. YOU CAN STILL CALL ME BOLT." in bolt, (
     "post-finale companion must retain his name and personality"
 )
-assert "KEEP LOOKING FOR THE FRIENDS WE MISSED." in bolt, (
+assert "WE SAVED A SHIP, NOT EVERY WORLD." in bolt, (
     "the GBC postgame must not claim every captive was rescued"
 )
-assert "WAIT FOR ITS CORE TO GLOW" in bolt, "companion no longer tells the player how to win"
+assert "FIRE WHEN ITS CORE GLOWS" in bolt, "companion no longer tells the player how to win"
+assert "world_freed(sv.star)" in bolt and "SELECT A NEW STAR." in bolt, (
+    "GBC Bolt must guide previously freed worlds to a new star instead of another dead-end queen"
+)
+assert "THIS WORLD'S QUEEN STILL HAS A CORE." in bolt and "FOLLOW THE ARROW TO THE DOOR." in bolt, (
+    "GBC Bolt must name the next available quest action on a still-unfreed world"
+)
+assert "bolt_zone[(sv.zone % 6)" not in bolt, (
+    "GBC procedural planets cannot inherit a fixed GBA zone as their current scenery"
+)
 assert "sv.cores < 8" in boss, "3D Technobeast must remain gated behind eight cores"
 
 assert "void  boss_evidence(UINT8 core) BANKED;" in feat_h, (

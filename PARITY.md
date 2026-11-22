@@ -1,5 +1,24 @@
 # PARITY: BUGSTAR GBA vs BUGSTAR GBC
 
+## Bolt dialogue and procedural-world coherence — 22 November 2026
+
+- The GBC story is deliberately not a copy of the GBA's five Tech Hive
+  campaign: **eight different world-queen victories** restore Bolt's eight
+  memory cores, and the Technobeast appears after those cores are collected.
+- Bolt now tells the player to follow the dungeon arrow on a world whose
+  queen has not surrendered a core, or to **launch and select a new star**
+  when the current world's queen is already beaten. A replay of the same
+  queen is not presented as progress. His comments on the current world use
+  its actual procedural class, not an unrelated Garden/Pond/Anthill GBA
+  chapter chosen by the campaign progress counter.
+- The final pre-beast dialogue names the galactic chart action and the
+  glowing-core attack window; after victory, the story acknowledges that
+  not every world or captive has been rescued.
+- `tools/check_bolt_guidance.py` executes real GBC Bolt dialogue and the
+  real `world_freed` lookup under sanitizers across all 256 stars, 12
+  biomes, 0..8 cores and both ending states. No extra WRAM, save fields,
+  story frames or gameplay allocations.
+
 ## Space salvage parity — 22 November 2026
 
 - Both flat (2D) and cockpit (3D) pirate fights can drop fuel cells or field

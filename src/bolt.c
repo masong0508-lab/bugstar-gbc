@@ -25,29 +25,46 @@ static void say(const char *t, char *b){ strncpy(b, t, 109); b[109] = 0; dlg_say
 
 void bolt_talk(void) BANKED {
     char b[110], *d; UINT8 w = weird_of(sv.star), n = 0, k, cores = sv.cores > 8 ? 8 : sv.cores;
+    UINT8 freed = world_freed(sv.star);  /* this planet, not the total story-zone counter */
     UINT16 hmax = hud_hpmax(sv.level);
     const char *c[6];
     /* what worries him first (at most two things) */
     if((UINT16)(sv.hp * 2) < hmax){ say("YOU ARE HURT. THE CARE TAB WILL HEAL YOU.", b); n++; }
     if(sv.el.fuel * 4 < TANK_CAP() && n < 2){ say("THE FUEL IS LOW. REST HERE OR DOCK AT A STATION.", b); n++; }
     if(!sv.potions && n < 2){ say("NO HEALTH POTIONS. THE SHOP SELLS THEM.", b); n++; }
-    /* what to do next */
+    /* Give the next action that can REALLY make progress. Repeating a
+       defeated queen cannot supply another core; other stars still can. */
     if(cores < 8){
-        d = scat(b, "THE QUEENS HOLD MY MEMORY. "); d = u16s(d, cores); scat(d, " OF 8 ARE BACK. FIND A DOOR AND GO DOWN.");
-        dlg_say("BOLT", b);
-        if(cores){ k = cores - 1; d = scat(b, "I REMEMBER: "); d = scat(d, bolt_mem[k * 4]); d = scat(d, " "); scat(d, bolt_mem[k * 4 + 1]); dlg_say("BOLT", b); }
+        if(freed){
+            d=scat(b,"THIS WORLD IS FREE. WE HAVE ");
+            d=u16s(d,cores);
+            scat(d,"/8 CORES. LAUNCH INTO SPACE; SELECT A NEW STAR.");
+        } else {
+            d=scat(b,"THIS WORLD'S QUEEN STILL HAS A CORE. WE HAVE ");
+            d=u16s(d,cores);
+            scat(d,"/8. FOLLOW THE ARROW TO THE DOOR.");
+        }
+        dlg_say("BOLT",b);
+        if(cores){
+            k=cores-1;
+            d=scat(b,"I REMEMBER: "); d=scat(d,bolt_mem[k*4]);
+            d=scat(d," "); scat(d,bolt_mem[k*4+1]);
+            dlg_say("BOLT",b);
+        }
     } else if(!(sv.story & ST_DONE)){
-        say("I REMEMBER MY NAME. THE DAWN. THE KING LOCKED THE REST OF MY HEART IN THE TECHNOBEAST.", b);
-        say("FOLLOW THE ARROW IN SPACE. WAIT FOR ITS CORE TO GLOW, THEN FIRE. WE CAN GO HOME.", b);
+        say("ALL EIGHT CORES ARE HOME. MY NAME IS DAWN. THE BEAST IS WHAT THE KING BUILT AROUND MY HEART.",b);
+        say("LAUNCH INTO SPACE. SELECT THE GALAXY CHART AND PICK THE BEAST. FIRE WHEN ITS CORE GLOWS.",b);
     } else {
-        /* Winning is not the end of caring for the rescued crew.
-           Keep Bolt's familiar nickname, restored identity and the open
-           galaxy together without another dialogue buffer or save flag. */
-        say("I AM DAWN. BUT YOU CAN STILL CALL ME BOLT. WE CAN KEEP LOOKING FOR THE FRIENDS WE MISSED.", b);
+        say("I AM DAWN. YOU CAN STILL CALL ME BOLT. WE SAVED A SHIP, NOT EVERY WORLD. LET US HELP THE OTHERS.",b);
     }
     /* a remark about where you are */
     k = 0;
-    c[k++] = bolt_zone[(sv.zone % 6) * 2 + (bolt_chat & 1)];
+    /* The GBC galaxy is procedural: sv.zone is progression, not the
+       place under our wheels. Never quote a Pond/Anthill scene as though
+       we were standing there when we are on another kind of planet. */
+    c[k++] = cores>=8 ? "THE STARS ARE OURS TO EXPLORE. TAKE YOUR TIME." :
+             freed ? "THIS WORLD IS FREE. THERE ARE MORE TO HELP." :
+                     "THERE MAY BE A CAGED FRIEND BELOW THIS WORLD.";
     c[k++] = bolt_cls[wk_cls[bolt_wk % 12] * 2 + ((bolt_chat >> 1) & 1)];
     if(w){ c[k++] = "A WEIRD WORLD. KEEP YOUR EYES OPEN."; c[k++] = bolt_trait[wt_trait[w & 31]]; }
     say(c[(bolt_chat + (sv.star & 7)) % k], b);
