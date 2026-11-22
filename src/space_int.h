@@ -29,6 +29,10 @@
 #define star_j WRAM_AT(WRAM_STARS, UINT8)          /* where each star's planet sits in its cell: x | y << 4 (metatiles, 2..12) */
 #define star_k WRAM_AT(WRAM_STARS + 256, UINT8)    /* and its kind */
 
+/* All byte values are valid worlds, including 255. Only transient lookup
+   results and HUD tags are wider; saved world IDs stay one byte. */
+enum { STAR_NONE = 256, LABEL_DOCK, LABEL_TOAST, LABEL_REDRAW };
+
 typedef struct { UINT16 x, y; INT8 dx, dy; UINT8 life; } Laser;
 
 /* shared state (space.c owns it) */
@@ -36,7 +40,7 @@ extern UINT16 shx, shy;          /* the ship, 1/16 px (65536 = 4096 px: it wraps
 extern INT16  vx, vy;
 extern UINT16 cam_x, cam_y;      /* top-left of the screen, world px */
 extern UINT8  inv;               /* frames the ship can not be hurt */
-extern UINT8  shown;             /* the HUD line: 255 HUD, 253 = redraw it */
+extern UINT16 shown;             /* world 0..255, STAR_NONE for HUD, or LABEL_* */
 extern UINT16 rng;
 extern UINT8  b_on, b_dead, b_fight;   /* the Technobeast: here at all, dying (frames left), fighting you */
 extern UINT16 b_x, b_y;          /* its middle, world px */

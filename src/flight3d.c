@@ -142,7 +142,8 @@ static void pod_drop(P3 *p){
 }
 
 /* ---------------------------------------------------------------- the flight (many small functions: one big one makes SDCC crawl) */
-static UINT8 cool, turn_h, spawn_t, regen, dock_lock;  /* prevent repeat station menus without teleporting */
+static UINT8 cool, turn_h, regen, dock_lock;  /* prevent repeat station menus without teleporting */
+static UINT16 spawn_t;                     /* respawn delays are 260..387 ticks */
 static const UINT8 gun_cool3[6] = { 16, 13, 11, 9, 8, 7 };
 
 static void fly(UINT8 k, UINT8 frame){
@@ -159,7 +160,7 @@ static void fly(UINT8 k, UINT8 frame){
     want = brake ? 0 : (k & J_B) ? 56 + 6 * UPG(UP_TURBO) : 24 + 2 * UPG(UP_ENGINE);
     /* B+DOWN brakes anywhere. B alone is turbo in open space and
        becomes a precision brake in a docking zone. */
-    if(near_pl != 255 || near_st != 255) want = (k & J_B) ? 0 : 12;
+    if(near_pl != STAR_NONE || near_st != STAR_NONE) want = (k & J_B) ? 0 : 12;
     if(vel < want){ vel += 2; if(vel > want) vel = want; }
     else if(vel > want){ vel -= 3; if(vel < want) vel = want; }
     shx += (vfx * vel) >> 6; shy += (vfy * vel) >> 6; sz += (vfz * vel) >> 6;
@@ -278,7 +279,7 @@ static void step_spawn(void){                                               /* n
     if(story_boss_state){ return; }        /* no random reinforcements during the finale */
     if(spawn_t){ spawn_t--; return; }
     for(i = 0; i < NP3; i++) if(pir[i].st) alive++;
-    if(alive < maxp && near_st == 255 && near_pl == 255) pirate_spawn(0);
+    if(alive < maxp && near_st == STAR_NONE && near_pl == STAR_NONE) pirate_spawn(0);
     spawn_t = 260 + (rnd() & 127);
 }
 /* the sprite list: the cross and the target mark, shots, pirates, crates, dust, then worlds and stations nearest first */
@@ -449,7 +450,6 @@ void arena_run(void) BANKED {
 #define MOON_OPEN (sv.level >= 10)
 #define KART_OPEN (sv.level >= 5)
 #define EX_N 13
-static UINT8 ex_again;                                           /* 1: the boxes are already drawn, only the words change (no blank frame while it repaints) */
 static void ex_card(UINT8 y, UINT8 on, const char *nm, const char *st, UINT8 c1, const char *info){
     txt_box(1, y, 18, 4);                                  /* (every redraw describes the whole page: txt_soft writes only the differences) */
     txt_line(3, y + 1, on ? S_CURSOR : " ", 1); txt_line(4, y + 1, nm, 9); txt_color(3, y + 1, 12, 1, on ? TXT_GOLD : TXT_WHITE);
@@ -478,9 +478,8 @@ static void ex_one(UINT8 i, UINT8 y, UINT8 on){
             else ex_card(y, on, "KART WORLD", "LOCK", TXT_RED, "NEED LEVEL 5"); break;
     }
 }
-static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg, UINT8 again){
+static void ex_draw(UINT8 sel, UINT8 in_space, const char *msg){
     UINT8 top = sel > 2 ? sel - 2 : 0, k;
-    ex_again = again;
     txt_soft(); txt_box(0, 0, 20, 18);                           /* (a redraw is a diff: only the changed cells are written) */
     txt_line(7, 1, "EXTRAS", 6); txt_color(7, 1, 6, 1, TXT_GOLD);
     for(k = 0; k < 3; k++) ex_one(top + k, 3 + k * 4, top + k == sel);
@@ -493,7 +492,7 @@ UINT8 extras_run(UINT8 in_space) BANKED {
     const char *msg = "";
     unlocks_update();
     for(;;){
-        if(d){ ex_draw(sel, in_space, msg, on); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
+        if(d){ ex_draw(sel, in_space, msg); d = 0; if(!on){ txt_pal_reset(); DISPLAY_ON; on = 1; } }
         wait_vbl_done(); input_poll();
         f++; if(on){ UINT8 tp = sel > 2 ? sel - 2 : 0; UI_BLINK(3, 4 + (sel - tp) * 4, f); if(!(f & 31)) txt_color(7, 1, 6, 1, (f & 32) ? TXT_WHITE : TXT_GOLD); }
         if(HIT(J_B) || HIT(J_START)) return 0;
@@ -569,7 +568,7 @@ int space3d_run(UINT8 keep) BANKED {
         /* During the required Technobeast fight, A ALWAYS fires.
            Nearby planet/port boxes must not silently block the gun. */
         if((k & J_A) && !cool &&
-           (story_boss_state == 1 || (!story_boss_state && near_pl == 255 && near_st == 255))) shoot();
+           (story_boss_state == 1 || (!story_boss_state && near_pl == STAR_NONE && near_st == STAR_NONE))) shoot();
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); s3_dust_step();
         if(story_boss_state == 1) s3_boss_arrow();
         s3_render(frame);
@@ -582,8 +581,8 @@ int space3d_run(UINT8 keep) BANKED {
         if(!sv.hp){ s3_wrecked(); break; }
         if(story_boss_finish()){ out = SP_END; break; }
         if(HIT(J_A) && !story_boss_state){
-            if(near_pl != 255){ s3_land(near_pl); break; }
-            if(near_st != 255 && !dock_lock){
+            if(near_pl != STAR_NONE){ s3_land(near_pl); break; }
+            if(near_st != STAR_NONE && !dock_lock){
                 if(elite_dock(near_st)){ out = SP_FLIP; break; }
                 inv = 60; dock_lock = 50; vel = 0;
                 /* Recreate the cockpit graphics after station services or

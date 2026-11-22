@@ -115,12 +115,12 @@ static void redraw(void){ if(sys_gfx_lost) gfx_tiles(); SCX_REG = (UINT8)cam_x; 
 static void sprite_pals(UINT8 oam, UINT8 n, UINT8 pal){ while(n--){ set_sprite_prop(oam, pal | 0x08); oam++; } }
 
 /* ------------------------------------------------------------ the HUD line for a planet you are over */
-UINT8 shown;                                                   /* the star whose label is up, 255 for the HUD, 253 = redraw whichever */
-static void label(UINT8 s){
+UINT16 shown;                                                  /* world 0..255, STAR_NONE for HUD, or LABEL_* */
+static void label(UINT16 s){
     char b[24], *d;
     if(s == shown) return;
     shown = s;
-    if(s == 255){ hud_redraw(); return; }
+    if(s == STAR_NONE){ hud_redraw(); return; }
     txt_win(1);
     d = world_name(b, world_seed(s)); *d++ = ' '; scat(d, kind_name[star_k[s]]);
     txt_line(0, 0, " ", 1); txt_line(1, 0, b, 19); txt_color(0, 0, 20, 1, TXT_GOLD);
@@ -129,20 +129,20 @@ static void label(UINT8 s){
 }
 
 /* ------------------------------------------------------------ the stations: one beside every planet */
-static UINT8 near_station(void){                                 /* the star whose station the ship is at, or 255 */
+static UINT16 near_station(void){                                /* world 0..255, or STAR_NONE */
     UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i;
     for(i = 0; i < 2; i++){                                      /* a station is 3 metatiles right of its planet (cell x 88..248, y 40..200), so only this cell's or the left neighbour's can be in reach */
         UINT8 s = (UINT8)((cy << 4) | ((cx - i) & 15)), q = star_j[s];
         INT16 dx = wrapd(px, ((UINT16)(s & 15) << 8) + (((q & 15) + 3) << 4) + 8), dy = wrapd(py, ((UINT16)(s >> 4) << 8) + ((q >> 4) << 4) + 8);
         if(dx > -22 && dx < 22 && dy > -22 && dy < 22) return s;
     }
-    return 255;
+    return STAR_NONE;
 }
 UINT8 toast_t;                                                  /* frames a message from toast() stays up (set in space_foe.c) */
 static void dock_label(UINT8 s){
     char b[24], *d;
-    if(shown == 251) return;
-    shown = 251;
+    if(shown == LABEL_DOCK) return;
+    shown = LABEL_DOCK;
     txt_win(1);
     d = world_name(b, world_seed(s)); d = scat(d, " STATION"); txt_line(0, 0, " ", 1); txt_line(1, 0, b, 19); txt_color(0, 0, 20, 1, TXT_GOLD);
     txt_line(0, 1, " A: DOCK AND TRADE", 20); txt_color(0, 1, 20, 1, TXT_WHITE);
@@ -150,25 +150,23 @@ static void dock_label(UINT8 s){
 }
 
 /* ------------------------------------------------------------ flying */
-static UINT8 over_star(void){                                   /* the star whose planet is under the ship, or 255 */
+static UINT16 over_star(void){                                  /* world 0..255, or STAR_NONE */
     UINT16 px = shx >> 4, py = shy >> 4; UINT8 s = (UINT8)(((py >> 8) << 4) | (px >> 8));
     INT16 dx = wrapd(px, star_px(s)), dy = wrapd(py, star_py(s));
-    return (dx > -18 && dx < 18 && dy > -18 && dy < 18) ? s : 255;
+    return (dx > -18 && dx < 18 && dy > -18 && dy < 18) ? s : STAR_NONE;
 }
 static INT16 drag(INT16 v){
     if(v > 0){ v -= 1 + (v >> 4); if(v < 0) v = 0; }
     else if(v < 0){ v += 1 + ((-v) >> 4); if(v > 0) v = 0; }
     return v;
 }
-static UINT8  aim_ok, aim_beast;  /* where the arrow points (and SELECT warps to): a world, or the beast */
-static UINT16 aim_x, aim_y;
-static UINT8  arrow_best, arrow_t;  /* the world the arrow chose, and a counter: the search of 9 cells is redone every 8th frame, the arrow follows the chosen one in between */
+static UINT16 arrow_best;       /* world 0..255, or STAR_NONE */
+static UINT8  arrow_t;          /* search 9 cells every eighth frame; track the cached world between searches */
 static void arrow(void){                                         /* point at the nearest other world (one not freed yet, if there is one near), if it is off the screen */
-    UINT16 px = shx >> 4, py = shy >> 4; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j, best = 255, d;
+    UINT16 px = shx >> 4, py = shy >> 4, best = STAR_NONE; UINT8 cx = (UINT8)(px >> 8), cy = (UINT8)(py >> 8), i, j, d;
     INT16 bdx = 0, bdy = 0; UINT16 bd = 0xFFFF;
-    aim_beast = 0;
-    if(b_on && !b_dead){ bdx = wrapd(b_x, px); bdy = wrapd(b_y, py); best = 0; aim_beast = 1; goto aim; }
-    if(arrow_t++ & 7){ best = arrow_best; if(best != 255){ bdx = wrapd(star_px(best), px); bdy = wrapd(star_py(best), py); } goto aim; }
+    if(b_on && !b_dead){ bdx = wrapd(b_x, px); bdy = wrapd(b_y, py); best = 0; goto aim; }
+    if(arrow_t++ & 7){ best = arrow_best; if(best != STAR_NONE){ bdx = wrapd(star_px(best), px); bdy = wrapd(star_py(best), py); } goto aim; }
     for(j = 0; j < 3; j++) for(i = 0; i < 3; i++){
         UINT8 s = (UINT8)((((cy + j - 1) & 15) << 4) | ((cx + i - 1) & 15));
         INT16 dx = wrapd(star_px(s), px), dy = wrapd(star_py(s), py);
@@ -179,8 +177,7 @@ static void arrow(void){                                         /* point at the
     }
     arrow_best = best;
 aim:
-    aim_ok = best != 255; aim_x = (px + bdx) & 4095; aim_y = (py + bdy) & 4095;
-    if(!opt.arrow || best == 255 || (bdx > -88 && bdx < 88 && bdy > -72 && bdy < 72)){ hide2(OAM_ARR); return; }
+    if(!opt.arrow || best == STAR_NONE || (bdx > -88 && bdx < 88 && bdy > -72 && bdy < 72)){ hide2(OAM_ARR); return; }
     { UINT16 ax = bdx < 0 ? -bdx : bdx, ay = bdy < 0 ? -bdy : bdy;
       if(ax > ay * 2) d = bdx > 0 ? 2 : 6;
       else if(ay > ax * 2) d = bdy > 0 ? 4 : 0;
@@ -222,7 +219,7 @@ UINT8 space_laser_add(UINT16 x, UINT16 y, INT8 dx, INT8 dy) BANKED {
     sfx(SFX_LASER);
     return 1;
 }
-void space_restore(void) BANKED { gfx_tiles(); SPRITES_8x16; txt_pal_reset(); pals(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all(); hud_init(); shown = 255; }
+void space_restore(void) BANKED { gfx_tiles(); SPRITES_8x16; txt_pal_reset(); pals(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all(); hud_init(); shown = STAR_NONE; }
 static void gfx(void){                                           /* everything onto the screen (LCD off): it fades in */
     UINT8 i;
     arrow_t = 0;                                                 /* (the arrow picks its world afresh) */
@@ -230,7 +227,7 @@ static void gfx(void){                                           /* everything o
     SPRITES_8x16;
     txt_pal_reset(); pals();
     camera(); SCX_REG = (UINT8)cam_x; SCY_REG = (UINT8)cam_y; draw_all();
-    hud_init(); shown = 255;
+    hud_init(); shown = STAR_NONE;
     music(MUS_SPACE);
     SHOW_BKG; SHOW_SPRITES;
     spr8(OAM_SHIP, SPH_SHIP(dir), SHIP_SX, SHIP_SY);
@@ -307,11 +304,11 @@ static int space2d(void) {
             else hide2(i * 2);
         }
         arrow();
-        { UINT8 o = over_star(), t = o == 255 ? near_station() : 255;
-          if(toast_t){ if(!--toast_t) shown = 253; }
-          else if(t != 255) dock_label(t);
+        { UINT16 o = over_star(), t = o == STAR_NONE ? near_station() : STAR_NONE;
+          if(toast_t){ if(!--toast_t) shown = LABEL_REDRAW; }
+          else if(t != STAR_NONE) dock_label(t);
           else label(o); }
-        if(shown == 255) hud_update();
+        if(shown == STAR_NONE) hud_update();
         if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
         if(!sv.hp){
             UINT8 n; char b[96], *d;
@@ -322,8 +319,8 @@ static int space2d(void) {
             break;
         }
         if(HIT(J_A)){
-            UINT8 o = over_star();
-            if(o != 255){
+            UINT16 o = over_star();
+            if(o != STAR_NONE){
                 char b[64], *d;
                 sv.star = o;
                 d = scat(b, "LANDING ON "); d = world_name(d, world_seed(o)); d = scat(d, ", A "); d = scat(d, kind_name[star_k[o]]); scat(d, " WORLD.");
@@ -332,22 +329,22 @@ static int space2d(void) {
                 if(opt.autosave) slot_write(cur_slot);
                 break;
             }
-            { UINT8 t = near_station();
-              if(t != 255){
+            { UINT16 t = near_station();
+              if(t != STAR_NONE){
                   if(elite_dock(t)){ k = SP_FLIP; goto out; }                  /* the person switched the view to 3D */
                   /* The station and its submenus can reuse BG/sprite tiles.
                      Rebuild the flight scene rather than returning with a
                      mangled background or ship palettes. Keep shx/shy. */
                   fade_out(); DISPLAY_OFF; gfx();
-                  hud_pos(HUD_Y); shown = 255; toast_t = 0; inv = 40; continue; } }
+                  hud_pos(HUD_Y); shown = STAR_NONE; toast_t = 0; inv = 40; continue; } }
             if(!cool){ UINT8 g = UPG(UP_GUNS); fire(); cool = gun_cool[g > 5 ? 5 : g]; }
         }
         if(HIT(J_SELECT) && !b_dead){                                /* the galaxy chart: pick a world, jump there */
-            UINT16 r; UINT8 cell = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8)), sp = LCDC_REG & LCDCF_OBJON;
+            UINT16 r, aim_x, aim_y; UINT8 aim_beast, cell = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8)), sp = LCDC_REG & LCDCF_OBJON;
             HIDE_SPRITES;
             r = galaxy_run(cell, b_on);
             if(sp) SHOW_SPRITES;
-            hud_redraw(); hud_pos(HUD_Y); shown = 255; toast_t = 0;
+            hud_redraw(); hud_pos(HUD_Y); shown = STAR_NONE; toast_t = 0;
             if(r == GAL_NONE) continue;
             if(r == GAL_BEAST){ aim_beast = 1; aim_x = b_x; aim_y = b_y; }
             else { aim_beast = 0; aim_x = star_px((UINT8)r); aim_y = star_py((UINT8)r); }
@@ -361,7 +358,7 @@ static int space2d(void) {
             warship_ambush();                                         /* (now and then a warship drops out on top of you) */
             gfx();
             warp_report(&wr);
-            shown = 253;
+            shown = LABEL_REDRAW;
             if(sv.el.fuel < 3) dlg_say("BOLT", "FUEL IS LOW. DOCK AT A STATION TO REFUEL, OR REST AT YOUR SHIP ON ANY WORLD FOR A LITTLE FREE FUEL.");
             continue; }
         }
@@ -371,7 +368,7 @@ static int space2d(void) {
             if(sr == SYS_TITLE){ k = SP_TITLE; goto out; }
             if(sr == SYS_FLIP){ k = SP_FLIP; goto out; }
             if(sr == SYS_ARENA){ arena_run(); k = SP_FLIP; goto out; }
-            shown = 253;
+            shown = LABEL_REDRAW;
         }
     }
     k = SP_LAND;
@@ -406,9 +403,9 @@ int space_run(void) BANKED {             /* 2D/3D changes keep the same position
         if(r != SP_FLIP) return r;
         keep_pos = 1;
         if(!was3 && V3_ON){
-            UINT8 ref = near_station();
-            if(ref == 255) ref = over_star();
-            if(ref == 255) ref = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8));
+            UINT16 ref = near_station();
+            if(ref == STAR_NONE) ref = over_star();
+            if(ref == STAR_NONE) ref = (UINT8)((((shy >> 4) >> 8) << 4) | ((shx >> 4) >> 8));
             s3_from2d(dir, ref);
         }
     }

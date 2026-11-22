@@ -34,8 +34,8 @@ assert "proj(ex, ey, ez" in s3
 assert "if(ad < best_pl)" not in s3 or "near_pl = s;" in s3
 assert "ad < best_pl){ best_pl = ad; near_pl = s;" in s3
 assert "if(ds < best_st){ best_st = ds; near_st = s; }" in s3
-assert "if(best_st <= best_pl) near_pl = 255;" in s3
-assert "else near_st = 255;" in s3
+assert "if(best_st <= best_pl) near_pl = STAR_NONE;" in s3
+assert "else near_st = STAR_NONE;" in s3
 
 def chosen_action(x, y, z=0):
     # Ship offset from planet, station = (+40, -8, +8) relative to planet.
@@ -99,9 +99,9 @@ for velocity in (0, 3, 13, 24, 56, 92):
 # doesn't also fire projectiles. Keep the small input cooldown.
 assert "dock_lock = 50; vel = 0;" in fly
 assert "shx -= (vfx * 70)" not in fly
-assert "story_boss_state == 1 || (!story_boss_state && near_pl == 255 && near_st == 255))) shoot();" in fly
+assert "story_boss_state == 1 || (!story_boss_state && near_pl == STAR_NONE && near_st == STAR_NONE))) shoot();" in fly
 assert "if(HIT(J_A) && !story_boss_state)" in fly, "Prevent accidental land/dock during final battle"
-assert "if(near_st != 255 && !dock_lock)" in fly
+assert "if(near_st != STAR_NONE && !dock_lock)" in fly
 assert "fade_out(); DISPLAY_OFF; gfx3();" in fly, "3D must restore tiles after station UI"
 assert "fade_out(); DISPLAY_OFF; gfx();" in flat, "2D must restore tiles after station UI"
 

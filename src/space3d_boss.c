@@ -56,12 +56,15 @@ void s3_boss_hud(void) BANKED {
    Bank it out of the near-full real-time cockpit code. */
 void s3_target_hud(void) BANKED {           /* keep actionable controls in view instead of truncating them after a long planet name */
     char b[28], name[24], *d;
-    UINT8 s = near_pl != 255 ? near_pl : near_st != 255 ? near_st : tgt;
+    UINT8 s = near_pl != STAR_NONE ? near_pl : near_st != STAR_NONE ? near_st : tgt;
     if(story_boss_state){ s3_boss_hud(); return; }
-    if(near_pl != 255 || near_st != 255){
-        d = scat(b, near_pl != 255 ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
+    if(near_pl != STAR_NONE || near_st != STAR_NONE){
+        d = scat(b, near_pl != STAR_NONE ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
         world_name(name, world_seed(s));
-        { char *n = name; while(*n && d < b + 20) *d++ = *n++; }
+        /* Count the cells left after the controls explicitly. This keeps
+           the destination visible in SDCC builds and reserves its NUL. */
+        { UINT8 n = 0, left = 20 - (UINT8)(d - b);
+          while(left && name[n]){ *d++ = name[n++]; left--; } }
         *d = 0;
     } else if(tgt_rear){
         d = scat(b, "BEHIND! "); d = u16s(d, tgt_d); *d = 0;
@@ -72,7 +75,7 @@ void s3_target_hud(void) BANKED {           /* keep actionable controls in view 
         while(*n && d < b + 12) *d++ = *n++;  /* reserve room for the distance */
         *d++ = ' '; d = u16s(d, tgt_d); *d = 0;
     }
-    txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != 255 || near_st != 255) ? TXT_GOLD : TXT_WHITE); txt_win(0);
+    txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, (near_pl != STAR_NONE || near_st != STAR_NONE) ? TXT_GOLD : TXT_WHITE); txt_win(0);
 }
 
 
