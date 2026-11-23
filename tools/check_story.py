@@ -68,6 +68,23 @@ assert "THE KING CUT OPEN MY HEART." in memory_lines, (
 assert "MY NAME HAS COME BACK AT LAST." in memory_lines[28:], (
     "GBC memory eight must pay off the mystery"
 )
+# Queen-victory dialogue has a different table from TALK TO BOLT. Both
+# must reveal the DAWN only on the eighth recovered memory, not the first.
+# Copy bank-local text to the existing 110-byte WRAM area before dialogue.
+queen_memory = re.search(r"static const char \*const memory\[8\]\s*=\s*\{(.*?)\};", feat, re.S)
+assert queen_memory, "missing queen-victory memory table"
+earned_lines = strings(queen_memory.group(1))
+assert len(earned_lines) == 8
+assert all(0 < len(s) < 110 for s in earned_lines), "queen memory exceeds typewriter scratch"
+assert all("DAWN" not in s for s in earned_lines[:7]), "queen first core reveals the ending"
+assert "MY NAME IS DAWN." in earned_lines[7], "queen eighth core lacks the reveal"
+assert "A NAME WAS PAINTED ON MY HULL." in earned_lines[0]
+assert "THE KING CUT OPEN MY HEART." in earned_lines[4]
+assert "I ESCAPED IN THIS LITTLE TIN BODY." in earned_lines[5]
+assert 'dlg_say("BOLT", memory[sv.cores - 1]);' not in feat, "ROM pointer crosses dialogue bank switch"
+assert "b[0]=0; scat(b,memory[sv.cores-1]);" in feat
+assert 'dlg_say("BOLT",b);' in feat
+
 zone = re.search(r"static const char \*const bolt_zone\[12\] = \{(.*?)\};", mem, re.S)
 assert zone, "GBC zone dialogue table is missing"
 assert "THE DAWN" not in zone.group(1), (
