@@ -170,6 +170,6 @@ void dungeon_won(UINT8 kind) BANKED {                 /* the queen is beaten and
     // just as the queen's evidence card already does.
     b[0]=0; scat(b,memory[sv.cores-1]);
     dlg_say("BOLT",b);
-    if(sv.cores == 8) dlg_say("BOLT", "THAT WAS THE LAST OF ME. FIND THE TECHNOBEAST: IN SPACE THE ARROW POINTS TO IT NOW. SHOOT ITS CORE WHEN IT GLOWS.");
+    if(sv.cores == 8) dlg_say("BOLT", "THAT WAS THE LAST OF ME. PICK THE BEAST ON THE GALAXY CHART. FIRE WHEN ITS CORE GLOWS.");
     else dlg_say("BOLT", "EVERY WORLD WE FREE MAKES THE NEXT DUNGEON DEEPER. LET'S FLY TO A NEW WORLD!");
 }
