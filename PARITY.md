@@ -1,5 +1,24 @@
 # PARITY: BUGSTAR GBA vs BUGSTAR GBC
 
+## Queen memory reveals and bank-safe dialogue — 22 November 2026
+
+- The real Queen-victory script now tells an eight-part memory story,
+  matching Bolt's ship conversations: ship and lost name, seed worlds,
+  insect crew, crash and imprisonment, the King's machine, Bolt's
+  escape, a name the King cannot force, and **DAWN on core eight**.
+  Previously the first queen explicitly revealed the name that the
+  eighth core was meant to uncover.
+- The eight story lines fit the existing 110-byte WRAM text area.
+  `dungeon_won` copies the chosen ROM-bank string into that area
+  before the dialogue renderer switches banks, as the existing
+  evidence-card code already does. No new memory, saved flag, or asset.
+- `tools/check_story.py` now audits both actual sources of the eight
+  memory scenes; `tools/check_queen_memory_runtime.py` executes the
+  production queen-reward path and `world_freed` across 2,048 world/core
+  combinations under sanitizers and verifies duplicate-queen and
+  post-eight-core behavior. ROM/header and GBC emulator checks remain
+  release gates.
+
 ## Bolt dialogue and procedural-world coherence — 22 November 2026
 
 - The GBC story is deliberately not a copy of the GBA's five Tech Hive

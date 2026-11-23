@@ -112,15 +112,19 @@ UINT8 fish_run(UINT8 world) BANKED {
 }
 
 /* ------------------------------------------------------------ the queen's words and her trick */
-static const char *const memory[8] = {      /* what each data core gives back to Bolt (the GBA game's words) */
-    "I WAS A SHIP. I WAS CALLED THE DAWN. I REMEMBER THE DARK, AND THE STARS, AND SOMEONE SMALL WHO SANG.",
-    "I CARRIED SEEDS. A GARDEN. A POND. A LAWN AT NIGHT. I PLANTED THEM ONE BY ONE. YOUR WORLDS. I MADE THEM.",
-    "MY CREW WERE BUGS. SMALL. STUBBORN. BRAVE. THEY SLEPT IN MY HEART ON THE LONG WAY. ONE OF THEM LOOKED LIKE YOU.",
-    "WE FELL. THE ANTHILL CAUGHT US. THE ANTS WERE KIND AT FIRST. THEN THEY WERE HUNGRY.",
-    "THE ANT KING OPENED MY HEART. HE BUILT A MOUTH AROUND IT. HE FED IT SHIPS SO IT WOULD GROW. THAT MOUTH IS THE TECHNOBEAST.",
-    "EVERY SHIP IT EATS, IT GROWS. IT IS EATING MY MEMORY TOO. THAT IS WHY I FORGET. THAT IS WHY I AM SMALL.",
-    "THERE IS A WORD THAT OPENS MY HEART. THE KING NEVER FOUND IT. IT IS MY NAME. MY REAL NAME.",
-    "I KNOW MY NAME NOW. TAKE ME TO THE BEAST. I WILL SAY IT. ITS HEART WILL OPEN. I AM NOT AFRAID. I HAVE YOU." };
+/* Each recovered core reveals one new piece of Bolt's lost identity.
+   Save the ship's true name for the eighth, as the companion and ending do.
+   Keep each line short enough for the existing 110-byte WRAM dialogue area. */
+static const char *const memory[8] = {
+    "I WAS A SHIP. A NAME WAS PAINTED ON MY HULL. SOMEONE SMALL SANG AS WE FLEW.",
+    "I CARRIED SEEDS. A GARDEN, A POND, A LAWN AT NIGHT. I MADE NEW WORLDS FOR BUGS TO LIVE.",
+    "MY CREW WERE BUGS. THE SMALLEST FIXED MY LIGHTS. I PROMISED TO CARRY THEM HOME.",
+    "WE FELL ON THE ANTHILL. THE ANTS SHELTERED US. THEN THE KING LOCKED THE HATCHES.",
+    "THE KING CUT OPEN MY HEART. HE BUILT A MOUTH AROUND IT. HE FED IT SHIPS. IT LEARNED HUNGER.",
+    "THE BEAST EATS SHIPS AND STEALS MY MEMORIES. I ESCAPED IN THIS LITTLE TIN BODY.",
+    "THERE IS A WORD THE KING NEVER MADE ME SAY. IT IS THE NAME MY HEART WILL HEAR.",
+    "MY NAME IS DAWN. I REMEMBER THE CREW. TAKE ME TO THE BEAST. I WILL OPEN ITS HEART."
+};
 static const char *const trick_nm[12] = { "VINE GRIP: POTIONS HEAL MORE", "SAND DASH: B RUNS FASTER", "FROST FANG: YOUR BITE HITS HARDER",
                                          "THORN SHELL: YOU TAKE LESS DAMAGE", "TIDE LUNGS: YOU HEAL SLOWLY ON YOUR OWN", "SHADOW STEP: SAFE LONGER AFTER A HIT",
                                          "RED DUST: FOES PAY MORE GOLD", "SPORE CLOUD: POTIONS ALSO GIVE MANA", "PRISM EYE: SPELLS HIT HARDER",
@@ -161,7 +165,11 @@ void dungeon_won(UINT8 kind) BANKED {                 /* the queen is beaten and
     sfx(SFX_LEVEL);
     d = scat(b, "THE QUEEN IS BEATEN AND YOUR FRIEND IS FREE! SHE HAD ONE OF MY DATA CORES. THAT IS "); d = u16s(d, sv.cores); scat(d, " OF 8.");
     dlg_say("BOLT", b);
-    dlg_say("BOLT", memory[sv.cores - 1]);
+    // Dialogue crosses ROM banks while painting its typewriter window.
+    // Copy the bank-local memory into the existing WRAM text scratch first,
+    // just as the queen's evidence card already does.
+    b[0]=0; scat(b,memory[sv.cores-1]);
+    dlg_say("BOLT",b);
     if(sv.cores == 8) dlg_say("BOLT", "THAT WAS THE LAST OF ME. FIND THE TECHNOBEAST: IN SPACE THE ARROW POINTS TO IT NOW. SHOOT ITS CORE WHEN IT GLOWS.");
     else dlg_say("BOLT", "EVERY WORLD WE FREE MAKES THE NEXT DUNGEON DEEPER. LET'S FLY TO A NEW WORLD!");
 }
