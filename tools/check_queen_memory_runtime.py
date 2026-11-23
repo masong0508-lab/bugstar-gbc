@@ -109,7 +109,7 @@ int main(void){
         CHECK(strcmp(spoken[1],memory[i])==0);
         CHECK(strstr(spoken[1],"DAWN")==(i==7?strstr(spoken[1],"DAWN"):NULL));
         if(i<7)CHECK(!strstr(spoken[1],"DAWN"));
-        else CHECK(strstr(spoken[1],"MY NAME IS DAWN"));
+        else {CHECK(strstr(spoken[1],"MY NAME IS DAWN")); CHECK(strstr(spoken[2],"GALAXY CHART")); CHECK(strstr(spoken[2],"CORE GLOWS"));}
         CHECK(effects==1);
     }
     // Re-fighting a queen does not pay a second memory or reset any core.
