@@ -201,3 +201,17 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
   WRAM actor storage, or save layout changes.
 
 - CI pins GBDK-2020 4.5.0: the 4.6.0 palette declarations use a different calling convention from the game's OLDCALL palette overrides. Pinning the compatible compiler/headers prevents unrelated toolchain upgrades breaking the GBC ROM; a future 4.6 migration needs real colour-filter/emulator validation.
+
+## 24 November 2026: GBC mining interaction and rendering
+
+- The eight-swing mining game supports B/START cash-out of completed swings;
+  B before starting returns without beginning or awarding a session. The
+  motherlode bonus still requires a completed eight-swing run and a streak
+  of at least four good swings. Results show earned gold as you play.
+- Score the visible marker before moving it. Repaint the target band once
+  per swing and change only two one-tile cells when the pick moves; no text
+  or palette VRAM writes during stationary timing frames. No added static
+  WRAM or SRAM fields. Existing lifetime ore-counter rollover is preserved.
+- Host regression extracts the actual scoring and UI functions, simulates
+  timed input and verifies the cash-out, one-payment, marker-write and
+  cancellation paths. Real-device FPS remains unmeasured.

@@ -92,44 +92,85 @@ void xtra_relic_screen(void) BANKED {
 }
 
 /* ---------------------------------------------------------------- MINING: press A when the pick is over the ore */
+/* Pure scoring, shared by the real timing game and the host regression.
+   A successful hit is measured from the marker the player actually sees. */
+static UINT8 mine_rank(UINT8 marker, UINT8 target){
+    UINT8 center=target+1, dist=marker>center?marker-center:center-marker;
+    return dist==0?4:dist==1?3:dist==2?2:dist<=4?1:0;
+}
+static UINT16 mine_swing_pay(UINT8 rank, UINT8 *streak, UINT8 *best){
+    static const UINT8 val[5]={0,4,10,20,40};
+    UINT16 pay=val[rank];
+    if(rank>=3){
+        if(++*streak>1) pay+=(UINT16)*streak*3;
+        if(*streak>*best) *best=*streak;
+    }else *streak=0;
+    return pay;
+}
+static UINT16 mine_total_pay(UINT16 pay,UINT8 completed,UINT8 best,UINT8 bonus){
+    if(completed==8 && best>=4) pay+=100;
+    return pay+(UINT16)((UINT32)pay*bonus/100u);
+}
 void xtra_mine(void) BANKED {
-    UINT8 sw, m, dir, t, tick, hit, dist, got = 0, ok, streak = 0, best_st = 0; UINT16 pay = 0, ores = 0; char b[21], bar[21], *d;
-    static const char *const nm[5] = { "A ROCK. NOTHING.", "COPPER! +4", "SILVER! +10", "GOLD! +20", "A GEM! +40" };
-    static const UINT8 val[5] = { 0, 4, 10, 20, 40 };
+    UINT8 sw,m,dir,t,tick,hit,ok,prev,got=0,streak=0,best_st=0,completed=0,stop=0;
+    UINT16 pay=0; char b[21],bar[19],*d;
+    static const char *const nm[5]={"A ROCK. NOTHING.","COPPER! +4","SILVER! +10","GOLD! +20","A GEM! +40"};
     xs_load();
     screen("MINING");
-    txt_line(2, 3, "PRESS A WHEN THE", 18); txt_line(2, 4, "PICK IS OVER ORE", 18); txt_color(2, 3, 18, 2, TXT_GREY);
-    txt_line(2, 14, "8 SWINGS. A: START", 18); txt_color(2, 14, 18, 1, TXT_GREY);
-    wait_a();
-    for(sw = 0; sw < 8; sw++){
-        t = 3 + xrnd() % 10; m = 0; dir = 1; tick = 0; hit = 0;
-        d = scat(b, "SWING "); d = u16s(d, sw + 1); d = scat(d, " OF 8"); *d = 0; txt_line(2, 3, b, 18); txt_color(2, 3, 18, 1, TXT_WHITE); txt_line(2, 4, "", 18);
-        txt_line(2, 14, "", 18);
+    txt_line(2,3,"PRESS A WHEN THE",16);txt_line(2,4,"PICK IS OVER ORE",16);txt_color(2,3,16,2,TXT_GREY);
+    txt_line(2,12,"8 SWINGS FOR BONUS",16);
+    txt_line(2,14,"A:START  B:BACK",16);txt_color(2,14,16,1,TXT_GREY);
+    for(;;){wait_vbl_done();input_poll();if(HIT(J_B)||HIT(J_START))return;if(HIT(J_A))break;}
+    for(sw=0;sw<8 && !stop;sw++){
+        t=3+xrnd()%10;m=0;dir=1;tick=0;hit=0;
+        d=scat(b,"SWING ");d=u16s(d,sw+1);d=scat(d," OF 8");*d=0;txt_line(2,3,b,16);txt_color(2,3,16,1,TXT_WHITE);
+        txt_line(2,4,"A: SWING",16);txt_line(2,10,"",16);
+        txt_line(2,14,"B: CASH OUT",16);txt_color(2,14,16,1,TXT_GREY);
+        /* Paint the target band once. A moving marker only changes two
+           tile cells; stationary frames don't touch text or palette VRAM.
+           The 18-cell bar fits inside the 20-column panel. */
+        for(ok=0;ok<18;ok++)bar[ok]=ok>=t && ok<=t+2?'O':'.';
+        bar[0]='V';bar[18]=0;txt_line(1,8,bar,18);
+        txt_color(1,8,18,1,TXT_WHITE);txt_color(1+t,8,3,1,TXT_GOLD);
         while(!hit){
-            wait_vbl_done(); input_poll();
-            if(++tick >= (UINT8)(5 - (sw >> 1))){ tick = 0; if(dir){ if(++m >= 17) dir = 0; } else { if(m == 0 || --m == 0) dir = 1; } }
-            for(ok = 0; ok < 18; ok++) bar[ok] = (ok == m) ? 'V' : (ok >= t && ok <= t + 2) ? 'O' : '.';
-            bar[18] = 0; txt_line(2, 8, bar, 18); txt_color(2, 8, 18, 1, TXT_WHITE); txt_color(2 + t, 8, 3, 1, TXT_GOLD);
-            if(HIT(J_A)) hit = 1;
-            if(HIT(J_START)){ sw = 9; hit = 2; }
+            wait_vbl_done();input_poll();
+            if(HIT(J_B)||HIT(J_START)){hit=2;break;}
+            if(HIT(J_A)){hit=1;break;} /* score the displayed marker BEFORE advancing it */
+            if(++tick>=(UINT8)(5-(sw>>1))){
+                tick=0;prev=m;
+                if(dir){if(++m>=17)dir=0;}else if(m==0||--m==0)dir=1;
+                if(prev!=m){
+                    txt_line(1+prev,8,prev>=t && prev<=t+2?"O":".",1);
+                    txt_line(1+m,8,"V",1);
+                }
+            }
         }
-        if(hit == 2) break;
-        dist = m > t + 1 ? m - (t + 1) : (t + 1) - m;
-        ok = dist == 0 ? 4 : dist == 1 ? 3 : dist == 2 ? 2 : dist <= 4 ? 1 : 0;
-        txt_line(2, 10, nm[ok], 18); txt_color(2, 10, 18, 1, ok ? TXT_GOLD : TXT_RED);
-        pay += val[ok]; if(ok >= 3){ if(++streak > 1) pay += (UINT16)streak * 3; if(streak > best_st) best_st = streak; } else streak = 0; if(ok){ ores++; got++; } sfx(ok ? SFX_COIN : SFX_HURT);
-        for(tick = 0; tick < 40; tick++) wait_vbl_done();
+        if(hit==2)break;
+        ok=mine_rank(m,t);pay+=mine_swing_pay(ok,&streak,&best_st);
+        completed++;if(ok)got++;
+        txt_line(2,10,nm[ok],16);txt_color(2,10,16,1,ok?TXT_GOLD:TXT_RED);
+        d=scat(b,"EARNED ");d=u16s(d,pay);d=scat(d,"G");*d=0;txt_line(2,12,b,16);
+        sfx(ok?SFX_COIN:SFX_HURT);
+        for(tick=0;tick<40;tick++){
+            wait_vbl_done();input_poll();
+            if(HIT(J_B)||HIT(J_START)){stop=1;break;}
+            if(HIT(J_A))break; /* skip the result hold, not another swing */
+        }
     }
-    if(sw < 9){
-        screen("MINING"); d = scat(b, "ORES "); d = u16s(d, ores); *d = 0; txt_line(4, 5, b, 14);
-        if(best_st >= 4){ pay += 100; txt_line(4, 11, "MOTHERLODE! +100", 16); txt_color(4, 11, 16, 1, TXT_GOLD); }
-        pay += pay * weird_pct(weird_of(sv.star), WP_ORE) / 100;
-        d = scat(b, "PAY +"); d = u16s(d, pay); d = scat(d, " G"); *d = 0; txt_line(4, 7, b, 14); txt_color(4, 7, 14, 1, TXT_GOLD);
-        sv.gold += pay; xs.ore += got; if(pay > xs.best) xs.best = pay > 255 ? 255 : (UINT8)pay;
-        d = scat(b, "BEST "); d = u16s(d, xs.best); *d = 0; txt_line(4, 9, b, 14); txt_color(4, 9, 14, 1, TXT_GREY);
-        sfx(pay >= 100 ? SFX_FANFARE : SFX_OK); xs_save(); gold_line();
-        txt_line(2, 14, "A: OK", 8); wait_a();
-    }
+    if(!completed)return;
+    screen("MINING");
+    d=scat(b,"ORES ");d=u16s(d,got);*d=0;txt_line(4,5,b,14);
+    if(completed==8 && best_st>=4){txt_line(2,11,"MOTHERLODE! +100",16);txt_color(2,11,16,1,TXT_GOLD);}
+    else if(completed<8){txt_line(2,11,"CASHED OUT EARLY",16);txt_color(2,11,16,1,TXT_GREY);}
+    pay=mine_total_pay(pay,completed,best_st,weird_pct(weird_of(sv.star),WP_ORE));
+    d=scat(b,"PAY +");d=u16s(d,pay);d=scat(d," G");*d=0;txt_line(4,7,b,14);txt_color(4,7,14,1,TXT_GOLD);
+    /* Keep the existing modulo-16-bit mining counter: the bounty office
+       deliberately computes its progress across wrap. Only actual hits
+       are counted and the session has exactly one payment point. */
+    sv.gold+=pay;xs.ore+=got;if(pay>xs.best)xs.best=pay>255?255:(UINT8)pay;
+    d=scat(b,"BEST ");d=u16s(d,xs.best);*d=0;txt_line(4,9,b,14);txt_color(4,9,14,1,TXT_GREY);
+    sfx(pay>=100?SFX_FANFARE:SFX_OK);xs_save();gold_line();
+    txt_line(2,14,"A: OK",8);wait_a();
 }
 
 /* ---------------------------------------------------------------- the station LOUNGE */
