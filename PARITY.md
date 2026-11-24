@@ -199,3 +199,5 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
   under sanitizers and checks deterministic layout, actor uniqueness, and
   boss/exit placement across thousands of generated floors. No new VRAM,
   WRAM actor storage, or save layout changes.
+
+- CI pins GBDK-2020 4.5.0: the 4.6.0 palette declarations use a different calling convention from the game's OLDCALL palette overrides. Pinning the compatible compiler/headers prevents unrelated toolchain upgrades breaking the GBC ROM; a future 4.6 migration needs real colour-filter/emulator validation.
