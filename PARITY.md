@@ -215,3 +215,15 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Host regression extracts the actual scoring and UI functions, simulates
   timed input and verifies the cash-out, one-payment, marker-write and
   cancellation paths. Real-device FPS remains unmeasured.
+
+## 24 November 2026: GBC dungeon combat and controls
+
+- Reward a defeated slime/spore parent before its actor slot is reused;
+  snapshot its coordinates before spawning children. A bite only targets
+  actors alive when it began, so newborn enemies cannot take the same hit.
+  The ten-actor limit and reserved queen slot are unchanged.
+- Retain potion pickups when the nine-potion inventory is full. A+SELECT
+  changes spells without an accidental bite in either button-press order.
+- Production bite/spawn regression tests exact parent and child rewards,
+  positions, dense actor capacity, queen protection and the input/pickup
+  call-site guards. No new SRAM fields or persistent WRAM arrays.

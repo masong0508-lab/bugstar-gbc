@@ -35,6 +35,8 @@ jobs:
         run: python3 tools/check_bounties.py
       - name: Exercise responsive mining scoring, cash-out and VRAM write bounds
         run: python3 tools/check_mining_runtime.py
+      - name: Check split-enemy rewards, potion retention and dungeon input
+        run: python3 tools/check_dungeon_combat.py
       - name: Host tests (save system + menus)
         run: make test
       - name: Install pinned GBDK-2020 4.5.0 (custom palette ABI)
