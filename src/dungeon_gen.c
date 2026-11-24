@@ -15,7 +15,7 @@ static UINT8 rndn(UINT8 n){ return n ? (UINT8)(((UINT16)rnd8() * n) >> 8) : 0; }
 /* ------------------------------------------------------------ making a floor */
 static void carve(UINT8 x, UINT8 y){ if(x > 0 && y > 0 && x < DW - 1 && y < DW - 1 && (DM(x, y) == D_WALL)) DM(x, y) = (rnd8() & 3) ? D_FLOOR : D_FLOOR2; }
 void dg_make_floor(void) BANKED {
-    UINT8 i, t, x, y, a, b;
+    UINT8 i, t, x, y, a, b, qx=255, qy=255;
     rng = (UINT16)world_seed(sv.star) ^ ((UINT16)depth * 0x3C1Bu) ^ ((UINT16)sv.zone << 11) ^ 0x2B7Du; if(!rng) rng = 1;
     memset(dmap, D_WALL, DW * DW);
     nrooms = 0;
@@ -34,6 +34,16 @@ void dg_make_floor(void) BANKED {
         rooms[nrooms++] = r;
         for(y = r.y; y < r.y + r.h; y++) for(x = r.x; x < r.x + r.w; x++) carve(x, y);
     }
+    /* A rare failed room-placement run must not put DOWN/CAGE over UP
+       or select an uninitialised rooms[1]. Make a distant spare chamber. */
+    if(!pit && !lab && nrooms < 2){
+        Room *r = &rooms[1];
+        r->x = rooms[0].x + rooms[0].w/2 < 16 ? 25 : 2;
+        r->y = rooms[0].y + rooms[0].h/2 < 16 ? 25 : 2;
+        r->w = r->h = 5;
+        for(y = r->y; y < r->y+r->h; y++) for(x = r->x; x < r->x+r->w; x++) carve(x,y);
+        nrooms = 2;
+    }
     for(i = 1; !pit && !lab && i < nrooms; i++){                         /* corridors: each room to the one before, an L shape */
         UINT8 x0 = rooms[i - 1].x + rooms[i - 1].w / 2, y0 = rooms[i - 1].y + rooms[i - 1].h / 2, x1 = rooms[i].x + rooms[i].w / 2, y1 = rooms[i].y + rooms[i].h / 2;
         a = x0 < x1 ? x0 : x1; b = x0 < x1 ? x1 : x0; for(x = a; x <= b; x++) carve(x, y0);
@@ -47,11 +57,14 @@ void dg_make_floor(void) BANKED {
     if(pit){ memset(mon, 0, sizeof mon); return; }
     { Room *r = &rooms[nrooms - 1];
       if(depth < floors){ dn_x = r->x + r->w / 2; dn_y = r->y + r->h / 2; DM(dn_x, dn_y) = D_DOWN; }
-      else DM(r->x + r->w / 2, r->y + 1) = D_CAGE; }               /* the last floor: a caged friend, guarded */
+      else {                                                       /* the last floor: a caged friend, guarded */
+          DM(r->x + r->w / 2, r->y + 1) = D_CAGE;
+          qx=r->x+r->w/2; qy=r->y+r->h/2+1; /* keep queen's actual cell clear */
+      } }
     for(i = 1; i < nrooms; i++){                                  /* chests and potions */
         Room *r = &rooms[i];
-        if(evt == 1 || rndn(3) == 0){ x = r->x + 1 + rndn(r->w - 2); y = r->y + 1 + rndn(r->h - 2); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_CHEST; }
-        if(rndn(5) == 0){ x = r->x + rndn(r->w); y = r->y + rndn(r->h); if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2) DM(x, y) = D_POTION; }
+        if(evt == 1 || rndn(3) == 0){ x = r->x + 1 + rndn(r->w - 2); y = r->y + 1 + rndn(r->h - 2); if((x!=qx || y!=qy) && (DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2)) DM(x, y) = D_CHEST; }
+        if(rndn(5) == 0){ x = r->x + rndn(r->w); y = r->y + rndn(r->h); if((x!=qx || y!=qy) && (DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2)) DM(x, y) = D_POTION; }
     }
     /* The queen's first defeat must be preceded by a discoverable record.
        Put a real chest on a dry interior tile in room 1, never the final
@@ -61,20 +74,25 @@ void dg_make_floor(void) BANKED {
         Room *r = &rooms[1]; UINT8 placed = 0;
         for(y = r->y + 1; y + 1 < r->y + r->h && !placed; y++){
             for(x = r->x + 1; x + 1 < r->x + r->w; x++){
-                if(DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2){
+                if((x!=qx || y!=qy) && (DM(x, y) == D_FLOOR || DM(x, y) == D_FLOOR2)){
                     DM(x, y) = D_CHEST; placed = 1; break;
                 }
             }
         }
     }
     memset(mon, 0, sizeof mon);                                    /* monsters: in every room but the first */
-    for(i = 0, t = 0; t < 40 && i < NMON; t++){
+    for(i = 0, t = 0; t < 40 && i < (depth==floors ? NMON-1 : NMON); t++){
         Room *r = &rooms[1 + rndn(nrooms - 1)]; Mon *m = &mon[i];
         /* New enemy families begin on floor 2; all twelve can appear from
            floor 3 (and in deep endless caves). Keep the actor cap at ten. */
         UINT8 k = rndn((depth >= 3 || hell) ? K_QUEEN : depth >= 2 ? K_SHADE : 4);
         x = r->x + rndn(r->w); y = r->y + rndn(r->h);
         if(DM(x, y) != D_FLOOR && DM(x, y) != D_FLOOR2) continue;
+        if(x==qx && y==qy) continue; /* don't spawn under the queen */
+        /* A tiny scan over at most nine previous actors, generation-only.
+           Keep enemies individually visible and avoid stacked first hits. */
+        for(a=0; a<i; a++) if((mon[a].x>>4)==x && (mon[a].y>>4)==y) break;
+        if(a<i) continue;
         m->x = ((UINT16)x << 4) + 8; m->y = ((UINT16)y << 4) + 12; m->kind = k; m->alive = 1;
         { UINT16 hp = ((k & 3) == K_BEETLE ? 8 : (k & 3) == K_WASP ? 3 : (k & 3) == K_SLIME ? 5 : 4) + (UINT16)depth * 2 + (UINT16)sv.zone * 3;
           if(k >= K_CRAWLER) hp += k == K_GOLEM ? 10 : k == K_REAPER ? 8 : 3;
@@ -88,8 +106,8 @@ void dg_make_floor(void) BANKED {
         if(i >= (UINT8)(4 + depth * 2 + (evt == 3 ? 3 : 0) - (evt == 6 ? 3 : 0))) break;
     }
     if(depth == floors && nrooms > 1){                             /* the queen waits by the cage */
-        Room *r = &rooms[nrooms - 1]; Mon *m = &mon[NMON - 1];
-        memset(m, 0, sizeof *m); m->kind = K_QUEEN; m->alive = 1; m->x = ((UINT16)(r->x + r->w / 2) << 4) + 8; m->y = ((UINT16)(r->y + r->h / 2 + 1) << 4) + 8;
+        Mon *m = &mon[NMON - 1];
+        memset(m, 0, sizeof *m); m->kind = K_QUEEN; m->alive = 1; m->x = ((UINT16)qx << 4) + 8; m->y = ((UINT16)qy << 4) + 8;
         m->hp = sv.zone >= 8 ? 250 : 40 + sv.zone * 25;
     }
 }

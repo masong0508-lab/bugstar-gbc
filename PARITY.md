@@ -185,3 +185,19 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 
 - COLOURS (OPTIONS): NORMAL, CONTRAST (three levels a channel), GREEN, SEPIA. One filter in bank 0 (src/clr.c) replaces the library's palette setters, so every scene follows it. Known flaw: changing it live in the options page can show the previous look until you leave the page.
 - Town people (src/town4.c, bank 52: three per town, a job, a chat, an errand for gold/XP/fame), planet shop: mana potion and four-leaf clover, galaxy: star classes colour unvisited stars. Bank 0 has about 50 bytes left.
+
+## 24 November 2026: dungeon spawn spacing and queen safety
+
+- Regular monsters spawn on separate walkable cells, rather than occupying
+  the same metatile. The existing ten-actor cap is unchanged.
+- On a boss floor, one actor slot and the queen's own dry ground cell are
+  reserved before spawning the other monsters or treasure. No chest, potion,
+  memory clue or ordinary enemy can overlap that boss cell.
+- A failed two-room placement is repaired with a distant chamber before
+  connecting corridors; the entrance and exit/cage stay in separate rooms.
+- A host test compiles the real GBC floor generator (including labyrinths)
+  under sanitizers and checks deterministic layout, actor uniqueness, and
+  boss/exit placement across thousands of generated floors. No new VRAM,
+  WRAM actor storage, or save layout changes.
+
+- CI pins GBDK-2020 4.5.0: the 4.6.0 palette declarations use a different calling convention from the game's OLDCALL palette overrides. Pinning the compatible compiler/headers prevents unrelated toolchain upgrades breaking the GBC ROM; a future 4.6 migration needs real colour-filter/emulator validation.
