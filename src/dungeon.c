@@ -212,8 +212,6 @@ static UINT8 bite_power(void){ return 30; }
 static UINT8 bite_power(void){ return CLAMP8(tr_bite((UINT16)2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite())); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
-static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
-static void kill_pay(Mon *m){ UINT8 f = DG_BASE_FAMILY(m->kind); UINT16 lg = LUCKY(3 + f * 2 + depth + (m->kind >= K_CRAWLER ? 2 : 0)) * gmul(); UINT8 lx = 3 + f + depth + (m->kind >= K_CRAWLER ? 2 : 0); kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(f, depth); bst_kill(m->kind, kind, depth); }
 static void spell_hit(Mon *m, UINT8 p){                            /* a spell hurts a monster (it never finishes the queen) */
     if(m->kind == K_QUEEN && p >= m->hp) p = m->hp - 1;
     if(p > m->hp) p = (UINT8)m->hp;
