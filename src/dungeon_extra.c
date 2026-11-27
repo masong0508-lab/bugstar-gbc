@@ -84,3 +84,22 @@ UINT8 dg_extra_motion(Mon *m, INT16 *dx, INT16 *dy, UINT8 step) BANKED {
    dungeon bank; no change to reward order or shared actor state. */
 static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
 void kill_pay(Mon *m) BANKED { UINT8 f = DG_BASE_FAMILY(m->kind); UINT16 lg = LUCKY(3 + f * 2 + depth + (m->kind >= K_CRAWLER ? 2 : 0)) * gmul(); UINT8 lx = 3 + f + depth + (m->kind >= K_CRAWLER ? 2 : 0); kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(f, depth); bst_kill(m->kind, kind, depth); }
+
+/* Ten recognizable arena waves. The lead pair is guaranteed; remaining
+   slots vary within the theme. No new tiles, actors or persistent state. */
+UINT8 dg_pit_kind(UINT8 wave, UINT8 slot, UINT8 roll) BANKED {
+    static const UINT8 roster[10][3]={
+        {K_SPIDER,K_BEETLE,K_SPIDER},
+        {K_WASP,K_SPIDER,K_BEETLE},
+        {K_SLIME,K_BEETLE,K_CRAWLER},
+        {K_CRAWLER,K_MOTH,K_WASP},
+        {K_GOLEM,K_CRAWLER,K_BEETLE},
+        {K_SPORE,K_MOTH,K_SLIME},
+        {K_SHADE,K_STINGER,K_MOTH},
+        {K_CRAB,K_GOLEM,K_CRAWLER},
+        {K_REAPER,K_STINGER,K_SHADE},
+        {K_REAPER,K_CRAB,K_STINGER}
+    };
+    if(!wave||wave>10) return K_SPIDER;
+    return roster[wave-1][slot<2?slot:(UINT8)((slot+roll)%3)];
+}

@@ -32,6 +32,7 @@ header = r"""
 #include <string.h>
 typedef uint8_t UINT8;
 typedef uint16_t UINT16;
+typedef uint32_t UINT32;
 typedef struct { UINT8 petn,race,bt,bn,bq[2]; } XA;
 static struct { UINT8 friends,deepest; struct { UINT16 kills; } el; } sv;
 static UINT16 monster_kills, mined;
@@ -46,6 +47,9 @@ snippets = "\n\n".join(extract(s) for s in [
     "static UINT16 cnt(UINT8 t, const XA *x)",
     "static UINT16 w16(const UINT8 *p)",
     "static UINT8 bj_done(const XA *x)",
+    "static UINT8 bj_ok(UINT8 t, UINT8 tier, const XA *x)",
+    "static UINT8 bj_offer_type(UINT16 r, UINT8 offer, UINT8 tier, const XA *x)",
+    "static UINT8 gossip_pick(UINT32 *heard, UINT8 start)",
 ])
 tests = r"""
 int main(void){
@@ -74,7 +78,39 @@ int main(void){
     x.bt=8; x.bn=1; base(&x,7); x.race=7;
     CHECK(!bj_done(&x)); x.race=8; CHECK(bj_done(&x));
     x.bt=0; CHECK(!bj_done(&x));
-    puts("GBC bounty progress: kill, pirate, ore rollover and all nonwrapping jobs PASS");
+    unsigned checks=0;
+    for(unsigned tier=1;tier<=3;tier++)for(unsigned mask=0;mask<32;mask++){
+        fish_count=(mask&1)?240:1;x.petn=(mask&2)?240:1;
+        sv.friends=(mask&4)?245:1;sv.deepest=(mask&8)?88:1;
+        x.race=(mask&16)?250:1;
+        for(unsigned seed=0;seed<256;seed++){
+            UINT8 a=bj_offer_type(seed,0,tier,&x),b=bj_offer_type(seed,1,tier,&x),c=bj_offer_type(seed,2,tier,&x);
+            CHECK(a!=b&&a!=c&&b!=c);
+            CHECK(a>=1&&a<=8&&b>=1&&b<=8&&c>=1&&c<=8);
+            CHECK(bj_ok(a,tier,&x)&&bj_ok(b,tier,&x)&&bj_ok(c,tier,&x));
+            checks++;
+        }
+    }
+    /* Old saves used 24 bits: new rumors must all be discoverable. */
+    UINT32 heard=0xffffffu;
+    for(unsigned i=0;i<8;i++){
+        UINT8 k=gossip_pick(&heard,(UINT8)(i*9));
+        CHECK(k>=24&&k<32);
+    }
+    CHECK(heard==UINT32_MAX);
+    CHECK(gossip_pick(&heard,31)==31 && heard==0x80000000u);
+    for(unsigned seed=0;seed<256;seed++){
+        heard=0;
+        for(unsigned i=0;i<32;i++){
+            UINT32 before=heard;
+            UINT8 k=gossip_pick(&heard,(UINT8)(seed+i*17));
+            CHECK(k<32&&!(before&(UINT32_C(1)<<k)));
+            CHECK(heard==(before|(UINT32_C(1)<<k)));
+        }
+        CHECK(heard==UINT32_MAX);
+    }
+    puts("GBC rumors: 8192 unique discoveries and legacy-save continuation PASS");
+    printf("GBC bounty progress and %u three-contract eligibility cases PASS\\n",checks);
     return 0;
 }
 """

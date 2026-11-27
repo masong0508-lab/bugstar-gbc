@@ -83,8 +83,18 @@ static UINT8 bj_ok(UINT8 t, UINT8 tier, const XA *x){            /* can this job
     if(t == 8) return tier >= 2 && x->race < 250;
     return 1;
 }
+/* Every town offers three distinct achievable contracts. At least the
+   kill, mining and pirate counters are always eligible, even near caps. */
+static UINT8 bj_offer_type(UINT16 r, UINT8 offer, UINT8 tier, const XA *x){
+    UINT8 t = 1 + (UINT8)(r & 7);
+    while(!bj_ok(t, tier, x)) t = t % 8 + 1;
+    while(offer--){
+        do { t = t % 8 + 1; } while(!bj_ok(t, tier, x));
+    }
+    return t;
+}
 static void bounty(UINT8 tier, UINT16 th){
-    XA x; char l1[24], w[20], b[24], *d; const char *m = 0; UINT8 t, n, have, mp = TXT_GREY; UINT16 pay;
+    XA x; char l1[24], w[20], b[24], *d; const char *m = 0; UINT8 t, n, have, offer = 0, mp = TXT_GREY; UINT16 pay;
     static const UINT8 base[9] = { 0, 5, 3, 3, 1, 4, 3, 2, 1 };
     w[0] = 0;
     for(;;){
@@ -94,8 +104,8 @@ static void bounty(UINT8 tier, UINT16 th){
         if(have){ t = x.bt; n = x.bn; }
         else {                                                      /* the job on offer: the same for this town until you take it */
             UINT16 r = th ^ ((UINT16)x.bdone * 0x3D5u); r ^= r >> 6; r *= 0x2D3Bu; r ^= r >> 5;
-            t = 1 + (UINT8)(r % 8);
-            while(!bj_ok(t, tier, &x)) t = t % 8 + 1;
+            t = bj_offer_type(r, offer, tier, &x);
+            r ^= (UINT16)offer * 0x9E37u;
             n = base[t] + (t == 4 || t == 7 || t == 8 ? 0 : (UINT8)((r >> 4) & 3)) + (t == 1 ? sv.level / 5 : 0);
             if(t == 7) n = 1 + (UINT8)((r >> 4) & 3);
             pay = 30 + 6 * (UINT16)sv.level + 9 * (UINT16)n + (t == 8 ? 40 : 0) + (t == 7 ? 20 * (UINT16)n : 0); pay = LUCKY(pay);
@@ -103,8 +113,14 @@ static void bounty(UINT8 tier, UINT16 th){
         d = u16s(scat(l1, jv[t]), n); d = scat(d, " "); scat(d, jo[t]);
         page("BOUNTY OFFICE");
         line(4, have ? "YOUR JOB:" : "THE CLERK OFFERS:", TXT_GREY);
+        if(!have){ d = u16s(scat(b, "OFFER "), offer + 1); scat(d, "/3  < >"); line(5, b, TXT_GREY); }
         line(6, l1, TXT_WHITE);
-        if(have){ UINT16 so = cnt(t, &x), bs = w16(x.bq); d = u16s(scat(b, "SO FAR "), so > bs ? so - bs : 0); d = u16s(scat(d, "/"), n); *d = 0; line(7, b, TXT_WHITE); }
+        if(have){
+            UINT16 so = cnt(t, &x), bs = w16(x.bq);
+            UINT16 progress = (so < bs && t != 1 && t != 5 && t != 6) ? 0 : (UINT16)(so - bs);
+            if(progress > n) progress = n;
+            d = u16s(scat(b, "SO FAR "), progress); d = u16s(scat(d, "/"), n); *d = 0; line(7, b, TXT_WHITE);
+        }
         d = u16s(scat(b, "PAYS "), pay); scat(d, "G AND FAME"); line(9, b, TXT_GOLD);
         d = u16s(scat(b, "DONE BEFORE: "), x.bdone); *d = 0; line(11, b, TXT_GREY);
         line(13, m ? m : "PAID WHEN DONE", m ? mp : TXT_GREY);
@@ -114,6 +130,10 @@ static void bounty(UINT8 tier, UINT16 th){
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
+            if(!have && (HIT(J_LEFT) || HIT(J_RIGHT))){
+                offer = HIT(J_RIGHT) ? (offer == 2 ? 0 : offer + 1) : (offer ? offer - 1 : 2);
+                sfx(SFX_MOVE); break;
+            }
             if(HIT(J_A) && !have){
                 UINT16 c = cnt(t, &x);
                 x.bt = t; x.bn = n; x.bq[0] = (UINT8)c; x.bq[1] = (UINT8)(c >> 8); x.bg[0] = (UINT8)pay; x.bg[1] = (UINT8)(pay >> 8); xa_put(&x);
@@ -125,7 +145,7 @@ static void bounty(UINT8 tier, UINT16 th){
 }
 
 /* ---------------------------------------------------------------- the cantina */
-static const char rum[24][3][19] = {
+static const char rum[32][3][19] = {
     { "BEETLES HATE", "SIDESTEPS. JUST", "SAYING." },
     { "A PIRATE DOCKED", "LAST WEEK. HE", "TIPPED WELL." },
     { "THE BANK PAYS 1%", "EVERY 5 MINUTES", "OF PLAY. SAVE UP." },
@@ -149,7 +169,29 @@ static const char rum[24][3][19] = {
     { "I HAVE NEVER LEFT.", "THE VIEW IS THE", "SAME." },
     { "MINING PAYS MORE", "WHEN YOU TIME IT.", "WAIT FOR THE ORE." },
     { "FEATS PAY GOLD.", "OPEN THE SYSTEM", "MENU. LOOK." },
-    { "A WARM CANTINA IS", "A FINE PLACE TO", "BE. STAY AWHILE." } };
+    { "A WARM CANTINA IS", "A FINE PLACE TO", "BE. STAY AWHILE." },
+    { "THREE BOUNTIES.", "LEFT OR RIGHT", "FINDS ANOTHER." },
+    { "SPORES SPLIT.", "THE SMALL ONES", "NEED A BITE TOO." },
+    { "A FLASHING SHADE", "MAY DASH AT YOU.", "KEEP YOUR SPACE." },
+    { "A FULL POTION BAG", "LEAVES POTIONS", "ON THE FLOOR." },
+    { "HOLD B TO BRAKE", "NEAR A 3D PORT.", "THEN A TO DOCK." },
+    { "A SHELL IN FLIGHT", "BLOCKS THE NEXT.", "KEEP YOUR ITEM." },
+    { "HOLD A + SELECT", "TO CHANGE SPELLS.", "SAVE YOUR MANA." },
+    { "WHEN RACING, WIN", "TO EARN YOUR PAY.", "USE ITEMS WISELY." }
+};
+/* All 32 bits of the existing save field are available. Walk the mask
+   one bit at a time, without 32 separate variable-width shifts. */
+static UINT8 gossip_pick(UINT32 *heard, UINT8 start){
+    UINT8 k=start & 31, i;
+    UINT32 bit=1UL << k;
+    if(*heard==0xffffffffUL) *heard=0;
+    for(i=0;i<32;i++){
+        if(!(*heard & bit)){ *heard |= bit; return k; }
+        k=(k+1)&31;
+        bit=k?bit<<1:1UL;
+    }
+    return k;
+}
 static void tip(char *l1, char *l2, char *l3){                      /* a true tip: a weird world you have not visited */
     UINT8 s = rnd(), i, w = 0;
     for(i = 0; i < 255; i++, s++){
@@ -161,15 +203,12 @@ static void tip(char *l1, char *l2, char *l3){                      /* a true ti
     weird_name(l2, w); scat(l3, "NOT VISITED YET.");
 }
 static void gossip(char (*g)[20]){                                   /* one rumour (or a tip) into three lines */
-    XA x; UINT8 k, i; char *a = g[0], *b = g[1], *c = g[2];
+    XA x; UINT8 k; char *a = g[0], *b = g[1], *c = g[2];
     a[0] = b[0] = c[0] = 0;
     xa_get(&x);
     if(!(rnd() & 3)) tip(a, b, c);
     else {
-        k = rnd() % 24;
-        for(i = 0; i < 24; i++, k = (k + 1) % 24) if(!((x.gos >> k) & 1)) break;
-        if(i == 24){ x.gos = 0; k = rnd() % 24; }
-        x.gos |= 1UL << k; xa_put(&x);
+        k = gossip_pick(&x.gos, rnd()); xa_put(&x);
         scat(a, rum[k][0]); scat(b, rum[k][1]); scat(c, rum[k][2]);
     }
 }

@@ -14,4 +14,5 @@ void dg_extra_load(UINT8 mon0) BANKED;
 #include "dungeon_int.h"
 UINT8 dg_extra_motion(Mon *m, INT16 *dx, INT16 *dy, UINT8 step) BANKED;
 void kill_pay(Mon *m) BANKED;
+UINT8 dg_pit_kind(UINT8 wave, UINT8 slot, UINT8 roll) BANKED;
 #endif

@@ -376,14 +376,13 @@ static void pets_fight(void){                                      /* your frien
     for(i = 0; i < lbn; i++) if(!((UINT8)(step + i * 3) & 31)) chip(lbx[i], lby[i], CLAMP8(1 + sv.level / 12));
 }
 static UINT8 pit_tick(void){                                        /* the next wave when the last one is down; DG_WIN-worthy after the last */
-    UINT8 i, n = 0;
-    for(i = 0; i < NMON; i++) if(mon[i].alive) n++;
-    if(n) return 0;
+    UINT8 i, n;
+    for(i = 0; i < NMON; i++) if(mon[i].alive) return 0;
     if(pit_wave >= 10) return 1;
     pit_wave++;
     n = 2 + pit_wave / 2; if(n > 8) n = 8;
     for(i = 0; i < n; i++){
-        UINT8 kinds = pit_wave >= 7 ? K_QUEEN : pit_wave >= 3 ? K_SHADE : 4, k = rndn(kinds), x = (i & 1) ? 22 : 9, y = 11 + (i >> 1) * 2;
+        UINT8 k = dg_pit_kind(pit_wave, i, rndn(12)), x = (i & 1) ? 22 : 9, y = 11 + (i >> 1) * 2;
         UINT16 hp = ((k & 3) == K_BEETLE ? 8 : (k & 3) == K_WASP ? 3 : (k & 3) == K_SLIME ? 5 : 4) + pit_wave + pit_tier + sv.level / 2 + (k >= K_CRAWLER ? 4 : 0);
         mon_spawn(k, ((UINT16)x << 4) + 8, ((UINT16)y << 4) + 12, hp > 250 ? 250 : (UINT8)hp, 0, ((UINT16)16 << 4) + 8, ((UINT16)16 << 4));
     }
