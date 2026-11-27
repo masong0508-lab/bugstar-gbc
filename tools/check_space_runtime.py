@@ -148,7 +148,7 @@ test += "\nstatic int flat_action(void){ UINT8 k = 0; do{\n"
 test += braced(flat, flat.index("if(HIT(J_A)){", flat.index("static int space2d")))
 test += "\n}while(0); out: return k; }\n"
 test += "\nstatic int cockpit_action(void){ UINT8 out = 0; do{\n"
-test += braced(flight, flight.index("if(HIT(J_A) && !story_boss_state)"))
+test += braced(flight, flight.index("if(HIT(J_A) && !story_boss_state && !(keys & J_B))"))
 test += "\n}while(0); return out; }\n"
 test += "\nstatic void cockpit_fire(UINT8 k){\n"
 test += flight[flight.index("if((k & J_A) && !cool &&"):flight.index("        step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn();")]
