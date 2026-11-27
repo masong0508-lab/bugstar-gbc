@@ -13,4 +13,5 @@ void dg_extra_load(UINT8 mon0) BANKED;
    patterns. The dungeon still checks every move against solid walls. */
 #include "dungeon_int.h"
 UINT8 dg_extra_motion(Mon *m, INT16 *dx, INT16 *dy, UINT8 step) BANKED;
+void kill_pay(Mon *m) BANKED;
 #endif

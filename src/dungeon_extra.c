@@ -4,6 +4,11 @@
    No heap, no per-frame tile upload: load once per dungeon graphics reset. */
 #include <gb/gb.h>
 #include "dungeon_extra.h"
+#include "save.h"
+#include "hud.h"
+#include "spell.h"
+#include "loot.h"
+#include "wild.h"
 static const UINT8 extra_mon_tiles[DG_EXTRA_TILES * 16] = {
     0x81, 0x00, 0xDB, 0x00, 0x42, 0x3C, 0x99, 0x7E, 0x81, 0x7E, 0x66, 0x18, 0xA5, 0x00, 0x81, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -74,3 +79,8 @@ UINT8 dg_extra_motion(Mon *m, INT16 *dx, INT16 *dy, UINT8 step) BANKED {
     default: return 1;
     }
 }
+
+/* Rewards run only on a kill. Keep their arithmetic outside the nearly full
+   dungeon bank; no change to reward order or shared actor state. */
+static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
+void kill_pay(Mon *m) BANKED { UINT8 f = DG_BASE_FAMILY(m->kind); UINT16 lg = LUCKY(3 + f * 2 + depth + (m->kind >= K_CRAWLER ? 2 : 0)) * gmul(); UINT8 lx = 3 + f + depth + (m->kind >= K_CRAWLER ? 2 : 0); kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(f, depth); bst_kill(m->kind, kind, depth); }

@@ -215,3 +215,19 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Host regression extracts the actual scoring and UI functions, simulates
   timed input and verifies the cash-out, one-payment, marker-write and
   cancellation paths. Real-device FPS remains unmeasured.
+
+## 24 November 2026: GBC dungeon combat and controls
+
+- Reward a defeated slime/spore parent before its actor slot is reused;
+  snapshot its coordinates before spawning children. A bite only targets
+  actors alive when it began, so newborn enemies cannot take the same hit.
+  The ten-actor limit and reserved queen slot are unchanged.
+- Retain potion pickups when the nine-potion inventory is full. A+SELECT
+  changes spells without an accidental bite in either button-press order.
+- Production bite/spawn regression tests exact parent and child rewards,
+  positions, dense actor capacity, queen protection and the input/pickup
+  call-site guards. No new SRAM fields or persistent WRAM arrays.
+
+- 2026-11-27: 3D approach requires precision speed before landing/docking; B+A is the explicit combat override, preserving the 2D input scheme. Overspeed HUD says brake first. Host navigation tests exercise arrival denial and combat override across all 256 destinations and four seeds.
+
+- 2026-11-27: GBC race HUD ties now use the results tie rule; shell and oil deployment preserves held items when the fixed pools are occupied, including enemy shells. Expired items no longer collide. Existing item test exercises the actual busy-pool and expiration paths. No added actor or WRAM allocation.

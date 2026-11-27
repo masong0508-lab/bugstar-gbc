@@ -224,7 +224,7 @@ static UINT8 rank_of(UINT8 j, const UINT16 *s){                   /* where racer
 static UINT8 place_now(void){
     UINT8 k, p = 1;
     if(!rivals_on) return 1;
-    for(k = 1; k <= NRIV; k++) if(tm[k] > tm[0]) p++;
+    for(k = 1; k <= NRIV; k++) if(tm[k] >= tm[0]) p++;
     return p;
 }
 
@@ -233,10 +233,11 @@ static void hit_kart(UINT8 k, UINT8 big){
     stun[k] = big ? 56 : 40;
     if(k == 0){ vel[0] >>= 2; sfx(SFX_HURT); } else vel[k] = 0;
 }
-static void drop_oil(UINT16 m, INT16 l){
+static UINT8 drop_oil(UINT16 m, INT16 l){
     UINT8 b; for(b = 0; b < 3 && oil[b].life; b++) ;
-    if(b == 3) b = 0;
+    if(b == 3) return 0; /* active hazards own their slots until expiration */
     oil[b].m = m; oil[b].lane = l; oil[b].life = 900;
+    return 1;
 }
 static void use_item(void){
     if(hold == 1){ boost_t = 70; sfx(SFX_LASER); }
@@ -244,9 +245,10 @@ static void use_item(void){
     else if(hold == 8){ shield_t = 420; sfx(SFX_SPARK); }
     else if(hold == 2){
         UINT8 k, tg = 255; INT16 g, best = 400;
+        if(shl.life){sfx(SFX_BACK);return;} /* keep the item until the projectile slot is free */
         for(k = 1; k <= NRIV && rivals_on; k++){ g = (INT16)(tm[k] - tm[0]); if(g > 0 && g < best){ best = g; tg = k; } }
         shl.m = tm[0] + 10; shl.lane = lx[0]; shl.owner = 0; shl.life = 240; shl.f = 0; shl.tg = (INT8)tg; sfx(SFX_FIRE);
-    } else if(hold == 3){ drop_oil(tm[0] - 9, lx[0]); sfx(SFX_SPLASH); }
+    } else if(hold == 3){if(!drop_oil(tm[0] - 9, lx[0])){sfx(SFX_BACK);return;}sfx(SFX_SPLASH);}
     hold = 0;
 }
 
@@ -263,15 +265,15 @@ static void items_tick(UINT8 go){
         if(dz <= 3 && dz >= -12 && dx > -44 && dx < 44){ UINT8 r = krnd() & 7; got |= 1 << b; hold = r < 2 ? 1 : r < 4 ? 2 : r < 5 ? 3 : r < 7 ? 7 : 8; if(r > 4 && place_now() == 1 && rivals_on && (krnd() & 1)) hold = 3; sfx(SFX_PICK); }
     }
     for(b = 0; b < 3; b++) if(oil[b].life){                                       /* oil: whoever drives into it spins */
-        oil[b].life--;
+        if(!--oil[b].life)continue;
         for(k = 0; k <= NRIV; k++){
             if(k && !rivals_on) break;
             dz = (INT16)(tm[k] - oil[b].m); dx = lx[k] - oil[b].lane;
             if(dz > -6 && dz < 6 && dx > -30 && dx < 30 && !stun[k]){ hit_kart(k, 0); oil[b].life = 0; if(k) sfx(SFX_SPLASH); break; }
         }
     }
-    if(shl.life){                                                              /* a shell: quicker than a kart, it steers toward its kart a little */
-        shl.life--; shl.f += 86; shl.m += 1 + (shl.f < 86);
+    if(shl.life && --shl.life){                                                 /* an expired projectile cannot deal a final phantom hit */
+        shl.f += 86; shl.m += 1 + (shl.f < 86);
         if(shl.tg >= 0){ INT16 tl = lx[(UINT8)shl.tg]; if(shl.lane < tl - 3) shl.lane += 3; else if(shl.lane > tl + 3) shl.lane -= 3; }
         for(k = 0; k <= NRIV; k++){
             if(k == shl.owner) continue;

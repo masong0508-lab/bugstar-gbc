@@ -59,7 +59,7 @@ void s3_target_hud(void) BANKED {           /* keep actionable controls in view 
     UINT8 s = near_pl != STAR_NONE ? near_pl : near_st != STAR_NONE ? near_st : tgt;
     if(story_boss_state){ s3_boss_hud(); return; }
     if(near_pl != STAR_NONE || near_st != STAR_NONE){
-        d = scat(b, near_pl != STAR_NONE ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
+        d = scat(b, vel > 12 ? "B:BRAKE " : near_pl != STAR_NONE ? "A:LAND B:BRK " : "A:DOCK B:BRK ");
         world_name(name, world_seed(s));
         /* Count the cells left after the controls explicitly. This keeps
            the destination visible in SDCC builds and reserves its NUL. */

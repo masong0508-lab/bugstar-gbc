@@ -212,8 +212,6 @@ static UINT8 bite_power(void){ return 30; }
 static UINT8 bite_power(void){ return CLAMP8(tr_bite((UINT16)2 + sv.level + (sv.friends > 6 ? 6 : sv.friends) + UPG(SK_MIGHT) + 2 * UPG(UP_FANG) + (TRICK(2) ? 2 : 0) + loot_bite())); }
 #endif
 static void mon_spawn(UINT8 kind, UINT16 x, UINT16 y, UINT8 hp, UINT8 st, UINT16 px, UINT16 py);
-static UINT8 gmul(void){ return evt == 2 ? 3 : evt == 5 ? 2 : 1; }
-static void kill_pay(Mon *m){ UINT8 f = DG_BASE_FAMILY(m->kind); UINT16 lg = LUCKY(3 + f * 2 + depth + (m->kind >= K_CRAWLER ? 2 : 0)) * gmul(); UINT8 lx = 3 + f + depth + (m->kind >= K_CRAWLER ? 2 : 0); kill_perks(&lg, &lx); sv.gold += lg + loot_clover(lg); gain_xp(lx + loot_xp(lx)); EX_KILLS++; loot_kill(f, depth); bst_kill(m->kind, kind, depth); }
 static void spell_hit(Mon *m, UINT8 p){                            /* a spell hurts a monster (it never finishes the queen) */
     if(m->kind == K_QUEEN && p >= m->hp) p = m->hp - 1;
     if(p > m->hp) p = (UINT8)m->hp;
@@ -237,9 +235,11 @@ static void cast(void){
 }
 static void do_bite(void){
     UINT8 i; INT16 hx = (INT16)bx + (face == 0 ? 16 : face == 1 ? -16 : 0), hy = (INT16)by - 6 + (face == 2 ? -16 : face == 3 ? 12 : 0);
-    for(i = 0; i < NMON; i++){
+    UINT16 active=0, bit=1; /* a bite only strikes monsters alive when it began */
+    for(i=0;i<NMON;i++,bit<<=1) if(mon[i].alive) active|=bit;
+    for(i=0,bit=1;i<NMON;i++,bit<<=1){
         Mon *m = &mon[i]; INT16 dx, dy; UINT8 reach;
-        if(!m->alive) continue;
+        if(!(active&bit) || !m->alive) continue;
         reach = m->kind == K_QUEEN ? 22 : 14;
         dx = (INT16)m->x - hx; dy = (INT16)m->y - 6 - hy; if(dx < 0) dx = -dx; if(dy < 0) dy = -dy;
         if(dx > reach || dy > reach) continue;
@@ -249,9 +249,15 @@ static void do_bite(void){
             m->alive = 0; sfx(m->kind == K_QUEEN ? SFX_FIRE : SFX_DIE); shake(m->kind == K_QUEEN ? 40 : 5); stop = 6;
             fx_add(m->x - 8, m->y - 10, 255, m->kind == K_QUEEN ? 0 : m->kind);
             if(m->kind == K_QUEEN){ fx_add(m->x - 12, m->y - 10, 255, 0); fx_add(m->x + 4, m->y - 11, 255, 3); fx_add(m->x - 4, m->y + 2, 255, 2); }   /* she goes up big */
-            if((m->kind == K_SLIME || m->kind == K_SPORE) && m->st != 9){ UINT8 h = 2 + depth; mon_spawn(m->kind, m->x - 10, m->y, h, 9, m->x, m->y); mon_spawn(m->kind, m->x + 10, m->y, h, 9, m->x, m->y); }   /* and slimes split */
             if(m->kind == K_QUEEN){ sv.gold += LUCKY(200 + sv.zone * 100); gain_xp(40 + sv.zone * 20); bst_kill(K_QUEEN, kind, depth); }
-            else { kill_pay(m); }
+            else {
+                kill_pay(m); /* pay for the defeated parent before its slot can be reused */
+                if((m->kind == K_SLIME || m->kind == K_SPORE) && m->st != 9){
+                    UINT8 sk=m->kind,h=2+depth; UINT16 sx=m->x,sy=m->y;
+                    mon_spawn(sk,sx-10,sy,h,9,sx,sy);
+                    mon_spawn(sk,sx+10,sy,h,9,sx,sy);
+                }
+            }
         }
     }
     { UINT8 tx = (UINT8)((UINT16)hx >> 4), ty = (UINT8)((UINT16)(hy + 6) >> 4);    /* biting a chest or a cage opens it */
@@ -404,7 +410,7 @@ static int play_floor(void){                                       /* returns DG
           if(vx > 0) face = 0; else if(vx < 0) face = 1; else if(vy < 0) face = 2; else if(vy > 0) face = 3;
           for(n = 0; n < sp; n++){ if(vx && !blocked(bx + vx, by, 5)) bx += vx; if(vy && !blocked(bx, by + vy, 5)) by += vy; }
           if((vx || vy) && !(step & 7)) frame ^= 1; }
-        if(HIT(J_A) && !atk){ atk = 12; sfx(SFX_BITE); do_bite(); }
+        if(HIT(J_A) && !(k & J_SELECT) && !atk){ atk = 12; sfx(SFX_BITE); do_bite(); }
         if(atk) atk--;
         if(inv) inv--;
         if(!(step & 127) && sv.mp < hud_mpmax(sv.level)) sv.mp++;
@@ -413,9 +419,9 @@ static int play_floor(void){                                       /* returns DG
         if(pit && pit_tick()) return DG_WIN;
         camera(); scroll_fill();
         ox = (UINT8)(bx >> 4); oy = (UINT8)((by - 2) >> 4);
-        if(DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); if(sv.potions < 9){ sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! B+SELECT DRINKS IT."); } }
+        if(sv.potions < 9 && DM(ox, oy) == D_POTION){ set_mt(ox, oy, (rnd8() & 1) ? D_FLOOR : D_FLOOR2); sv.potions++; sfx(SFX_PICK); dlg_say(0, "A HEALTH POTION! B+SELECT DRINKS IT."); }
         if(DM(ox, oy) == D_DOWN){ if(!was_on){ sfx(SFX_STAIRS); return DG_DOWN; } } else if(DM(ox, oy) == D_UP){ if(!was_on){ sfx(SFX_STAIRS); return DG_EXIT; } } else was_on = 0;
-        if(HIT(J_SELECT) && (k & J_A)){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 15); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 15, b); dlg_say(0, b); } }
+        if((HIT(J_SELECT) && (k & J_A)) || (HIT(J_A) && (k & J_SELECT))){ EX_SPELL = (EX_SPELL & 0x80) | spell_next(EX_SPELL & 15); { char b[24]; b[0] = 0; spell_label(EX_SPELL & 15, b); dlg_say(0, b); } }
         else if(HIT(J_SELECT) && (k & J_DOWN)){ char lb[28]; loot_eat(lb); dlg_say(0, lb); }
         else if(HIT(J_SELECT) && !(k & J_B)){ cast(); if(portal_go) return DG_EXIT; }
         else if(HIT(J_SELECT)){ char lb[28]; lb[0] = 0; loot_quaff(lb); dlg_say(0, lb); }
