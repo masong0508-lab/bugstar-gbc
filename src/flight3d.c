@@ -574,9 +574,9 @@ int space3d_run(UINT8 keep) BANKED {
         if(cool) cool--;
         if(inv) inv--;
         /* During the required Technobeast fight, A ALWAYS fires.
-           Nearby planet/port boxes must not silently block the gun. */
+           Else B+A is the combat override near arrival zones. */
         if((k & J_A) && !cool &&
-           (story_boss_state == 1 || (!story_boss_state && near_pl == STAR_NONE && near_st == STAR_NONE))) shoot();
+           (story_boss_state == 1 || (!story_boss_state && ((k & J_B) || (near_pl == STAR_NONE && near_st == STAR_NONE))))) shoot();
         step_bolts(); step_pirates(); step_orbs(); step_pods(); step_spawn(); s3_dust_step();
         if(story_boss_state == 1) s3_boss_arrow();
         s3_render(frame);
@@ -588,7 +588,8 @@ int space3d_run(UINT8 keep) BANKED {
         if(UPG(UP_SHIELD) && !inv && sv.mp < hud_mpmax(sv.level)){ if(++regen >= 60 - 8 * UPG(UP_SHIELD)){ regen = 0; sv.mp++; } }
         if(!sv.hp){ s3_wrecked(); break; }
         if(story_boss_finish()){ out = SP_END; break; }
-        if(HIT(J_A) && !story_boss_state){
+        if(HIT(J_A) && !story_boss_state && !(keys & J_B)){
+            if((near_pl != STAR_NONE || near_st != STAR_NONE) && vel > 12){ say3("SLOW DOWN: HOLD B"); continue; }
             if(near_pl != STAR_NONE){ s3_land(near_pl); break; }
             if(near_st != STAR_NONE && !dock_lock){
                 if(elite_dock(near_st)){ out = SP_FLIP; break; }

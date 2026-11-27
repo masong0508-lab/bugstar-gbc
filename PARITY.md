@@ -227,3 +227,5 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
 - Production bite/spawn regression tests exact parent and child rewards,
   positions, dense actor capacity, queen protection and the input/pickup
   call-site guards. No new SRAM fields or persistent WRAM arrays.
+
+- 2026-11-27: 3D approach requires precision speed before landing/docking; B+A is the explicit combat override, preserving the 2D input scheme. Overspeed HUD says brake first. Host navigation tests exercise arrival denial and combat override across all 256 destinations and four seeds.

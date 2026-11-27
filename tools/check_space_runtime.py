@@ -120,6 +120,7 @@ static void gfx3(void){}
 static void fade_out(void){}
 static void fire(void){ fired++; }
 static void shoot(void){ fired++; }
+static void say3(const char *s){ txt_line(0,2,s,20); }
 void hud_hide(void){}
 void foes_clear(void){}
 static void warship_ambush(void){}
@@ -170,7 +171,7 @@ static void reset_observed(void){
     saved = fired = redrawn = spawned = beacons = warp_frames = 0; docked = -1;
     memset(lines, 0, sizeof lines); memset(dialogue, 0, sizeof dialogue);
     memset(pir, 0, sizeof pir); keys = J_A; keys_old = 0;
-    cool = dock_lock = inv = story_boss_state = arena_on = toast_t = 0;
+    cool = dock_lock = inv = story_boss_state = arena_on = toast_t = 0; vel = 12;
     opt.autosave = 1; opt.arrow = 1;
     vfx = vfz = vry = vux = vuy = 0; vfy = -64; vrx = vuz = 64;
 }
@@ -219,7 +220,11 @@ static void navigation(UINT8 views){
             if(views & 2){
             reset_observed(); place(s, 0, 0, 0); s3_scan();
             CHECK(near_pl == s);
-            sv.star = (UINT8)(s + 1); cockpit_fire(J_A); cockpit_action();
+            sv.star = (UINT8)(s + 1);
+            vel=40; cockpit_fire(J_A); cockpit_action(); CHECK(saved==0&&docked==-1&&fired==0);
+            s3_target_hud(); CHECK(strstr(lines[2],"B:BRAKE ")==lines[2]);
+            keys=J_A|J_B; cockpit_fire(keys); cockpit_action(); CHECK(fired==1&&saved==0&&docked==-1);
+            keys=J_A; fired=0; vel=12; cockpit_fire(J_A); cockpit_action();
             CHECK(sv.star == s && saved == 1 && docked == -1 && fired == 0);
             s3_target_hud(); CHECK(strstr(lines[2], "A:LAND B:BRK ") == lines[2]);
             check_action_name(s, "A:LAND B:BRK ");
@@ -228,7 +233,10 @@ static void navigation(UINT8 views){
 
             reset_observed(); place(s, ST_DX, ST_DY, 8); s3_scan();
             CHECK(near_st == s);
-            cockpit_fire(J_A); cockpit_action();
+            vel=40; cockpit_fire(J_A); cockpit_action(); CHECK(docked==-1&&saved==0&&fired==0);
+            s3_target_hud(); CHECK(strstr(lines[2],"B:BRAKE ")==lines[2]);
+            keys=J_A|J_B; cockpit_fire(keys); cockpit_action(); CHECK(fired==1&&docked==-1&&saved==0);
+            keys=J_A; fired=0; vel=12; cockpit_fire(J_A); cockpit_action();
             CHECK(docked == (int)s && saved == 0 && fired == 0 && dock_lock == 50);
             s3_target_hud(); CHECK(strstr(lines[2], "A:DOCK B:BRK ") == lines[2]);
             check_action_name(s, "A:DOCK B:BRK ");

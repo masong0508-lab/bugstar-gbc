@@ -99,8 +99,9 @@ for velocity in (0, 3, 13, 24, 56, 92):
 # doesn't also fire projectiles. Keep the small input cooldown.
 assert "dock_lock = 50; vel = 0;" in fly
 assert "shx -= (vfx * 70)" not in fly
-assert "story_boss_state == 1 || (!story_boss_state && near_pl == STAR_NONE && near_st == STAR_NONE))) shoot();" in fly
-assert "if(HIT(J_A) && !story_boss_state)" in fly, "Prevent accidental land/dock during final battle"
+assert "story_boss_state == 1 || (!story_boss_state && ((k & J_B) || (near_pl == STAR_NONE && near_st == STAR_NONE))))) shoot();" in fly
+assert "if(HIT(J_A) && !story_boss_state && !(keys & J_B))" in fly, "No accidental arrival during combat override or finale"
+assert 'vel > 12){ say3("SLOW DOWN: HOLD B"); continue; }' in fly
 assert "if(near_st != STAR_NONE && !dock_lock)" in fly
 assert "fade_out(); DISPLAY_OFF; gfx3();" in fly, "3D must restore tiles after station UI"
 assert "fade_out(); DISPLAY_OFF; gfx();" in flat, "2D must restore tiles after station UI"
