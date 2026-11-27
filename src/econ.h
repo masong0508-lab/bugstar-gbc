@@ -26,6 +26,7 @@ UINT8  elite_kill(UINT8 kind) BANKED;                              /* a pirate s
 /* jobs */
 enum { J_NONE, J_HUNT, J_SEND };
 void   job_offer(UINT8 star, UINT8 *kind, UINT8 *n, UINT8 *dest, UINT16 *reward) BANKED;   /* the job this station has for you (same until you take or finish one) */
+void   job_offer_pick(UINT8 star, UINT8 choice, UINT8 *kind, UINT8 *n, UINT8 *dest, UINT16 *reward) BANKED;
 void   job_take(UINT8 kind, UINT8 n, UINT8 dest, UINT16 reward) BANKED;
 UINT8  job_done(UINT8 here) BANKED;                                /* 1 if the job is finished and `here` is where it pays */
 UINT16 job_pay(void) BANKED;                                       /* pay out and clear the job; returns the gold */
