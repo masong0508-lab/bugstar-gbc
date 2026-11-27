@@ -443,7 +443,7 @@ void arena_run(void) BANKED {
         if(inv) inv--;
         if((k & J_A) && !cool) shoot();
         if(HIT(J_B) && ar_bombs) ar_bomb();
-        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); if(ar_wave==100)break; s3_dust_step(); ar_arrow();
+        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); if(ar_wave==100){if(!sv.hp)wreck=1;break;} s3_dust_step(); ar_arrow();
         s3_render(frame);
         wait_vbl_done();
         s3_flush(frame);
