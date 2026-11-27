@@ -32,6 +32,7 @@ header = r"""
 #include <string.h>
 typedef uint8_t UINT8;
 typedef uint16_t UINT16;
+typedef uint32_t UINT32;
 typedef struct { UINT8 petn,race,bt,bn,bq[2]; } XA;
 static struct { UINT8 friends,deepest; struct { UINT16 kills; } el; } sv;
 static UINT16 monster_kills, mined;
@@ -48,6 +49,7 @@ snippets = "\n\n".join(extract(s) for s in [
     "static UINT8 bj_done(const XA *x)",
     "static UINT8 bj_ok(UINT8 t, UINT8 tier, const XA *x)",
     "static UINT8 bj_offer_type(UINT16 r, UINT8 offer, UINT8 tier, const XA *x)",
+    "static UINT8 gossip_pick(UINT32 *heard, UINT8 start)",
 ])
 tests = r"""
 int main(void){
@@ -89,6 +91,25 @@ int main(void){
             checks++;
         }
     }
+    /* Old saves used 24 bits: new rumors must all be discoverable. */
+    UINT32 heard=0xffffffu;
+    for(unsigned i=0;i<8;i++){
+        UINT8 k=gossip_pick(&heard,(UINT8)(i*9));
+        CHECK(k>=24&&k<32);
+    }
+    CHECK(heard==UINT32_MAX);
+    CHECK(gossip_pick(&heard,31)==31 && heard==0x80000000u);
+    for(unsigned seed=0;seed<256;seed++){
+        heard=0;
+        for(unsigned i=0;i<32;i++){
+            UINT32 before=heard;
+            UINT8 k=gossip_pick(&heard,(UINT8)(seed+i*17));
+            CHECK(k<32&&!(before&(UINT32_C(1)<<k)));
+            CHECK(heard==(before|(UINT32_C(1)<<k)));
+        }
+        CHECK(heard==UINT32_MAX);
+    }
+    puts("GBC rumors: 8192 unique discoveries and legacy-save continuation PASS");
     printf("GBC bounty progress and %u three-contract eligibility cases PASS\\n",checks);
     return 0;
 }
