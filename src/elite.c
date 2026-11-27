@@ -169,11 +169,11 @@ static char *where(char *d, UINT8 from, UINT8 to){                  /* "3E 2N": 
 }
 
 /* ---------------------------------------------------------------- the job board */
-static void jb_draw(UINT8 kind, UINT8 n, UINT8 dest, UINT16 rew, UINT8 active, const char *msg){
+static void jb_draw(UINT8 kind, UINT8 n, UINT8 dest, UINT16 rew, UINT8 active, UINT8 choice, UINT8 drop, const char *msg){
     char b[40], v[16], *d;
     txt_win(1);
     txt_line(1, 1, "JOB BOARD", 18); txt_color(1, 1, 18, 1, TXT_GOLD);
-    txt_line(1, 3, active ? "YOUR JOB" : "A JOB FOR YOU", 18); txt_color(1, 3, 18, 1, TXT_GREY);
+    txt_line(1, 3, active ? "YOUR JOB" : choice==0 ? "1/3 PIRATE HUNT" : choice==1 ? "2/3 LOCAL COURIER" : "3/3 LONG COURIER", 18); txt_color(1, 3, 18, 1, TXT_GREY);
     if(kind == J_HUNT){
         d = num(b, "SHOOT DOWN ", n, " PIRATES"); pad(d, b, 18); txt_line(1, 5, b, 18);
         if(active){ d = num(b, "DONE: ", sv.el.jp, "/"); d = u16s(d, n); pad(d, b, 18); } else scat(b, "ANYWHERE IN SPACE");
@@ -184,27 +184,35 @@ static void jb_draw(UINT8 kind, UINT8 n, UINT8 dest, UINT16 rew, UINT8 active, c
         d = where(b, here, dest); d = scat(d, "  FUEL "); d = u16s(d, jump_fuel(here, dest)); pad(d, b, 18); txt_line(1, 7, b, 18); txt_color(1, 7, 18, 1, TXT_GREY);
     }
     u16s(v, rew); lv(1, 9, 18, "PAYS", v, TXT_GOLD);
-    txt_line(1, 11, kind == J_HUNT ? "PAID AT ANY STATION" : "PAID AT THAT STATION", 18); txt_color(1, 11, 18, 1, TXT_GREY);
-    txt_line(1, 14, active ? "A: GIVE UP   B: BACK" : "A: TAKE IT   B: BACK", 18); txt_color(1, 14, 18, 1, TXT_GREY);
+    txt_line(1, 11, kind == J_HUNT ? "PAY AT ANY STATION" : "PAY AT DESTINATION", 18); txt_color(1, 11, 18, 1, TXT_GREY);
+    txt_line(1, 13, active ? "" : "< > BROWSE OFFERS", 18); txt_color(1, 13, 18, 1, TXT_GREY);
+    txt_line(1, 14, active ? (drop?"A: CONFIRM B: BACK":"A: DROP    B: BACK") : "A: TAKE    B: BACK", 18); txt_color(1, 14, 18, 1, TXT_GREY);
     txt_line(1, 15, WAR_OPEN ? "SELECT: WARSHIPS" : "", 18); txt_color(1, 15, 18, 1, TXT_GREY);
     txt_line(1, 16, msg ? msg : "", 18); txt_color(1, 16, 18, 1, TXT_RED);
     txt_win(0);
 }
 static UINT8 war_ran;                                                 /* the war board was opened from the job board: the view is redrawn from scratch */
 static void jobs(void){
-    UINT8 kind, n, dest; UINT16 rew; const char *msg = 0;
+    UINT8 kind, n, dest, choice=0, drop=0; UINT16 rew; const char *msg = 0;
     frame_clear();
     for(;;){
         UINT8 active = sv.el.jk != J_NONE;
-        if(active){ kind = sv.el.jk; n = sv.el.jn; dest = sv.el.jd; rew = sv.el.jrew; } else job_offer(here, &kind, &n, &dest, &rew);
-        jb_draw(kind, n, dest, rew, active, msg);
+        if(active){ kind = sv.el.jk; n = sv.el.jn; dest = sv.el.jd; rew = sv.el.jrew; } else job_offer_pick(here, choice, &kind, &n, &dest, &rew);
+        jb_draw(kind, n, dest, rew, active, choice, drop, msg);
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
             if(HIT(J_SELECT) && WAR_OPEN){ sfx(SFX_OK); DISPLAY_OFF; warship_run(); DISPLAY_OFF; txt_pal_reset(); msg = 0; war_ran = 1; return; }      /* the warship board */
+            if(!active && (HIT(J_LEFT)||HIT(J_RIGHT))){
+                choice=HIT(J_RIGHT)?(choice==2?0:choice+1):(choice?choice-1:2);
+                msg=0;sfx(SFX_MOVE);break;
+            }
             if(HIT(J_A)){
-                if(active){ job_take(J_NONE, 0, 0, 0); msg = "JOB DROPPED"; sfx(SFX_BACK); }
-                else { job_take(kind, n, dest, rew); msg = "GOOD LUCK, PILOT!"; sfx(SFX_OK); }
+                if(active){
+                    if(job_done(here)){job_pay();drop=0;msg="JOB PAID!";sfx(SFX_FANFARE);}
+                    else if(!drop){drop=1;msg="A AGAIN TO DROP";sfx(SFX_BACK);}
+                    else {job_take(J_NONE,0,0,0);drop=0;msg="JOB DROPPED";sfx(SFX_BACK);}
+                } else {job_take(kind,n,dest,rew);drop=0;msg="GOOD LUCK, PILOT!";sfx(SFX_OK);}
                 break;
             }
         }
