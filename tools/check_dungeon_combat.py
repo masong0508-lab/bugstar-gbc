@@ -6,7 +6,8 @@ import subprocess
 import tempfile
 R=Path(__file__).resolve().parents[1]
 s=(R/"src/dungeon.c").read_text()
-def function(mark):
+extra=(R/"src/dungeon_extra.c").read_text()
+def function(mark, s=s):
     m=re.search(re.escape(mark)+r"[^;{}]*\{",s)
     assert m,mark
     a=s.index("{",m.start());b=a+1;depth=1
@@ -14,6 +15,8 @@ def function(mark):
         depth+=(s[b]=="{")-(s[b]=="}");b+=1
     return s[m.start():b]
 assert "if(sv.potions < 9 && DM(ox, oy) == D_POTION)" in s
+assert "dg_pit_kind(pit_wave, i, rndn(12))" in s
+assert "for(i = 0; i < NMON; i++) if(mon[i].alive) return 0;" in s
 assert "if(HIT(J_A) && !(k & J_SELECT) && !atk)" in s
 assert "(HIT(J_SELECT) && (k & J_A)) || (HIT(J_A) && (k & J_SELECT))" in s
 prefix=r"""
@@ -28,6 +31,7 @@ typedef int8_t INT8;
 typedef int16_t INT16;
 #define DW 32
 #define NMON 10
+#define BANKED
 #define DG_BASE_FAMILY(k) ((k)&3)
 #define LUCKY(x) (x)
 enum {K_SPIDER,K_BEETLE,K_WASP,K_SLIME,K_CRAWLER,K_GOLEM,K_MOTH,K_SPORE,K_SHADE,K_STINGER,K_CRAB,K_REAPER,K_QUEEN};
@@ -67,6 +71,22 @@ static void reset(void){
 }
 static void parent_at(int i,int k){mon[i]=(Mon){.x=112,.y=100,.kind=k,.hp=5,.alive=1};}
 int main(void){
+    unsigned seen=0;
+    for(int wave=1;wave<=10;wave++){
+        int a=dg_pit_kind(wave,0,0),b=dg_pit_kind(wave,1,0);
+        CHECK(a!=b);
+        for(int slot=0;slot<8;slot++)for(int roll=0;roll<256;roll++){
+            int k=dg_pit_kind(wave,slot,roll);
+            CHECK(k>=K_SPIDER&&k<K_QUEEN);
+            if(wave<=2)CHECK(k<=K_SLIME);
+            if(slot==0)CHECK(k==a);
+            if(slot==1)CHECK(k==b);
+            seen|=1u<<k;
+        }
+    }
+    CHECK(seen==(1u<<K_QUEEN)-1);
+    CHECK(dg_pit_kind(0,0,0)==K_SPIDER&&dg_pit_kind(11,0,0)==K_SPIDER);
+    puts("GBC pit: 20,480 roster checks across ten waves and twelve species PASS");
     for(int k=K_SLIME;k<=K_SPORE;k+=K_SPORE-K_SLIME){
         for(int slot=0;slot<NMON-1;slot++){
             reset();parent_at(slot,k);do_bite();
@@ -95,6 +115,6 @@ int main(void){
 """
 with tempfile.TemporaryDirectory(prefix="bugstar-gbc-combat-") as td:
     c=Path(td)/"combat.c";exe=Path(td)/"combat"
-    c.write_text(prefix+function("static void mon_spawn(")+"\n"+function("static void do_bite(")+"\n"+cases)
+    c.write_text(prefix+function("static void mon_spawn(")+"\n"+function("static void do_bite(")+"\n"+function("UINT8 dg_pit_kind(",extra)+"\n"+cases)
     subprocess.run(["cc","-std=c11","-O1","-Wall","-Wextra","-fsanitize=address,undefined","-fno-sanitize-recover=all",str(c),"-o",str(exe)],check=True)
     subprocess.run([str(exe)],check=True)
