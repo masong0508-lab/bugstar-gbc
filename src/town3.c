@@ -83,8 +83,18 @@ static UINT8 bj_ok(UINT8 t, UINT8 tier, const XA *x){            /* can this job
     if(t == 8) return tier >= 2 && x->race < 250;
     return 1;
 }
+/* Every town offers three distinct achievable contracts. At least the
+   kill, mining and pirate counters are always eligible, even near caps. */
+static UINT8 bj_offer_type(UINT16 r, UINT8 offer, UINT8 tier, const XA *x){
+    UINT8 t = 1 + (UINT8)(r & 7);
+    while(!bj_ok(t, tier, x)) t = t % 8 + 1;
+    while(offer--){
+        do { t = t % 8 + 1; } while(!bj_ok(t, tier, x));
+    }
+    return t;
+}
 static void bounty(UINT8 tier, UINT16 th){
-    XA x; char l1[24], w[20], b[24], *d; const char *m = 0; UINT8 t, n, have, mp = TXT_GREY; UINT16 pay;
+    XA x; char l1[24], w[20], b[24], *d; const char *m = 0; UINT8 t, n, have, offer = 0, mp = TXT_GREY; UINT16 pay;
     static const UINT8 base[9] = { 0, 5, 3, 3, 1, 4, 3, 2, 1 };
     w[0] = 0;
     for(;;){
@@ -94,8 +104,8 @@ static void bounty(UINT8 tier, UINT16 th){
         if(have){ t = x.bt; n = x.bn; }
         else {                                                      /* the job on offer: the same for this town until you take it */
             UINT16 r = th ^ ((UINT16)x.bdone * 0x3D5u); r ^= r >> 6; r *= 0x2D3Bu; r ^= r >> 5;
-            t = 1 + (UINT8)(r % 8);
-            while(!bj_ok(t, tier, &x)) t = t % 8 + 1;
+            t = bj_offer_type(r, offer, tier, &x);
+            r ^= (UINT16)offer * 0x9E37u;
             n = base[t] + (t == 4 || t == 7 || t == 8 ? 0 : (UINT8)((r >> 4) & 3)) + (t == 1 ? sv.level / 5 : 0);
             if(t == 7) n = 1 + (UINT8)((r >> 4) & 3);
             pay = 30 + 6 * (UINT16)sv.level + 9 * (UINT16)n + (t == 8 ? 40 : 0) + (t == 7 ? 20 * (UINT16)n : 0); pay = LUCKY(pay);
@@ -103,8 +113,14 @@ static void bounty(UINT8 tier, UINT16 th){
         d = u16s(scat(l1, jv[t]), n); d = scat(d, " "); scat(d, jo[t]);
         page("BOUNTY OFFICE");
         line(4, have ? "YOUR JOB:" : "THE CLERK OFFERS:", TXT_GREY);
+        if(!have){ d = u16s(scat(b, "OFFER "), offer + 1); scat(d, "/3  < >"); line(5, b, TXT_GREY); }
         line(6, l1, TXT_WHITE);
-        if(have){ UINT16 so = cnt(t, &x), bs = w16(x.bq); d = u16s(scat(b, "SO FAR "), so > bs ? so - bs : 0); d = u16s(scat(d, "/"), n); *d = 0; line(7, b, TXT_WHITE); }
+        if(have){
+            UINT16 so = cnt(t, &x), bs = w16(x.bq);
+            UINT16 progress = (so < bs && t != 1 && t != 5 && t != 6) ? 0 : (UINT16)(so - bs);
+            if(progress > n) progress = n;
+            d = u16s(scat(b, "SO FAR "), progress); d = u16s(scat(d, "/"), n); *d = 0; line(7, b, TXT_WHITE);
+        }
         d = u16s(scat(b, "PAYS "), pay); scat(d, "G AND FAME"); line(9, b, TXT_GOLD);
         d = u16s(scat(b, "DONE BEFORE: "), x.bdone); *d = 0; line(11, b, TXT_GREY);
         line(13, m ? m : "PAID WHEN DONE", m ? mp : TXT_GREY);
@@ -114,6 +130,10 @@ static void bounty(UINT8 tier, UINT16 th){
         for(;;){
             wait_vbl_done(); input_poll();
             if(HIT(J_B) || HIT(J_START)) return;
+            if(!have && (HIT(J_LEFT) || HIT(J_RIGHT))){
+                offer = HIT(J_RIGHT) ? (offer == 2 ? 0 : offer + 1) : (offer ? offer - 1 : 2);
+                sfx(SFX_MOVE); break;
+            }
             if(HIT(J_A) && !have){
                 UINT16 c = cnt(t, &x);
                 x.bt = t; x.bn = n; x.bq[0] = (UINT8)c; x.bq[1] = (UINT8)(c >> 8); x.bg[0] = (UINT8)pay; x.bg[1] = (UINT8)(pay >> 8); xa_put(&x);
