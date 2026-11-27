@@ -46,6 +46,8 @@ snippets = "\n\n".join(extract(s) for s in [
     "static UINT16 cnt(UINT8 t, const XA *x)",
     "static UINT16 w16(const UINT8 *p)",
     "static UINT8 bj_done(const XA *x)",
+    "static UINT8 bj_ok(UINT8 t, UINT8 tier, const XA *x)",
+    "static UINT8 bj_offer_type(UINT16 r, UINT8 offer, UINT8 tier, const XA *x)",
 ])
 tests = r"""
 int main(void){
@@ -74,7 +76,20 @@ int main(void){
     x.bt=8; x.bn=1; base(&x,7); x.race=7;
     CHECK(!bj_done(&x)); x.race=8; CHECK(bj_done(&x));
     x.bt=0; CHECK(!bj_done(&x));
-    puts("GBC bounty progress: kill, pirate, ore rollover and all nonwrapping jobs PASS");
+    unsigned checks=0;
+    for(unsigned tier=1;tier<=3;tier++)for(unsigned mask=0;mask<32;mask++){
+        fish_count=(mask&1)?240:1;x.petn=(mask&2)?240:1;
+        sv.friends=(mask&4)?245:1;sv.deepest=(mask&8)?88:1;
+        x.race=(mask&16)?250:1;
+        for(unsigned seed=0;seed<256;seed++){
+            UINT8 a=bj_offer_type(seed,0,tier,&x),b=bj_offer_type(seed,1,tier,&x),c=bj_offer_type(seed,2,tier,&x);
+            CHECK(a!=b&&a!=c&&b!=c);
+            CHECK(a>=1&&a<=8&&b>=1&&b<=8&&c>=1&&c<=8);
+            CHECK(bj_ok(a,tier,&x)&&bj_ok(b,tier,&x)&&bj_ok(c,tier,&x));
+            checks++;
+        }
+    }
+    printf("GBC bounty progress and %u three-contract eligibility cases PASS\\n",checks);
     return 0;
 }
 """
