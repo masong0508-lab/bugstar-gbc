@@ -94,6 +94,25 @@ void job_offer(UINT8 star, UINT8 *kind, UINT8 *n, UINT8 *dest, UINT16 *reward) B
         *kind = J_SEND; *n = 0; *dest = d; *reward = 50 + (UINT16)cells_between(star, d) * 35 + (UINT16)z * 25;
     }
 }
+/* Three repeatable contracts at each station. The job counter changes the
+   offer after payment, not on menu redraw. No additional save fields. */
+void job_offer_pick(UINT8 star, UINT8 choice, UINT8 *kind, UINT8 *n, UINT8 *dest, UINT16 *reward) BANKED {
+    UINT16 h=(UINT16)(star*31u+sv.el.jobs*17u+5u);
+    UINT8 z=sv.zone,d; INT8 dx,dy;
+    h^=h>>4;h=(UINT16)(h*25u);h^=h>>6;
+    if(choice==0 || choice>2){
+        *kind=J_HUNT;*n=3+(UINT8)((h>>1)&3)+z;*dest=0;*reward=(UINT16)*n*(20+z*6);
+        return;
+    }
+    d=choice==1?1+(UINT8)(h%3):5+(UINT8)(h&3);
+    dx=(h&8)?-(INT8)d:(INT8)d;
+    dy=(INT8)((h>>4)%(2*d+1))-(INT8)d;
+    if(h&16){INT8 t=dx;dx=dy;dy=t;}
+    *dest=(UINT8)((((star>>4)+dy)&15)<<4|(((star&15)+dx)&15));
+    *kind=J_SEND;*n=0;
+    *reward=50+(UINT16)cells_between(star,*dest)*35+(UINT16)z*25;
+    if(choice==2)*reward+=40;
+}
 void job_take(UINT8 kind, UINT8 n, UINT8 dest, UINT16 reward) BANKED {
     sv.el.jk = kind; sv.el.jn = n; sv.el.jp = 0; sv.el.jd = dest; sv.el.jrew = reward;
 }
