@@ -124,7 +124,8 @@ static UINT8 story_boss_finish(void){
     return 1;
 }
 static UINT8 ar_wave, ar_left, ar_bombs, ar_gap, ar_pause, ar_boss;       /* the Arena: wave, pirates still to come, bombs, spawn gap, pause, the next one is the flagship */
-static UINT16 ar_gold, ar_kills;
+static UINT32 ar_gold;
+static UINT16 ar_kills;
 static UINT8 lvl3(void){ UINT8 l = arena_on ? ar_wave : sv.zone; return l > 8 ? 8 : l; }   /* how hard the pirates are */
 static void orb_fire(P3 *p, INT8 sp){
     UINT8 i;
@@ -323,11 +324,24 @@ static UINT8 chart(void){                                                   /* S
 /* ================================================================ the Arena
    A hovering ship, waves of pirates from all round, every 4th wave a flagship that fires three orbs at once. B drops a bomb (clears the
    orbs, hurts every pirate). Gold for every kill and every wave; a wreck halves the pay. The best wave is kept in the save. */
+/* Three repeating encounters plus flagship waves, with a final flagship
+   at 99. No changes to the bounded ship pool or the save record. */
+static UINT8 ar_is_boss(UINT8 wave){return wave==99||!(wave&3);}
+static UINT8 ar_roster(UINT8 wave){
+    UINT8 n=2+wave/2;
+    if(n>8)n=8;
+    if(ar_is_boss(wave))return wave==99?8:3;
+    if((wave&3)==3&&n>3)n=3;
+    return n;
+}
+static UINT8 ar_spacing(UINT8 wave){
+    return ar_is_boss(wave)?55:(wave&3)==1?65:(wave&3)==2?30:80;
+}
 static void wave_start(void){
-    char b[16], *d = scat(b, "WAVE "); d = u16s(d, ar_wave); *d = 0;
-    ar_boss = !(ar_wave & 3);
-    ar_left = ar_boss ? 3 : (ar_wave / 2 + 2 > 8 ? 8 : ar_wave / 2 + 2);
-    ar_pause = 100; ar_gap = 0; say3(b);
+    ar_boss = ar_is_boss(ar_wave);
+    ar_left = ar_roster(ar_wave);
+    ar_pause = 100; ar_gap = 0;
+    say3(ar_wave==99?"FINAL FLAGSHIP":ar_boss?"FLAGSHIP ESCORT":(ar_wave&3)==1?"PATROL WAVE":(ar_wave&3)==2?"SWARM WAVE":"ELITE WAVE");
 }
 static void ar_spawn(void){
     UINT8 i, alive = 0, cap = 1 + ar_wave / 2;
@@ -339,13 +353,13 @@ static void ar_spawn(void){
         P3 *p = pirate_spawn(ar_boss);
         if(p){
             if(ar_boss){ p->hp = 10 + 2 * ar_wave; ar_boss = 0; }
-            else { p->hp = 2 + ar_wave / 3 + (sv.level > 8 ? 1 : 0); }
-            ar_left--; ar_gap = 45;
+            else { p->hp = 2 + ar_wave / 3 + (sv.level > 8 ? 1 : 0) + ((ar_wave&3)==3?3:0); }
+            ar_left--; ar_gap = ar_spacing(ar_wave);
         }
     } else if(!ar_left && !alive){
         ar_gold += 20 + 8 * ar_wave; sfx(SFX_FANFARE);
-        if(!(ar_wave & 3) && ar_bombs < 3) ar_bombs++;
-        if(ar_wave < 99) ar_wave++;
+        if(ar_is_boss(ar_wave) && ar_bombs < 3) ar_bombs++;
+        if(++ar_wave==100)return; /* explicit completion, not endless wave 99 */
         wave_start();
     }
 }
@@ -367,7 +381,7 @@ static void ar_arrow(void){                                                 /* a
 /* The story pointer must stay on the Technobeast rather than any leftover
    regular pirate that was flying nearby when the player reached the lair. */
 static void ar_line(void){
-    char b[24], *d = scat(b, "WAVE "); d = u16s(d, ar_wave); d = scat(d, " BOMB "); d = u16s(d, ar_bombs); d = scat(d, " +"); d = u16s(d, ar_gold); *d = 0;
+    char b[24], *d = scat(b, "W"); d = u16s(d, ar_wave); d = scat(d, " B"); d = u16s(d, ar_bombs); d = scat(d, " +"); d = u32s(d, ar_gold); *d = 0;
     txt_win(1); txt_line(0, 2, b, 20); txt_color(0, 2, 20, 1, TXT_WHITE); txt_win(0);
 }
 static void page_start(void){ fade_out(); DISPLAY_OFF; HIDE_SPRITES; HIDE_WIN; hud_hide(); SCX_REG = 0; SCY_REG = 0; txt_pal_reset(); txt_cls(); }
@@ -383,7 +397,7 @@ static UINT8 ar_intro(void){
     txt_line(2, 8, "B", 16); txt_line(8, 8, "BOMB ALL", 10);
     txt_line(2, 9, "START", 16); txt_line(8, 9, "CASH OUT", 10);
     txt_color(2, 6, 5, 4, TXT_GOLD); txt_color(8, 6, 10, 4, TXT_WHITE);
-    txt_line(2, 11, "EVERY 4TH WAVE", 16); txt_line(2, 12, "IS A BOSS. PAYS!", 16); txt_color(2, 11, 16, 2, TXT_GREY);
+    txt_line(2, 11, "FLAGSHIPS EVERY", 16); txt_line(2, 12, "4 WAVES + 99.", 16); txt_color(2, 11, 16, 2, TXT_GREY);
     d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0;
     txt_line(2, 14, b, 16); txt_color(2, 14, 16, 1, TXT_GOLD);
     txt_line(2, 16, "A: GO   B: BACK", 16); txt_color(2, 16, 16, 1, TXT_GREY);
@@ -398,10 +412,10 @@ static void ar_results(UINT8 wreck, UINT8 cleared){
     char b[24], *d;
     page_start();
     txt_box(0, 0, 20, 18);
-    txt_line(4, 2, wreck ? "SHIP WRECKED!" : "CASHED OUT", 12); txt_color(4, 2, 12, 1, wreck ? TXT_RED : TXT_GOLD);
+    txt_line(4, 2, wreck ? "SHIP WRECKED!" : cleared==99 ? "ARENA CLEAR!" : "CASHED OUT", 12); txt_color(4, 2, 12, 1, wreck ? TXT_RED : TXT_GOLD);
     d = scat(b, "WAVES CLEARED "); d = u16s(d, cleared); *d = 0; txt_line(2, 5, b, 16);
     d = scat(b, "PIRATES SHOT "); d = u16s(d, ar_kills); *d = 0; txt_line(2, 6, b, 16);
-    d = scat(b, "GOLD EARNED "); d = u16s(d, ar_gold); *d = 0; txt_line(2, 8, b, 16); txt_color(2, 8, 16, 1, TXT_GOLD);
+    d = scat(b, "GOLD "); d = u32s(d, ar_gold); *d = 0; txt_line(2, 8, b, 16); txt_color(2, 8, 16, 1, TXT_GOLD);
     if(wreck) txt_line(2, 9, "HALF LOST", 16);
     if(cleared > ARENA_BEST){ txt_line(2, 11, "NEW BEST WAVE!", 14); txt_color(2, 11, 14, 1, TXT_GOLD); }
     else { d = scat(b, "BEST WAVE "); d = u16s(d, ARENA_BEST); *d = 0; txt_line(2, 11, b, 16); }
@@ -429,7 +443,7 @@ void arena_run(void) BANKED {
         if(inv) inv--;
         if((k & J_A) && !cool) shoot();
         if(HIT(J_B) && ar_bombs) ar_bomb();
-        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); s3_dust_step(); ar_arrow();
+        step_bolts(); step_pirates(); step_orbs(); step_pods(); ar_spawn(); if(ar_wave==100){if(!sv.hp)wreck=1;break;} s3_dust_step(); ar_arrow();
         s3_render(frame);
         wait_vbl_done();
         s3_flush(frame);
