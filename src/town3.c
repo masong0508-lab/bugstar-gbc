@@ -145,7 +145,7 @@ static void bounty(UINT8 tier, UINT16 th){
 }
 
 /* ---------------------------------------------------------------- the cantina */
-static const char rum[24][3][19] = {
+static const char rum[32][3][19] = {
     { "BEETLES HATE", "SIDESTEPS. JUST", "SAYING." },
     { "A PIRATE DOCKED", "LAST WEEK. HE", "TIPPED WELL." },
     { "THE BANK PAYS 1%", "EVERY 5 MINUTES", "OF PLAY. SAVE UP." },
@@ -169,7 +169,29 @@ static const char rum[24][3][19] = {
     { "I HAVE NEVER LEFT.", "THE VIEW IS THE", "SAME." },
     { "MINING PAYS MORE", "WHEN YOU TIME IT.", "WAIT FOR THE ORE." },
     { "FEATS PAY GOLD.", "OPEN THE SYSTEM", "MENU. LOOK." },
-    { "A WARM CANTINA IS", "A FINE PLACE TO", "BE. STAY AWHILE." } };
+    { "A WARM CANTINA IS", "A FINE PLACE TO", "BE. STAY AWHILE." },
+    { "THREE BOUNTIES.", "LEFT OR RIGHT", "FINDS ANOTHER." },
+    { "SPORES SPLIT.", "THE SMALL ONES", "NEED A BITE TOO." },
+    { "A FLASHING SHADE", "MAY DASH AT YOU.", "KEEP YOUR SPACE." },
+    { "A FULL POTION BAG", "LEAVES POTIONS", "ON THE FLOOR." },
+    { "HOLD B TO BRAKE", "NEAR A 3D PORT.", "THEN A TO DOCK." },
+    { "A SHELL IN FLIGHT", "BLOCKS THE NEXT.", "KEEP YOUR ITEM." },
+    { "HOLD A + SELECT", "TO CHANGE SPELLS.", "SAVE YOUR MANA." },
+    { "WHEN RACING, WIN", "TO EARN YOUR PAY.", "USE ITEMS WISELY." }
+};
+/* All 32 bits of the existing save field are available. Walk the mask
+   one bit at a time, without 32 separate variable-width shifts. */
+static UINT8 gossip_pick(UINT32 *heard, UINT8 start){
+    UINT8 k=start & 31, i;
+    UINT32 bit=1UL << k;
+    if(*heard==0xffffffffUL) *heard=0;
+    for(i=0;i<32;i++){
+        if(!(*heard & bit)){ *heard |= bit; return k; }
+        k=(k+1)&31;
+        bit=k?bit<<1:1UL;
+    }
+    return k;
+}
 static void tip(char *l1, char *l2, char *l3){                      /* a true tip: a weird world you have not visited */
     UINT8 s = rnd(), i, w = 0;
     for(i = 0; i < 255; i++, s++){
@@ -181,15 +203,12 @@ static void tip(char *l1, char *l2, char *l3){                      /* a true ti
     weird_name(l2, w); scat(l3, "NOT VISITED YET.");
 }
 static void gossip(char (*g)[20]){                                   /* one rumour (or a tip) into three lines */
-    XA x; UINT8 k, i; char *a = g[0], *b = g[1], *c = g[2];
+    XA x; UINT8 k; char *a = g[0], *b = g[1], *c = g[2];
     a[0] = b[0] = c[0] = 0;
     xa_get(&x);
     if(!(rnd() & 3)) tip(a, b, c);
     else {
-        k = rnd() % 24;
-        for(i = 0; i < 24; i++, k = (k + 1) % 24) if(!((x.gos >> k) & 1)) break;
-        if(i == 24){ x.gos = 0; k = rnd() % 24; }
-        x.gos |= 1UL << k; xa_put(&x);
+        k = gossip_pick(&x.gos, rnd()); xa_put(&x);
         scat(a, rum[k][0]); scat(b, rum[k][1]); scat(c, rum[k][2]);
     }
 }
