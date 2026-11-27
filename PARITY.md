@@ -229,3 +229,5 @@ GBA README/ROADMAP and grepping this source; "not verified in play" marks lines 
   call-site guards. No new SRAM fields or persistent WRAM arrays.
 
 - 2026-11-27: 3D approach requires precision speed before landing/docking; B+A is the explicit combat override, preserving the 2D input scheme. Overspeed HUD says brake first. Host navigation tests exercise arrival denial and combat override across all 256 destinations and four seeds.
+
+- 2026-11-27: GBC race HUD ties now use the results tie rule; shell and oil deployment preserves held items when the fixed pools are occupied, including enemy shells. Expired items no longer collide. Existing item test exercises the actual busy-pool and expiration paths. No added actor or WRAM allocation.

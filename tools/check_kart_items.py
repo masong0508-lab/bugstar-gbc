@@ -54,7 +54,7 @@ for signature in (
     "static UINT8 krnd(void)",
     "static UINT8 place_now(void)",
     "static void hit_kart(UINT8 k, UINT8 big)",
-    "static void drop_oil(UINT16 m, INT16 l)",
+    "static UINT8 drop_oil(UINT16 m, INT16 l)",
     "static void use_item(void)",
     "static void items_tick(UINT8 go)",
 ):
@@ -110,10 +110,27 @@ int main(void){
     items_tick(1);
     CHECK(!shl.life && shield_t == 329 && !stun[0] && vel[0] == 256);
 
+    /* Busy projectile and trap pools preserve the held item and active
+       objects. A player may retry when the original object expires. */
+    memset(oil,0,sizeof oil); memset(&shl,0,sizeof shl);
+    shl.life=30;shl.owner=1;shl.m=400;hold=2;
+    use_item();CHECK(hold==2&&shl.life==30&&shl.m==400&&shl.owner==1);
+    shl.life=0;use_item();CHECK(!hold&&shl.owner==0&&shl.life==240);
+    for(n=0;n<3;n++)CHECK(drop_oil((UINT16)(400+n*40),0));
+    hold=3;use_item();CHECK(hold==3&&oil[0].m==400&&oil[0].life==900);
+    oil[1].life=0;use_item();CHECK(!hold&&oil[1].life==900&&oil[0].m==400);
+    /* Expiry does not produce one last collision. */
+    memset(oil,0,sizeof oil); memset(&shl,0,sizeof shl);
+    shield_t=0;stun[0]=0;vel[0]=256;shl.life=1;shl.owner=1;shl.m=tm[0]-1;shl.tg=-1;shl.lane=lx[0];
+    oil[0].life=1;oil[0].m=tm[0];oil[0].lane=lx[0];items_tick(1);
+    CHECK(!stun[0]&&vel[0]==256&&!oil[0].life&&!shl.life);
+    rivals_on=1;for(n=1;n<=NRIV;n++)tm[n]=tm[0];CHECK(place_now()==4);
+    rivals_on=0;CHECK(place_now()==1);
+
     /* Timer storage changes must not alter either existing turbo item. */
     hold = 1; use_item(); CHECK(!hold && boost_t == 70);
     hold = 7; use_item(); CHECK(!hold && boost_t == 150);
-    puts("GBC kart items: all 420 shield ticks, hit protection/cost, expiry, refresh, rivals and turbos PASS");
+    puts("GBC kart items: shield ticks, busy projectile/trap retention, expiry, ties, rivals and turbos PASS");
     return 0;
 }
 """
